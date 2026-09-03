@@ -1,0 +1,24 @@
+# Testprofil: feste, unschaedliche Werte. Es wird kein echter API-Key benoetigt,
+# weil alle Tests die HTTP-Schicht durch Attrappen ersetzen.
+cleantube:
+  youtube:
+    api-key: test-key
+    base-url: http://youtube.test/youtube/v3
+    region-code: DE
+    max-results: 5
+    daily-quota: 1000
+    timeout: 2s
+    cache-ttl: 1m
+    search-cache-ttl: 1m
+  sponsor-block:
+    enabled: true
+    base-url: http://sponsorblock.test
+    categories:
+      - sponsor
+      - selfpromo
+    timeout: 2s
+    cache-ttl: 1m
+
+logging:
+  level:
+    de.mozien.cleantube: WARN

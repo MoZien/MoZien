@@ -1,0 +1,54 @@
+server:
+  port: 8080
+  error:
+    include-message: never
+
+spring:
+  application:
+    name: cleantube
+  jackson:
+    # Zeitstempel als ISO-8601-String (im Browser direkt an "new Date(...)" uebergebbar).
+    # Laufzeiten stehen bereits als Sekundenzahl im DTO und brauchen keine Sonderbehandlung.
+    serialization:
+      write-dates-as-timestamps: false
+
+cleantube:
+  youtube:
+    # Der Key wird NIE im Repository abgelegt, sondern als Umgebungsvariable gesetzt:
+    #   export YOUTUBE_API_KEY=AIza...
+    # Fehlt er, bricht der Start mit einer klaren Meldung ab (Fail-Fast).
+    api-key: ${YOUTUBE_API_KEY:}
+    base-url: https://www.googleapis.com/youtube/v3
+    region-code: ${CLEANTUBE_REGION:DE}
+    max-results: 24
+    daily-quota: 10000
+    timeout: 10s
+    # Trending-, Video- und Kanaldaten aendern sich langsam - 15 Minuten sind unkritisch.
+    cache-ttl: 15m
+    # Suchen kosten das 100-Fache und werden deshalb deutlich laenger vorgehalten.
+    search-cache-ttl: 6h
+  sponsor-block:
+    enabled: ${CLEANTUBE_SPONSORBLOCK:true}
+    base-url: https://sponsor.ajay.app
+    # Vom Creator selbst eingebaute Abschnitte - keine YouTube-Anzeigen.
+    categories:
+      - sponsor        # bezahlte Sponsor-Lesung
+      - selfpromo      # Eigenwerbung (Merch, Patreon)
+      - interaction    # "Abonniert den Kanal"
+      - intro          # Vorspann ohne Inhalt
+      - outro          # Abspann mit Videoempfehlungen
+    timeout: 5s
+    cache-ttl: 24h
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,caches,metrics
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    de.mozien.cleantube: INFO

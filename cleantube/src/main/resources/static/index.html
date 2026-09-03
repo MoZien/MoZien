@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="CleanTube - werbefreier, ablenkungsfreier YouTube-Client">
+    <!--
+      Referrer bewusst begrenzen: YouTube erfaehrt so nicht, welche Unterseite
+      des Clients ein Video eingebettet hat.
+    -->
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <title>CleanTube</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%232f6fed'/><path d='M13 10l10 6-10 6z' fill='white'/></svg>">
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<a class="skip-link" href="#view">Zum Inhalt springen</a>
+
+<header class="topbar">
+    <a class="brand" href="#/" aria-label="Zur Startseite">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-text">Clean<strong>Tube</strong></span>
+    </a>
+
+    <form class="search" id="search-form" role="search">
+        <label class="visually-hidden" for="search-input">Videos suchen</label>
+        <input id="search-input" type="search" name="q" placeholder="Videos suchen …"
+               autocomplete="off" maxlength="100">
+        <button type="submit">Suchen</button>
+    </form>
+
+    <div class="topbar-meta">
+        <span class="badge badge-clean" title="Diese Anwendung bindet keine Werbung und kein Tracking ein.">
+            werbefrei
+        </span>
+        <span class="badge" id="quota-badge" hidden></span>
+    </div>
+</header>
+
+<main id="view" tabindex="-1"></main>
+
+<footer class="footer">
+    <p>
+        CleanTube · Hochschulprojekt · Daten über die offizielle
+        <a href="https://developers.google.com/youtube/v3" target="_blank" rel="noopener noreferrer">YouTube Data API v3</a>,
+        Wiedergabe über den offiziellen IFrame-Player (youtube-nocookie.com).
+    </p>
+    <p class="footer-note">
+        Diese Anwendung schaltet selbst keine Werbung und setzt kein Tracking ein. Von YouTube
+        ausgelieferte Anzeigen werden nicht umgangen.
+    </p>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="/js/app.js" type="module"></script>
+</body>
+</html>
