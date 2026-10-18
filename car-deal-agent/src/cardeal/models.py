@@ -54,7 +54,14 @@ class SearchCriteria:
     gearbox: str | None = None
     zip_code: str | None = None
     radius_km: int | None = None
+    seller: str | None = None  # "privat" | "gewerblich"
     pages: int = 2
+
+    @property
+    def is_broad(self) -> bool:
+        """No model or keyword ("all cars up to 3,000 €"): the results are too
+        different to value as one group, so each ad is valued by its own model."""
+        return not self.model and not self.query.strip()
 
     @property
     def segment(self) -> str:

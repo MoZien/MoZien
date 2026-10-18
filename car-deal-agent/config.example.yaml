@@ -1,43 +1,47 @@
 # Copy to config.yaml and adjust. Prices in EUR.
 
 language: ar              # language of the AI review and Telegram messages: ar | de | en
-interval_minutes: 20      # `cardeal run` checks every ~20 minutes (randomised ±15 %)
+interval_minutes: 15      # `cardeal run` checks every ~15 minutes (randomised ±15 %)
 database: data/cardeal.sqlite3
 
-# One entry per car you are hunting. make/model are Kleinanzeigen's URL slugs:
-# open a search on kleinanzeigen.de, pick brand and model, and copy them from
-# the URL (e.g. ...+autos.marke_s:volkswagen+autos.model_s:golf).
+# One entry per search. Without make/model (like the first one) every new ad is
+# opened to read its make and model, and valued against ads of exactly that model.
+# make/model are Kleinanzeigen's URL slugs: pick brand and model in the filters on
+# kleinanzeigen.de and copy them from the URL (...+autos.marke_s:opel+autos.model_s:corsa).
 searches:
-  - name: VW Golf up to 9,000 €
-    make: volkswagen
-    model: golf
-    max_price: 9000       # your budget
-    min_price: 2000       # filters out "1 €" and swap ads
-    min_year: 2013
-    max_km: 160000
-    zip_code: "10115"     # optional, with radius_km
-    radius_km: 150
-    pages: 3              # result pages per run (~25 ads each)
+  - name: Alle Autos bis 3.000 € um Halle
+    max_price: 3000       # your budget
+    min_price: 500        # filters out "1 €", swap and spam ads
+    min_year: 2002
+    max_km: 200000
+    seller: privat        # privat | gewerblich, leave out for both
+    zip_code: "06108"     # Halle (Saale)
+    radius_km: 200
+    pages: 2              # ~25 ads per page, newest first (~1 new ad per minute here)
 
-  - name: Toyota Yaris automatic
-    make: toyota
-    model: yaris
-    max_price: 7000
-    max_km: 150000
-    gearbox: automatik    # manuell | automatik
-    pages: 2
+  # Example of a model search (comparables come straight from the search):
+  # - name: VW Golf up to 9,000 €
+  #   make: volkswagen
+  #   model: golf
+  #   max_price: 9000
+  #   min_year: 2013
+  #   max_km: 160000
+  #   gearbox: manuell    # manuell | automatik
+  #   pages: 3
 
 valuation:
   lookback_days: 60          # how long seen ads count as market data
   min_comparables: 5
   year_window: 2             # comparables within ±2 years ...
   km_window: 0.4             # ... and ±40 % mileage (at least ±20,000 km)
-  price_ceiling_factor: 1.6  # also collect ads up to 1.6× budget as market data
+  price_ceiling_factor: 1.6  # model searches also collect ads up to 1.6× budget as market data
+  comparables_refresh_hours: 24  # broad searches: fetch comparables per model/year at most daily
+  comparables_pages: 2
 
 deal:
   min_discount: 0.12         # at least 12 % below market before we look closer
-  min_profit: 800            # € after all costs
-  min_roi: 0.12
+  min_profit: 500            # € after all costs (cars up to 3,000 € have smaller margins)
+  min_roi: 0.15
   negotiation_discount: 0.05 # expected haggling on "VB" ads
   resale_factor: 0.95        # you resell at ~95 % of the market asking price
   fixed_costs:               # per car
@@ -60,6 +64,7 @@ ai:
 scraper:
   min_delay_seconds: 4       # pause between requests; keep it slow
   max_delay_seconds: 9
+  max_details_per_run: 30    # broad searches: ads opened per run at most
 
 filters:
   # Titles containing these words are skipped (dealer "we buy your car" ads etc.)

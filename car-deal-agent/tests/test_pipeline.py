@@ -157,3 +157,103 @@ def test_without_market_data_nothing_is_reported():
     h, source, notifier = hunter([ad("cheap", 6_500), ad("other", 8_000)])
     assert h.run_once() == []
     assert source.detail_calls == []
+
+
+BROAD = SearchCriteria(name="Alle Autos", max_price=3000, min_price=500, min_year=2002, max_km=200_000,
+                       seller="privat")
+
+
+class FakeMarketplace(FakeSource):
+    """Broad searches return `listings`, model searches return `comps[(make, query)]`."""
+
+    def __init__(self, listings, comps, details):
+        super().__init__(listings)
+        self.comps = comps
+        self.details = details
+
+    def search(self, criteria, price_ceiling=None):
+        self.searches.append(criteria)
+        if criteria.is_broad:
+            return [replace(listing) for listing in self.listings]
+        return [replace(listing) for listing in self.comps.get((criteria.make, criteria.query), [])]
+
+    def fetch_details(self, listing):
+        self.detail_calls.append(listing.id)
+        for key, value in self.details[listing.id].items():
+            setattr(listing, key, value)
+        listing.details_loaded = True
+        return listing
+
+    def model_searches(self):
+        return [s for s in self.searches if not s.is_broad]
+
+
+def corsa_market():
+    prices = [3_300, 3_400, 3_500, 3_600, 3_700] * 3
+    return [ad(f"corsa-m{i}", price, year=2008, km=150_000) for i, price in enumerate(prices)]
+
+
+def broad_hunter(listings, details, max_details=30):
+    config = AppConfig(searches=[BROAD])
+    config.deal.min_profit = 400
+    config.scraper.max_details_per_run = max_details
+    source = FakeMarketplace(listings, {("opel", "corsa"): corsa_market()}, details)
+    notifier = FakeNotifier()
+    h = DealHunter(config, source, Store(":memory:"), FakeAnalyzer(), notifier, clock=lambda: NOW)
+    return h, source, notifier
+
+
+OPEL_CORSA = {"make": "Opel", "model": "Corsa"}
+
+
+def test_broad_search_values_each_ad_by_its_own_model():
+    h, source, notifier = broad_hunter([ad("old", 2_000, year=2008, km=150_000)], {})
+    assert h.run_once() == []  # first run: warm-up, no ad opened
+    assert source.detail_calls == [] and source.model_searches() == []
+
+    source.listings += [
+        ad("corsa", 2_200, year=2008, km=150_000, title="Opel Corsa D"),
+        ad("mystery", 1_500, year=2008, km=150_000, title="Auto"),
+        ad("over-budget", 3_500, year=2008, km=150_000),
+    ]
+    source.details.update({"kleinanzeigen:corsa": OPEL_CORSA,
+                           "kleinanzeigen:mystery": {"make": "Andere", "model": "Andere"}})
+    reports = h.run_once()
+
+    assert source.detail_calls == ["kleinanzeigen:corsa", "kleinanzeigen:mystery"]
+    [model_search] = source.model_searches()
+    assert (model_search.make, model_search.query, model_search.min_year, model_search.max_year,
+            model_search.seller) == ("opel", "corsa", 2006, 2010, "privat")
+    assert [r.listing.id for r in reports] == ["kleinanzeigen:corsa"]
+    assert reports[0].valuation.market_price == 3_500
+    assert reports[0].verdict == "deal"
+    assert notifier.sent == reports
+
+    source.listings.append(ad("corsa-2", 2_400, year=2008, km=150_000))
+    source.details["kleinanzeigen:corsa-2"] = OPEL_CORSA
+    h.run_once()
+    assert len(source.model_searches()) == 1  # comparables for this model and year are cached
+
+
+def test_broad_search_caps_detail_pages_per_run():
+    h, source, _ = broad_hunter([ad("seed", 2_000)], {}, max_details=1)
+    h.run_once()
+    source.listings += [ad("a", 2_200, year=2008, km=150_000), ad("b", 2_250, year=2008, km=150_000)]
+    source.details.update({"kleinanzeigen:a": OPEL_CORSA, "kleinanzeigen:b": OPEL_CORSA})
+
+    h.run_once()
+    assert source.detail_calls == ["kleinanzeigen:a"]
+    h.run_once()
+    assert source.detail_calls == ["kleinanzeigen:a", "kleinanzeigen:b"]
+
+
+def test_analyze_url_uses_model_comparables():
+    url = "https://www.kleinanzeigen.de/s-anzeige/opel-corsa/123-216-1"
+    details = {"kleinanzeigen:123": {**OPEL_CORSA, "price": 2_200, "year": 2008, "km": 150_000}}
+    h, source, _ = broad_hunter([], details)
+
+    report, comps = h.analyze_url(url)
+
+    assert comps == 16  # 15 comparables + the ad itself
+    assert report.valuation.market_price == 3_500
+    assert source.model_searches()[0].seller is None

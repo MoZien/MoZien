@@ -30,6 +30,8 @@ deal / check / skip ──► Telegram message
 
 The market data search is wider than your limits (by the same ±2 years / ±40 % km) so that a car at the edge of your filters is still compared with cars on both sides of it.
 
+**Broad searches** ("all cars up to 3,000 € around Halle", no make/model): one search mixes Corsas and BMWs, so its results can't serve as one market. Instead every new ad is opened to read its make and model, and comparables for exactly that model and year (±2) are fetched nationwide, with the same seller filter (private/dealer). They are cached for 24 h per model and year, so popular models cost no extra requests. `scraper.max_details_per_run` caps how many ads are opened per run.
+
 **Profit.**
 
 ```

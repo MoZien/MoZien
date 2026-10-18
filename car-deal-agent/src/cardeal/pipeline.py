@@ -76,8 +76,13 @@ class DealHunter:
 
     def _run_search(self, search: SearchCriteria) -> list[DealReport]:
         now = self.clock()
-        ceiling = round(search.max_price * self.config.valuation.price_ceiling_factor) if search.max_price else None
-        listings = self.source.search(self._market_search(search), price_ceiling=ceiling)
+        if search.is_broad:
+            # Results of a broad search are no market data (mixed models), so fetch
+            # exactly what the user asked for and look up comparables per ad.
+            listings = self.source.search(search)
+        else:
+            ceiling = round(search.max_price * self.config.valuation.price_ceiling_factor) if search.max_price else None
+            listings = self.source.search(self._market_search(search), price_ceiling=ceiling)
         first_run = not self.store.has_segment(search.segment)
         for listing in listings:
             self.store.upsert(listing, search.segment, now)
@@ -88,13 +93,28 @@ class DealHunter:
             log.info("%s: first run, stored %d ads as market data; alerts start with new ads",
                      search.name, len(listings))
             return []
-        comps = self.store.comparables(search.segment, now - timedelta(days=self.config.valuation.lookback_days))
+        comps = [] if search.is_broad else self.store.comparables(
+            search.segment, now - timedelta(days=self.config.valuation.lookback_days)
+        )
 
         reports = []
+        details_left = self.config.scraper.max_details_per_run
         for listing in listings:
             if not self._is_candidate(listing, search) or not self.store.needs_evaluation(listing):
                 continue
-            report = self.evaluate(listing, comps, search.name)
+            listing_comps = comps
+            if search.is_broad:
+                if details_left == 0:
+                    log.info("%s: detail limit reached, the rest waits for the next run", search.name)
+                    break
+                details_left -= 1
+                listing = self.source.fetch_details(listing)
+                listing_comps = self._comparables_for(listing, search.seller)
+                if listing_comps is None:
+                    log.info("unknown make/model, skipped: %s", listing.url)
+                    self.store.mark_evaluated(listing)
+                    continue
+            report = self.evaluate(listing, listing_comps, search.name)
             self.store.mark_evaluated(listing)
             if report is None:
                 continue
@@ -102,8 +122,38 @@ class DealHunter:
             reports.append(report)
             if self.notifier and report.verdict in self.config.deal.notify_on:
                 self.notifier.send(report)
-        log.info("%s: %d listings, %d comparables, %d reports", search.name, len(listings), len(comps), len(reports))
+        log.info("%s: %d listings, %d reports", search.name, len(listings), len(reports))
         return reports
+
+    def _comparables_for(self, listing: Listing, seller: str | None = None) -> list[Listing] | None:
+        """Comparables for one ad's make and model, fetched from Kleinanzeigen at most
+        once per `comparables_refresh_hours` per model and year. None if the ad has no
+        usable make/model."""
+        if not listing.make or not listing.year:
+            return None
+        model = re.sub(r"^(Weitere|Andere)\s+", "", listing.model or "", flags=re.IGNORECASE).strip()
+        if model.lower() in {"", "andere", "weitere", "sonstige"}:
+            return None
+
+        v = self.config.valuation
+        now = self.clock()
+        criteria = SearchCriteria(
+            name=f"{listing.make} {model}",
+            make=make_slug(listing.make),
+            query=model.lower(),
+            min_year=listing.year - v.year_window,
+            max_year=listing.year + v.year_window,
+            seller=seller,
+            pages=v.comparables_pages,
+        )
+        cache_key = f"{criteria.segment}|{listing.year}|{seller or 'all'}"
+        fetched_at = self.store.comparables_fetched_at(cache_key)
+        if fetched_at is None or now - fetched_at > timedelta(hours=v.comparables_refresh_hours):
+            for comp in self.source.search(criteria):
+                self.store.upsert(comp, criteria.segment, now)
+            self.store.mark_comparables_fetched(cache_key, now)
+        self.store.upsert(listing, criteria.segment, now)
+        return self.store.comparables(criteria.segment, now - timedelta(days=v.lookback_days))
 
     def _is_candidate(self, listing: Listing, search: SearchCriteria) -> bool:
         def within(value: int | None, low: int | None, high: int | None) -> bool:
@@ -138,7 +188,8 @@ class DealHunter:
             if estimate_flip(listing, valuation, settings, today=today).profit < settings.min_profit:
                 return None
 
-        listing = self.source.fetch_details(listing)
+        if not listing.details_loaded:
+            listing = self.source.fetch_details(listing)
         flip = estimate_flip(listing, valuation, settings, today=today)
         analysis = None
         if self.analyzer is not None:
@@ -159,19 +210,7 @@ class DealHunter:
         """Evaluates one ad by URL, collecting fresh comparables for it first.
         Returns the report (None if the market price can't be estimated) and the number of comparables."""
         listing = self.source.fetch_details(listing_from_url(url))
-        if not listing.make or not listing.year:
-            raise ValueError("could not read make and first registration from the ad")
-        model_query = re.sub(r"^Weitere\s+", "", listing.model or "").strip()
-        search = SearchCriteria(
-            name=listing.title,
-            make=make_slug(listing.make),
-            query=model_query.lower(),
-            min_year=listing.year - self.config.valuation.year_window,
-            max_year=listing.year + self.config.valuation.year_window,
-            pages=3,
-        )
-        now = self.clock()
-        for comp in self.source.search(search):
-            self.store.upsert(comp, search.segment, now)
-        comps = self.store.comparables(search.segment, now - timedelta(days=self.config.valuation.lookback_days))
-        return self.evaluate(listing, comps, search_name=search.segment, force=True), len(comps)
+        comps = self._comparables_for(listing)
+        if comps is None:
+            raise ValueError("could not read make, model and first registration from the ad")
+        return self.evaluate(listing, comps, search_name=f"{listing.make} {listing.model}", force=True), len(comps)

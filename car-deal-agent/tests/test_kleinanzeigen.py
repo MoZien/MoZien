@@ -57,6 +57,16 @@ def test_build_search_url_with_all_filters():
     )
 
 
+def test_build_search_url_private_sellers_around_halle():
+    criteria = SearchCriteria(name="alle", max_price=3000, min_year=2002, max_km=200000, seller="privat",
+                              radius_km=200)
+    url = build_search_url(criteria, location_id="2414")
+    assert url == (
+        "https://www.kleinanzeigen.de/s-autos/anbieter:privat/preis::3000/"
+        "c216l2414r200+autos.ez_i:2002%2C+autos.km_i:%2C200000"
+    )
+
+
 def test_build_search_url_free_text():
     url = build_search_url(SearchCriteria(name="x", query="Golf GTI", max_price=8000))
     assert url == "https://www.kleinanzeigen.de/s-autos/preis::8000/golf-gti/k0c216"
@@ -92,6 +102,17 @@ def test_parse_detail_page():
         "Verkaufe meinen Golf.", "Steuerkette wurde 2023 gewechselt.", "Klima muss befüllt werden.",
     ]
     assert listing.details_loaded
+
+
+def test_parse_detail_page_new_design():
+    listing = Listing(id="kleinanzeigen:2", source="kleinanzeigen", url="u", title="", price=None)
+    parse_detail_page((FIXTURES / "detail_page_new.html").read_text(encoding="utf-8"), listing)
+    assert (listing.title, listing.price, listing.negotiable) == ("Fiat Panda TÜV bis 04/28 !!!", 1500, True)
+    assert (listing.make, listing.model, listing.km, listing.month, listing.year) == ("Fiat", "Panda", 154441, 2, 2009)
+    assert (listing.power_ps, listing.gearbox, listing.hu_until) == (60, "Manuell", "04/2028")
+    assert listing.seller_type == "private"
+    assert listing.location == "06108 Sachsen-Anhalt - Halle"
+    assert "Frisch TÜV bis April 2028." in listing.description
 
 
 def test_make_slug_and_listing_from_url():

@@ -29,6 +29,11 @@ CREATE TABLE IF NOT EXISTS listings (
 );
 CREATE INDEX IF NOT EXISTS listings_segment ON listings (segment, last_seen);
 
+CREATE TABLE IF NOT EXISTS comparables_fetched (
+    key TEXT PRIMARY KEY,
+    fetched_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS reports (
     listing_id TEXT NOT NULL,
     created_at TEXT NOT NULL,
@@ -54,6 +59,8 @@ class Store:
                                   location, first_seen, last_seen)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (id) DO UPDATE SET
+                -- a broad search ("opel:*") must not undo a known model ("opel:corsa")
+                segment = CASE WHEN excluded.segment LIKE '%:*' THEN listings.segment ELSE excluded.segment END,
                 title = excluded.title, price = excluded.price, negotiable = excluded.negotiable,
                 km = excluded.km, year = excluded.year, month = excluded.month,
                 location = excluded.location, last_seen = excluded.last_seen
@@ -63,6 +70,18 @@ class Store:
                 int(listing.negotiable), listing.km, listing.year, listing.month, listing.location,
                 now.isoformat(), now.isoformat(),
             ),
+        )
+        self.db.commit()
+
+    def comparables_fetched_at(self, key: str) -> datetime | None:
+        row = self.db.execute("SELECT fetched_at FROM comparables_fetched WHERE key = ?", (key,)).fetchone()
+        return datetime.fromisoformat(row["fetched_at"]) if row else None
+
+    def mark_comparables_fetched(self, key: str, now: datetime) -> None:
+        self.db.execute(
+            "INSERT INTO comparables_fetched (key, fetched_at) VALUES (?, ?) "
+            "ON CONFLICT (key) DO UPDATE SET fetched_at = excluded.fetched_at",
+            (key, now.isoformat()),
         )
         self.db.commit()
 

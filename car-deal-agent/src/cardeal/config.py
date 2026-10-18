@@ -22,6 +22,9 @@ class ValuationSettings:
     km_window: float = 0.4
     # Collect market data above the budget too, otherwise every car looks expensive.
     price_ceiling_factor: float = 1.6
+    # Broad searches look up comparables per model and year; reuse them this long.
+    comparables_refresh_hours: int = 24
+    comparables_pages: int = 2
 
 
 @dataclass
@@ -58,6 +61,8 @@ class ScraperSettings:
     min_delay_seconds: float = 4.0
     max_delay_seconds: float = 9.0
     timeout_seconds: float = 20.0
+    # Broad searches open every new ad to read make and model; cap that per run.
+    max_details_per_run: int = 30
 
 
 @dataclass

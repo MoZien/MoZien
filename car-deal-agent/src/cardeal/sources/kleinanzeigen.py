@@ -42,6 +42,7 @@ _AMOUNT_RE = re.compile(r"(\d{1,3}(?:\.\d{3})+|\d+)\s*€")
 _KM_RE = re.compile(r"^([\d.]+)\s*km$", re.IGNORECASE)
 _EZ_RE = re.compile(r"^EZ\s*(\d{1,2})/(\d{4})$")
 _ZIP_CITY_RE = re.compile(r"^\d{5}\s+\S")
+_SELLER_RE = re.compile(r"^\s*(Privater|Gewerblicher)\s+(Nutzer|Anbieter)\s*$")
 
 
 def _clean(text: str | None) -> str:
@@ -104,6 +105,8 @@ def build_search_url(
     path = ["s-autos"]
     if criteria.make:
         path.append(criteria.make)
+    if criteria.seller:
+        path.append(f"anbieter:{criteria.seller}")
     if criteria.min_price or max_price:
         path.append(f"preis:{criteria.min_price or ''}:{max_price or ''}")
     if page > 1:
@@ -195,8 +198,13 @@ def parse_detail_page(html: str, listing: Listing) -> Listing:
     if locality := soup.select_one("#viewad-locality"):
         listing.location = _clean(locality.get_text())
 
-    for item in soup.select("li.addetailslist--detail"):
+    # Two designs are live (A/B test): "Label<span class=...--value>Value</span>"
+    # and "<span>Label</span><span>Value</span>" inside #viewad-details.
+    for item in soup.select("#viewad-details li, li.addetailslist--detail"):
         value_el = item.select_one(".addetailslist--detail--value")
+        if value_el is None:
+            spans = item.find_all("span", recursive=False)
+            value_el = spans[-1] if len(spans) >= 2 else None
         if value_el is None:
             continue
         value = _clean(value_el.get_text())
@@ -224,11 +232,8 @@ def parse_detail_page(html: str, listing: Listing) -> Listing:
             listing.hu_until = f"{month or 1:02d}/{year}" if year else value
 
     listing.features = [_clean(li.get_text()) for li in soup.select("li.checktag")]
-    for el in soup.select(".userprofile-vip-details-text"):
-        text = _clean(el.get_text())
-        if text.startswith(("Gewerblicher", "Privater")):
-            listing.seller_type = "dealer" if text.startswith("Gewerblicher") else "private"
-            break
+    if seller := soup.find(string=_SELLER_RE):
+        listing.seller_type = "private" if seller.strip().startswith("Privat") else "dealer"
     listing.details_loaded = True
     return listing
 
