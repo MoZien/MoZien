@@ -121,16 +121,24 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def _poll_quietly(chat: ChatBot, timeout: int) -> bool:
+    try:
+        chat.poll(timeout=timeout)
+        return True
+    except (TelegramError, requests.RequestException) as exc:
+        log.warning("Telegram: %s", exc)
+        return False
+
+
 def _serve(hunter: DealHunter, chat: ChatBot | None, interval_minutes: int | None) -> None:
     """Answers chat messages and, if `interval_minutes` is set, runs the searches on schedule.
-    Single-threaded: a link sent during a search run is answered right after it."""
+    Single-threaded: during a search run the chat is checked before every ad."""
     next_run = time.monotonic() if interval_minutes else math.inf
+    if chat is not None:
+        hunter.between_ads = lambda: _poll_quietly(chat, timeout=0)
     while True:
         if chat is not None:
-            try:
-                chat.poll(timeout=int(min(max(next_run - time.monotonic(), 0), 30)))
-            except (TelegramError, requests.RequestException) as exc:
-                log.warning("Telegram: %s", exc)
+            if not _poll_quietly(chat, timeout=int(min(max(next_run - time.monotonic(), 0), 30))):
                 time.sleep(10)
         else:
             time.sleep(max(next_run - time.monotonic(), 0))

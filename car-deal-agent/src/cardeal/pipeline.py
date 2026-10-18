@@ -44,6 +44,9 @@ class DealHunter:
         self.analyzer = analyzer
         self.notifier = notifier
         self.clock = clock
+        # Called before each ad a search evaluates; `cardeal run` answers the chat
+        # there, so a link sent mid-run doesn't wait minutes for the run to end.
+        self.between_ads: Callable[[], None] | None = None
         keywords = config.filters.exclude_keywords
         self._excluded = (
             re.compile(r"\b(" + "|".join(re.escape(k) for k in keywords) + r")\b", re.IGNORECASE)
@@ -102,6 +105,8 @@ class DealHunter:
         for listing in listings:
             if not self._is_candidate(listing, search) or not self.store.needs_evaluation(listing):
                 continue
+            if self.between_ads is not None:
+                self.between_ads()
             listing_comps = comps
             if search.is_broad:
                 if details_left == 0:

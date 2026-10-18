@@ -257,3 +257,14 @@ def test_analyze_url_uses_model_comparables():
     assert comps == 16  # 15 comparables + the ad itself
     assert report.valuation.market_price == 3_500
     assert source.model_searches()[0].seller is None
+
+
+def test_between_ads_hook_runs_before_each_evaluated_ad():
+    h, source, _ = broad_hunter([ad("seed", 2_000)], {})
+    h.run_once()
+    source.listings += [ad("a", 2_200, year=2008, km=150_000), ad("b", 2_250, year=2008, km=150_000)]
+    source.details.update({"kleinanzeigen:a": OPEL_CORSA, "kleinanzeigen:b": OPEL_CORSA})
+    calls = []
+    h.between_ads = lambda: calls.append(len(source.detail_calls))
+    h.run_once()
+    assert calls == [0, 1]  # before the first and before the second ad
