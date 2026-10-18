@@ -268,3 +268,29 @@ def test_between_ads_hook_runs_before_each_evaluated_ad():
     h.between_ads = lambda: calls.append(len(source.detail_calls))
     h.run_once()
     assert calls == [0, 1]  # before the first and before the second ad
+
+
+def test_find_deals_stops_at_the_requested_number():
+    h, source, notifier = broad_hunter([
+        ad("pricey", 3_000, year=2008, km=150_000),  # fair price: evaluated, no deal
+        ad("deal-1", 2_200, year=2008, km=150_000),
+        ad("deal-2", 2_250, year=2008, km=150_000),
+        ad("deal-3", 2_150, year=2008, km=150_000),
+    ], {f"kleinanzeigen:{k}": OPEL_CORSA for k in ("pricey", "deal-1", "deal-2", "deal-3")})
+    found_live = []
+
+    found, evaluated = h.find_deals(2, max_ads=10, on_found=found_live.append)
+
+    assert [r.listing.id for r in found] == ["kleinanzeigen:deal-1", "kleinanzeigen:deal-2"]
+    assert found_live == found and evaluated == 3
+    assert "kleinanzeigen:deal-3" not in source.detail_calls  # stopped searching
+    assert notifier.sent == []  # finds go to whoever asked, not to the alert channel
+    found, _ = h.find_deals(2, max_ads=10)
+    assert [r.listing.id for r in found] == ["kleinanzeigen:deal-3"]  # no repeats
+
+
+def test_find_deals_respects_the_ad_limit():
+    h, source, _ = broad_hunter([ad(f"x{i}", 2_900, year=2008, km=150_000) for i in range(5)],
+                                {f"kleinanzeigen:x{i}": OPEL_CORSA for i in range(5)})
+    found, evaluated = h.find_deals(3, max_ads=2)
+    assert found == [] and evaluated == 2 and len(source.detail_calls) == 2

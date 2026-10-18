@@ -17,6 +17,19 @@ log = logging.getLogger(__name__)
 
 AD_URL_RE = re.compile(r"(?:https?://)?(?:[\w-]+\.)?kleinanzeigen\.de/s-anzeige/[^\s<>\"']+", re.IGNORECASE)
 MAX_LINKS_PER_MESSAGE = 3
+# "suche 3", "/suche", "search 5", "دورلي 3", "ابحث ٣" (\d also matches Arabic-Indic digits)
+HUNT_RE = re.compile(r"^\s*/?(such|search|find|ابحث|دور|لاقي|فتش)", re.IGNORECASE)
+DEFAULT_HUNT_COUNT = 3
+MAX_HUNT_COUNT = 10
+SECONDS_PER_AD = 20  # detail page + comparables at polite speed, for the time estimate
+
+
+def hunt_count(text: str) -> int | None:
+    """Number of cars asked for in a search command, None if the text is no search command."""
+    if not HUNT_RE.match(text or ""):
+        return None
+    number = re.search(r"\d+", text)
+    return min(max(int(number.group()), 1), MAX_HUNT_COUNT) if number else DEFAULT_HUNT_COUNT
 
 
 def find_ad_urls(text: str) -> list[str]:
@@ -67,12 +80,42 @@ class ChatBot:
     def handle(self, text: str, chat_id: str | None = None) -> None:
         chat_id = chat_id or self.chat_id
         urls = find_ad_urls(text)
+        if not urls and (count := hunt_count(text)) is not None:
+            self._hunt(count, chat_id)
+            return
         if not urls:
             self.reply(t(self.lang, "chat_help"), chat_id)
             return
         for url in urls[:MAX_LINKS_PER_MESSAGE]:
             self.reply(t(self.lang, "chat_working"), chat_id)
             self.reply(self._evaluate(url), chat_id)
+
+    def _hunt(self, count: int, chat_id: str) -> None:
+        """Searches the newest ads until `count` worthwhile cars are found, sending each right away."""
+        if not self.hunter.config.searches:
+            self.reply(t(self.lang, "hunt_no_search"), chat_id)
+            return
+        max_ads = self.hunter.config.scraper.max_ads_per_hunt
+        minutes = max(1, round(max_ads * SECONDS_PER_AD / 60))
+        self.reply(t(self.lang, "hunt_start", count=count, max=max_ads, minutes=minutes), chat_id)
+        found = []
+        evaluated = 0
+
+        def send(report) -> None:
+            found.append(report)
+            self.reply(format_report(report, self.lang), chat_id)
+
+        try:
+            _, evaluated = self.hunter.find_deals(
+                count, max_ads, pages=self.hunter.config.scraper.hunt_pages, on_found=send
+            )
+        except SourceBlockedError:
+            self.reply(t(self.lang, "chat_blocked"), chat_id)
+        except Exception as exc:  # report what was found so far instead of going silent
+            log.exception("search in chat failed")
+            self.reply(t(self.lang, "chat_error", error=html.escape(f"{type(exc).__name__}: {exc}"[:200])), chat_id)
+        key = "hunt_done" if found else "hunt_none"
+        self.reply(t(self.lang, key, found=len(found), count=count, checked=evaluated), chat_id)
 
     def _turn_away(self, chat_id: str, message: dict) -> None:
         """Tells a stranger once that the bot is private, and tells the owner how to let them in."""

@@ -63,6 +63,9 @@ class ScraperSettings:
     timeout_seconds: float = 20.0
     # Broad searches open every new ad to read make and model; cap that per run.
     max_details_per_run: int = 30
+    # "suche 3" in Telegram: evaluate at most this many new ads, from this many result pages.
+    max_ads_per_hunt: int = 40
+    hunt_pages: int = 4
 
 
 @dataclass

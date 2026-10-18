@@ -77,8 +77,10 @@ class DealHunter:
             max_km=round(search.max_km * (1 + v.km_window)) if search.max_km else None,
         )
 
-    def _run_search(self, search: SearchCriteria) -> list[DealReport]:
-        now = self.clock()
+    def _fetch(self, search: SearchCriteria, now: datetime, pages: int | None = None) -> list[Listing]:
+        """Newest ads for a search, stored as market data."""
+        if pages is not None:
+            search = replace(search, pages=pages)
         if search.is_broad:
             # Results of a broad search are no market data (mixed models), so fetch
             # exactly what the user asked for and look up comparables per ad.
@@ -86,9 +88,58 @@ class DealHunter:
         else:
             ceiling = round(search.max_price * self.config.valuation.price_ceiling_factor) if search.max_price else None
             listings = self.source.search(self._market_search(search), price_ceiling=ceiling)
-        first_run = not self.store.has_segment(search.segment)
         for listing in listings:
             self.store.upsert(listing, search.segment, now)
+        return listings
+
+    def _evaluate_candidate(self, listing: Listing, search: SearchCriteria, comps: list[Listing]) -> DealReport | None:
+        if search.is_broad:
+            listing = self.source.fetch_details(listing)
+            comps = self._comparables_for(listing, search.seller)
+            if comps is None:
+                log.info("unknown make/model, skipped: %s", listing.url)
+                return None
+        return self.evaluate(listing, comps, search.name)
+
+    def find_deals(
+        self,
+        count: int,
+        max_ads: int,
+        pages: int = 4,
+        on_found: Callable[[DealReport], None] | None = None,
+    ) -> tuple[list[DealReport], int]:
+        """Goes through the newest not yet evaluated ads of all searches until `count`
+        worthwhile cars (deal or check) are found or `max_ads` ads were evaluated.
+        Returns the finds and the number of ads evaluated."""
+        found: list[DealReport] = []
+        evaluated = 0
+        now = self.clock()
+        for search in self.config.searches:
+            listings = self._fetch(search, now, pages)
+            comps = [] if search.is_broad else self.store.comparables(
+                search.segment, now - timedelta(days=self.config.valuation.lookback_days)
+            )
+            for listing in listings:
+                if len(found) >= count or evaluated >= max_ads:
+                    return found, evaluated
+                if not self._is_candidate(listing, search) or not self.store.needs_evaluation(listing):
+                    continue
+                evaluated += 1
+                report = self._evaluate_candidate(listing, search, comps)
+                self.store.mark_evaluated(listing)
+                if report is None:
+                    continue
+                self.store.save_report(report, now)
+                if report.verdict in ("deal", "check"):
+                    found.append(report)
+                    if on_found is not None:
+                        on_found(report)
+        return found, evaluated
+
+    def _run_search(self, search: SearchCriteria) -> list[DealReport]:
+        now = self.clock()
+        first_run = not self.store.has_segment(search.segment)
+        listings = self._fetch(search, now)
         if first_run and not self.config.deal.alert_existing:
             # Ads already online are market data; alerts are for what gets posted next.
             for listing in listings:
@@ -107,19 +158,12 @@ class DealHunter:
                 continue
             if self.between_ads is not None:
                 self.between_ads()
-            listing_comps = comps
             if search.is_broad:
                 if details_left == 0:
                     log.info("%s: detail limit reached, the rest waits for the next run", search.name)
                     break
                 details_left -= 1
-                listing = self.source.fetch_details(listing)
-                listing_comps = self._comparables_for(listing, search.seller)
-                if listing_comps is None:
-                    log.info("unknown make/model, skipped: %s", listing.url)
-                    self.store.mark_evaluated(listing)
-                    continue
-            report = self.evaluate(listing, listing_comps, search.name)
+            report = self._evaluate_candidate(listing, search, comps)
             self.store.mark_evaluated(listing)
             if report is None:
                 continue

@@ -42,7 +42,13 @@ TEXTS: dict[str, dict[str, str]] = {
         "chat_started": "✅ البوت شغّال وعم يراقب السوق. ابعتلي رابط أي إعلان سيارة من Kleinanzeigen وبقلّك إذا بتستاهل.",
         "chat_started_links": "✅ البوت شغّال. ابعتلي رابط أي إعلان سيارة من Kleinanzeigen وبقلّك إذا بتستاهل.",
         "chat_help": "ابعتلي رابط إعلان سيارة من Kleinanzeigen (بالتطبيق: مشاركة ← نسخ الرابط) "
-                     "وبحسبلك سعر السوق والربح والمخاطر.",
+                     "وبحسبلك سعر السوق والربح والمخاطر.\n"
+                     "أو اكتب «دورلي 3» وبدورلك على 3 سيارات بتستاهل من أحدث الإعلانات.",
+        "hunt_start": "🔎 عم دور على {count} سيارات بتستاهل بأحدث الإعلانات (بفحص لحد {max} إعلان، "
+                      "ممكن ياخد لحد {minutes} دقيقة). كل سيارة بلاقيها ببعتلك ياها فوراً.",
+        "hunt_done": "✅ خلصت: لقيت {found} من {count}، وفحصت {checked} إعلان.",
+        "hunt_none": "ما لقيت ولا سيارة بتستاهل بين {checked} إعلان جديد. جرّب كمان شوي.",
+        "hunt_no_search": "ما في بحث مضبوط بملف config.yaml.",
         "chat_working": "⏳ عم حلّل الإعلان، بياخد دقيقة أو دقيقتين…",
         "chat_not_car": "ما قدرت اقرأ الماركة والموديل وسنة الصنع من هالإعلان. متأكد إنه إعلان سيارة؟",
         "chat_few_comps": "لقيت بس {n} سيارات مشابهة، وهاد قليل لحتى احسب سعر السوق.",
@@ -96,7 +102,13 @@ TEXTS: dict[str, dict[str, str]] = {
         "chat_started_links": "✅ Der Bot läuft. Schick mir einen Link zu einer Kleinanzeigen-Autoanzeige "
                               "und ich sag dir, ob sie sich lohnt.",
         "chat_help": "Schick mir den Link zu einer Autoanzeige auf Kleinanzeigen (in der App: Teilen → Link kopieren), "
-                     "dann berechne ich Marktpreis, Gewinn und Risiken.",
+                     "dann berechne ich Marktpreis, Gewinn und Risiken.\n"
+                     "Oder schreib «suche 3», dann suche ich 3 lohnende Autos unter den neuesten Anzeigen.",
+        "hunt_start": "🔎 Ich suche {count} lohnende Autos unter den neuesten Anzeigen (prüfe bis zu {max} Anzeigen, "
+                      "das kann bis zu {minutes} Minuten dauern). Jeden Fund schicke ich dir sofort.",
+        "hunt_done": "✅ Fertig: {found} von {count} gefunden, {checked} Anzeigen geprüft.",
+        "hunt_none": "Unter {checked} neuen Anzeigen war kein lohnendes Auto. Versuch es später nochmal.",
+        "hunt_no_search": "In config.yaml ist keine Suche eingerichtet.",
         "chat_working": "⏳ Ich analysiere die Anzeige, das dauert ein bis zwei Minuten…",
         "chat_not_car": "Ich konnte Marke, Modell und Erstzulassung nicht lesen. Ist das eine Autoanzeige?",
         "chat_few_comps": "Nur {n} Vergleichsautos gefunden, zu wenig für einen Marktpreis.",
@@ -150,7 +162,13 @@ TEXTS: dict[str, dict[str, str]] = {
         "chat_started": "✅ The bot is running and watching the market. Send me a link to a car ad on "
                         "Kleinanzeigen and I'll tell you whether it's worth it.",
         "chat_help": "Send me a link to a car ad on Kleinanzeigen (in the app: Share → Copy link) "
-                     "and I'll work out market price, profit and risks.",
+                     "and I'll work out market price, profit and risks.\n"
+                     "Or write \"search 3\" and I'll find 3 worthwhile cars among the newest ads.",
+        "hunt_start": "🔎 Looking for {count} worthwhile cars among the newest ads (checking up to {max} ads, "
+                      "this can take up to {minutes} minutes). I'll send each find right away.",
+        "hunt_done": "✅ Done: found {found} of {count}, checked {checked} ads.",
+        "hunt_none": "No worthwhile car among {checked} new ads. Try again later.",
+        "hunt_no_search": "No search is set up in config.yaml.",
         "chat_working": "⏳ Analysing the ad, this takes a minute or two…",
         "chat_not_car": "I couldn't read make, model and first registration. Is this a car ad?",
         "chat_few_comps": "Only {n} comparable cars found, too few for a market price.",

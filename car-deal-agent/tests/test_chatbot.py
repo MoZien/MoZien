@@ -139,3 +139,54 @@ def test_problems_are_explained_not_crashing():
         chat, telegram = bot([message(1, AD)], hunter)
         chat.poll(timeout=0)
         assert expected in telegram.sent[-1][1]
+
+
+def test_hunt_count():
+    from cardeal.chatbot import hunt_count
+    assert hunt_count("suche 3") == 3
+    assert hunt_count("/suche") == 3
+    assert hunt_count("Such mir 5 Autos") == 5
+    assert hunt_count("search 50") == 10  # capped
+    assert hunt_count("دورلي ٢") == 2
+    assert hunt_count("hallo") is None
+    assert hunt_count("ich suche nichts") is None  # only commands at the start
+
+
+class HuntingHunter:
+    def __init__(self, finds, evaluated, error=None):
+        from cardeal.config import AppConfig
+        from cardeal.models import SearchCriteria
+        self.config = AppConfig(searches=[SearchCriteria(name="Alle Autos", max_price=3000)])
+        self.finds, self.evaluated, self.error = finds, evaluated, error
+        self.calls = []
+
+    def find_deals(self, count, max_ads, pages=4, on_found=None):
+        self.calls.append((count, max_ads, pages))
+        for r in self.finds[:count]:
+            on_found(r)
+        if self.error:
+            raise self.error
+        return self.finds[:count], self.evaluated
+
+
+def test_hunt_sends_each_find_and_a_summary_to_the_asker():
+    hunter = HuntingHunter([report(), report()], evaluated=17)
+    chat, telegram = bot([message(1, "suche 2", chat_id=FRIEND)], hunter, allowed=[FRIEND])
+    chat.poll(timeout=0)
+    assert hunter.calls == [(2, 40, 4)]
+    texts = [text for chat_id, text in telegram.sent if chat_id == FRIEND]
+    assert len(telegram.sent) == len(texts) == 4
+    assert texts[0].startswith("🔎") and "2 lohnende Autos" in texts[0]
+    assert "Schnäppchen" in texts[1] and "Schnäppchen" in texts[2]
+    assert texts[3] == "✅ Fertig: 2 von 2 gefunden, 17 Anzeigen geprüft."
+
+
+def test_hunt_without_finds_or_with_a_block_still_answers():
+    chat, telegram = bot([message(1, "suche")], HuntingHunter([], evaluated=40))
+    chat.poll(timeout=0)
+    assert "Unter 40 neuen Anzeigen" in telegram.sent[-1][1]
+
+    chat, telegram = bot([message(1, "suche 3")], HuntingHunter([report()], 5, error=SourceBlockedError("403")))
+    chat.poll(timeout=0)
+    texts = [text for _, text in telegram.sent]
+    assert "Schnäppchen" in texts[1] and "blockt" in texts[2] and texts[3].startswith("✅ Fertig: 1 von 3")
