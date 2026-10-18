@@ -94,6 +94,7 @@ class FlipEstimate:
     vat: int
     profit: int
     roi: float
+    hu_cost: int = 0  # part of other_costs: HU/TÜV due soon
 
     @property
     def total_costs(self) -> int:

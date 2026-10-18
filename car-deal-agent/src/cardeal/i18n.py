@@ -4,7 +4,7 @@ from __future__ import annotations
 
 TEXTS: dict[str, dict[str, str]] = {
     "ar": {
-        "profit_line": "الربح ~{profit} بعد كل المصاريف",
+        "profit_line": "الربح {profit} بعد كل المصاريف",
         "no_issues": "ما في أعطال مذكورة بالإعلان",
         "verdict_deal": "🔥 لقطة",
         "verdict_check": "🔍 بدها فحص",
@@ -45,7 +45,7 @@ TEXTS: dict[str, dict[str, str]] = {
                          "(إذا في أكتر من شخص، افصل الأرقام بفاصلة)",
     },
     "de": {
-        "profit_line": "Gewinn ~{profit} nach allen Kosten",
+        "profit_line": "Gewinn {profit} nach allen Kosten",
         "no_issues": "Keine Mängel in der Anzeige erwähnt",
         "verdict_deal": "🔥 Schnäppchen",
         "verdict_check": "🔍 Prüfen",
@@ -88,7 +88,7 @@ TEXTS: dict[str, dict[str, str]] = {
                          "(mehrere Personen mit Komma trennen)",
     },
     "en": {
-        "profit_line": "Profit ~{profit} after all costs",
+        "profit_line": "Profit {profit} after all costs",
         "no_issues": "No defects mentioned in the ad",
         "verdict_deal": "🔥 Deal",
         "verdict_check": "🔍 Check it",

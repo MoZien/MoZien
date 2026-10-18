@@ -38,9 +38,8 @@ def estimate_flip(
     buy = round(asking * (1 - settings.negotiation_discount)) if listing.negotiable else asking
     resale = round((valuation.market_price or 0) * settings.resale_factor)
 
-    other = sum(settings.fixed_costs.values())
-    if hu_due_soon(listing, settings, today):
-        other += settings.hu_cost
+    hu_cost = settings.hu_cost if hu_due_soon(listing, settings, today) else 0
+    other = sum(settings.fixed_costs.values()) + hu_cost
 
     # Differenzbesteuerung (§25a UStG): VAT is 19/119 of (sale price - purchase price).
     vat = round(max(resale - buy, 0) * VAT_RATE / (1 + VAT_RATE)) if settings.vat_margin_scheme else 0
@@ -54,6 +53,7 @@ def estimate_flip(
         vat=vat,
         profit=profit,
         roi=round(profit / invested, 3) if invested else 0.0,
+        hu_cost=hu_cost,
     )
 
 

@@ -29,10 +29,11 @@ def test_short_report_in_arabic_with_quoted_repair():
         questions_for_seller=["في سجل صيانة؟", "إيمت انغيّر الزيت؟", "سؤال تالت"],
     )
     text = format_report(report(analysis), "ar")
-    lines = text.split("\n")
+    assert "\u2066(−30 %)\u2069" in text  # numbers isolated, so right-to-left can't scramble them
+    lines = text.replace("\u2066", "").replace("\u2069", "").split("\n")
     assert lines[0] == "<b>🔥 لقطة · Golf &lt;GTI&gt; &amp; more</b>"
     assert lines[1] == "📍 10115 Mitte · 72.500 km · EZ 08/2014 · TÜV 03/2027"
-    assert lines[2] == "💶 <b>6.200 €</b> قابل للتفاوض → السوق ~8.900 € (−30 %)"
+    assert lines[2] == "💶 <b>6.200 €</b> قابل للتفاوض ← السوق ~8.900 € (−30 %)"
     assert lines[3] == "📈 الربح ~1.895 € بعد كل المصاريف (ROI 29 %)"
     assert lines[4] == "🔧 المكيف بحاجة تعبئة ~300 € – “Klima muss befüllt werden”"
     assert "Motorschaden" not in text  # an invented quote never shows up as a cost
@@ -68,3 +69,10 @@ def test_price_above_market_is_shown_with_plus():
     expensive = report()
     expensive.listing.price = 9_300
     assert "(+4 %)" in to_plain_text(format_report(expensive, "de"))
+
+
+def test_due_tuv_and_its_cost_are_shown():
+    due = report()
+    due.flip.hu_cost = 200
+    assert "TÜV 03/2027 ⚠️ +200 €" in to_plain_text(format_report(due, "de"))
+    assert "TÜV" in to_plain_text(format_report(report(), "de")) and "⚠️" not in format_report(report(), "de")

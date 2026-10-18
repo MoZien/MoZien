@@ -41,6 +41,7 @@ def test_hu_due_adds_cost():
     soon = estimate_flip(listing(hu="12/2026"), valuation(), SETTINGS, today=TODAY)
     later = estimate_flip(listing(hu="10/2028"), valuation(), SETTINGS, today=TODAY)
     assert soon.other_costs - later.other_costs == SETTINGS.hu_cost
+    assert (soon.hu_cost, later.hu_cost) == (SETTINGS.hu_cost, 0)
     assert months_until_hu("03/2026", TODAY) == -7
     assert months_until_hu("bald", TODAY) is None
 
