@@ -41,6 +41,8 @@ profit   = resale − buy − repairs (AI estimate) − fixed costs − HU if du
 ROI      = profit / (buy + repairs + costs)
 ```
 
+**Repair costs.** The AI lists problems it sees in the ad, and every cost must come with the exact words from the ad (`quote`). The program checks that those words really are in the ad; costs without a matching quote, and typical-for-the-model risks the ad doesn't mention, count as 0 € and become questions for the seller instead. The Telegram message shows each counted cost with its quote, or "No defects mentioned in the ad".
+
 **Verdict.** `deal` when profit and ROI pass your minimums and nothing is suspicious; `check` when the market data is thin, the price is suspiciously low (≥ 40 % below market), the AI review failed, or the AI wants an inspection first; `skip` for high scam risk or when the AI finds problems that eat the margin.
 
 **First run.** The first run of a search only collects market data. Alerts start with ads posted after that, which is what you want for being first to call. Set `deal.alert_existing: true` to also rate the ads already online.

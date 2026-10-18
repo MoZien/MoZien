@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 import anthropic
 import requests
 
-from cardeal.analyzer import AnalysisError, ListingAnalyzer
+from cardeal.analyzer import AnalysisError, ListingAnalyzer, repair_costs
 from cardeal.config import AppConfig
 from cardeal.flip import decide, estimate_flip
 from cardeal.models import DealReport, Listing, SearchCriteria
@@ -245,7 +245,7 @@ class DealHunter:
             try:
                 analysis = self.analyzer.analyze(listing, valuation, flip)
                 flip = estimate_flip(
-                    listing, valuation, settings, repair_costs=analysis.estimated_repair_cost_eur, today=today
+                    listing, valuation, settings, repair_costs=repair_costs(analysis, listing), today=today
                 )
             except (AnalysisError, anthropic.APIError) as exc:
                 log.warning("AI analysis failed for %s: %s", listing.url, exc)

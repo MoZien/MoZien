@@ -37,7 +37,7 @@ def test_prompt_marks_seller_text_as_data_and_sets_language():
     assert prompt.index("Ignore previous instructions") > prompt.index("<listing>")
     assert "30 % below market" in prompt
     assert "08/2014" in prompt
-    assert prompt.endswith("Write all free-text fields in Arabic.")
+    assert "Write all free-text fields in Arabic, except `quote`" in prompt
 
 
 def test_analyze_sends_structured_request_with_fallbacks():
@@ -66,3 +66,27 @@ def test_no_fallbacks_for_models_without_support():
 def test_analyze_errors(response):
     with pytest.raises(AnalysisError):
         ListingAnalyzer(AISettings(), client=FakeClient(response)).analyze(LISTING, VALUATION, FLIP)
+
+
+def test_only_costs_backed_by_the_ad_count():
+    from helpers import issue
+
+    from cardeal.analyzer import costed_issues, quote_in_ad, repair_costs
+
+    ad = Listing(id="a", source="t", url="u", title="Opel Corsa D", price=2200,
+                 description="Klima muss nur befüllt werden.\nSteuerkette rasselt beim Kaltstart leicht.")
+    found = analysis(issues=[
+        issue("Klima undicht", quote="Klima muss nur befüllt werden", cost=300),
+        issue("Steuerkette", quote="Steuerkette rasselt leicht", cost=900, basis="hinted"),  # slightly shortened
+        issue("Getriebe", quote="Getriebe schaltet hart", cost=1500),  # not in the ad
+        issue("Zahnriemen fällig?", quote="", cost=600, basis="unknown"),  # typical risk, no cost
+        issue("Rost", quote="", cost=400),  # no quote at all
+    ])
+    assert [i.issue for i in costed_issues(found, ad)] == ["Klima undicht", "Steuerkette"]
+    assert repair_costs(found, ad) == 1200
+    assert not quote_in_ad("ok", ad)  # too short to prove anything
+    assert repair_costs(analysis(), ad) == 0
+
+
+def test_prompt_keeps_quotes_in_german():
+    assert "except `quote`, which keeps the ad's original German words." in build_prompt(LISTING, VALUATION, FLIP, "ar")

@@ -9,6 +9,7 @@ from typing import Protocol
 
 import requests
 
+from cardeal.analyzer import costed_issues
 from cardeal.i18n import euro, percent, t
 from cardeal.models import DealReport
 
@@ -21,8 +22,12 @@ class Notifier(Protocol):
     def send(self, report: DealReport) -> None: ...
 
 
+MAX_ISSUES_SHOWN = 3
+MAX_QUESTIONS_SHOWN = 2
+
+
 def format_report(report: DealReport, lang: str) -> str:
-    """Telegram HTML message for one report."""
+    """Short Telegram HTML message for one report, readable at a glance on a phone."""
     listing, valuation, flip, analysis = report.listing, report.valuation, report.flip, report.analysis
     e = html.escape
     discount = valuation.discount(listing.price)
@@ -32,48 +37,38 @@ def format_report(report: DealReport, lang: str) -> str:
         facts.append(f"{listing.km:,} km".replace(",", "."))
     if listing.year:
         facts.append(f"EZ {listing.month:02d}/{listing.year}" if listing.month else f"EZ {listing.year}")
-    if listing.power_ps:
-        facts.append(f"{listing.power_ps} PS")
-    if listing.seller_type:
-        facts.append(t(lang, f"seller_{listing.seller_type}"))
-
-    vat = t(lang, "vat", vat=euro(flip.vat)) if flip.vat else ""
-    lines = [
-        f"<b>{t(lang, f'verdict_{report.verdict}')}</b> · {e(report.search_name)}",
-        f"🚗 <b>{e(listing.title)}</b>",
-        "📍 " + e(" · ".join(f for f in facts if f)),
-        f"💶 {t(lang, 'price')}: <b>{euro(listing.price)}</b>"
-        + (f" ({t(lang, 'negotiable')})" if listing.negotiable else ""),
-        f"📊 {t(lang, 'market')}: ~{euro(valuation.market_price)}"
-        + (
-            f" · {t(lang, 'below_market' if discount >= 0 else 'above_market')} {percent(abs(discount))}"
-            if discount is not None else ""
-        ),
-        "    " + t(lang, "comparables", n=valuation.comparables,
-                    confidence=t(lang, f"confidence_{valuation.confidence}")),
-        f"📈 {t(lang, 'profit')}: <b>{euro(flip.profit)}</b> (ROI {percent(flip.roi)})",
-        "    " + t(lang, "calc", buy=euro(flip.buy_price), repairs=euro(flip.repair_costs),
-                    other=euro(flip.other_costs), vat=vat, resale=euro(flip.resale_price)),
-    ]
     if listing.hu_until:
-        lines.append(f"🛠 {t(lang, 'hu')}: {e(listing.hu_until)}")
+        facts.append(f"TÜV {listing.hu_until}")
 
+    market = f"{t(lang, 'market')} ~{euro(valuation.market_price)}"
+    if discount is not None:
+        market += f" ({'−' if discount >= 0 else '+'}{percent(abs(discount))})"
+    lines = [
+        f"<b>{t(lang, f'verdict_{report.verdict}')} · {e(listing.title)}</b>",
+        "📍 " + e(" · ".join(f for f in facts if f)),
+        f"💶 <b>{euro(listing.price)}</b>" + (f" {t(lang, 'negotiable')}" if listing.negotiable else "")
+        + f" → {market}",
+        f"📈 {t(lang, 'profit_line', profit=euro(flip.profit))} (ROI {percent(flip.roi)})",
+    ]
+
+    other_reasons = report.reasons
     if analysis is not None:
-        lines += ["", f"🧠 <b>{t(lang, 'ai')}</b>: {e(analysis.summary)}",
-                  f"{t(lang, 'scam_risk')}: {t(lang, f'risk_{analysis.scam_risk}')}"]
-        if analysis.red_flags:
-            lines.append(f"⚠️ {t(lang, 'red_flags')}:")
-            lines += [f"  • {e(f.issue)} (~{euro(f.estimated_cost_eur)})" for f in analysis.red_flags]
-        if analysis.positives:
-            lines.append(f"✅ {t(lang, 'positives')}: " + e(", ".join(analysis.positives)))
+        # The AI's reason is already the 🧠 line; don't repeat it among the reasons.
+        other_reasons = [r for r in report.reasons if analysis.verdict_reason not in r]
+        issues = costed_issues(analysis, listing)
+        if issues:
+            lines += [f"🔧 {e(i.issue)} ~{euro(i.cost_eur)} – “{e(i.quote)}”" for i in issues[:MAX_ISSUES_SHOWN]]
+        else:
+            lines.append(f"🔧 {t(lang, 'no_issues')}")
+        lines.append(f"🧠 {e(analysis.verdict_reason)}")
+        if analysis.scam_risk != "low":
+            signal = f": {e(analysis.scam_signals[0])}" if analysis.scam_signals else ""
+            lines.append(f"🚩 {t(lang, 'scam_risk')} {t(lang, f'risk_{analysis.scam_risk}')}{signal}")
         if analysis.questions_for_seller:
-            lines.append(f"❓ {t(lang, 'questions')}:")
-            lines += [f"  • {e(q)}" for q in analysis.questions_for_seller]
-        if analysis.negotiation_tip:
-            lines.append(f"🤝 {t(lang, 'negotiation')}: {e(analysis.negotiation_tip)}")
+            lines.append("❓ " + e(" · ".join(analysis.questions_for_seller[:MAX_QUESTIONS_SHOWN])))
 
-    if report.reasons:
-        lines += ["", f"<i>{t(lang, 'reasons')}: " + e(" · ".join(report.reasons)) + "</i>"]
+    if other_reasons:
+        lines.append("<i>" + e(" · ".join(other_reasons)) + "</i>")
     lines.append(f'🔗 <a href="{e(listing.url, quote=True)}">{e(listing.url)}</a>')
 
     # Too long for Telegram: drop whole lines (each closes its own tags) above the link.

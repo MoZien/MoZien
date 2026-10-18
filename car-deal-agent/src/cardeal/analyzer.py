@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Literal
 
 import anthropic
@@ -16,25 +17,25 @@ FALLBACK_MODELS = {"claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5", "cla
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
 
-class RedFlag(BaseModel):
+class Issue(BaseModel):
     issue: str
-    severity: Literal["low", "medium", "high"]
-    estimated_cost_eur: int
+    # stated: the seller writes it; hinted: the wording clearly points to it;
+    # unknown: not in the ad, only a typical risk worth asking about.
+    basis: Literal["stated", "hinted", "unknown"]
+    quote: str
+    cost_eur: int
 
 
 class ListingAnalysis(BaseModel):
-    summary: str
-    condition: Literal["excellent", "good", "fair", "poor", "defective"]
-    red_flags: list[RedFlag]
+    verdict: Literal["buy", "check", "skip"]
+    verdict_reason: str
+    issues: list[Issue]
     positives: list[str]
-    estimated_repair_cost_eur: int
     scam_risk: Literal["low", "medium", "high"]
     scam_signals: list[str]
     resale_difficulty: Literal["easy", "normal", "hard"]
     questions_for_seller: list[str]
     negotiation_tip: str
-    verdict: Literal["buy", "check", "skip"]
-    verdict_reason: str
 
 
 SYSTEM_PROMPT = """\
@@ -52,24 +53,65 @@ diesels, oil loss, rust, air conditioning, accident or hail damage, \
 "Bastlerfahrzeug", "Motorschaden", "an Export/Gewerbe", "ohne TÜV". Read \
 euphemisms for what they usually mean (e.g. "Klima muss nur befüllt werden" \
 often means a leak).
-- Paperwork: service history (Scheckheft), number of owners, HU date, \
-reimport, former taxi or rental use, mileage that does not fit the age.
+- Paperwork: service history (Scheckheft), number of owners, reimport, former \
+taxi or rental use, mileage that does not fit the age.
 - Scam signals: price far below market together with a seller abroad, \
 contact only by e-mail or WhatsApp, shipping or "Spedition", deposits, \
 escrow services, pressure to decide fast, generic or copied text.
-- Resale: how easy this exact car is to sell again in Germany (demand, \
-engine, gearbox, colour, mileage band).
+- Resale: how easy this exact car is to sell again in Germany.
 
-Repair costs: estimate realistic prices at an independent German workshop, \
-parts and labour included. Only count problems the ad states or strongly \
-suggests; when information is missing, put it into questions_for_seller \
-instead of assuming a defect. estimated_repair_cost_eur is the total of what \
-the buyer must fix before reselling.
+Issues and repair costs - the buyer relies on these numbers, so never guess:
+- basis "stated" or "hinted": the ad itself says or clearly points to the \
+problem. Copy the words from the ad that show it into `quote`, exactly as \
+written there (German, 2-10 words). Set cost_eur to a realistic price at an \
+independent German workshop, parts and labour.
+- basis "unknown": the ad does not mention it (e.g. a weak spot typical for \
+this model, or missing service history). quote "" and cost_eur 0, and ask \
+about it in questions_for_seller instead.
+- Costs whose quote cannot be found in the ad are thrown away, so don't \
+invent or paraphrase quotes.
+- Leave out the HU/TÜV inspection, cleaning, registration and normal wear: \
+they are already counted separately.
+- No problems mentioned in the ad means no issues with costs. That is fine.
+
+Keep it short, it is read on a phone: verdict_reason one sentence (max 20 \
+words), each issue max 6 words, at most 3 positives and 3 questions for the \
+seller (max 10 words each), negotiation_tip one short sentence.
 
 Verdict: "buy" when the car is likely profitable to flip after the repairs \
-you estimated, "check" when it could be a good deal but needs an inspection \
-or answers from the seller first, "skip" when the risk or costs eat the margin \
-or it looks like a scam. Explain the verdict in one or two sentences."""
+you found, "check" when it could be a good deal but needs an inspection or \
+answers from the seller first, "skip" when the risk or costs eat the margin \
+or it looks like a scam."""
+
+
+def _normalize(text: str) -> str:
+    return " ".join(re.sub(r"[^\w%€]+", " ", text.lower()).split())
+
+
+def quote_in_ad(quote: str, listing: Listing) -> bool:
+    """True if the quoted words really come from the ad (exactly, or nearly: at
+    least 80 % of the quote's words appear in the ad)."""
+    quote = _normalize(quote)
+    if len(quote) < 4:
+        return False
+    ad = _normalize(" ".join([listing.title, listing.description, " ".join(listing.features)]))
+    if quote in ad:
+        return True
+    words = [w for w in quote.split() if len(w) >= 3]
+    ad_words = set(ad.split())
+    return bool(words) and sum(w in ad_words for w in words) / len(words) >= 0.8
+
+
+def costed_issues(analysis: ListingAnalysis, listing: Listing) -> list[Issue]:
+    """Issues whose repair cost counts: mentioned in the ad and backed by a real quote."""
+    return [
+        issue for issue in analysis.issues
+        if issue.basis != "unknown" and issue.cost_eur > 0 and quote_in_ad(issue.quote, listing)
+    ]
+
+
+def repair_costs(analysis: ListingAnalysis, listing: Listing) -> int:
+    return sum(issue.cost_eur for issue in costed_issues(analysis, listing))
 
 
 def _format_listing(listing: Listing) -> str:
@@ -106,7 +148,8 @@ def build_prompt(listing: Listing, valuation: Valuation, flip: FlipEstimate, lan
     )
     return (
         f"{market}\n\n<listing>\n{_format_listing(listing)}\n</listing>\n\n"
-        f"Write all free-text fields in {LANGUAGE_NAMES.get(language, 'English')}."
+        f"Write all free-text fields in {LANGUAGE_NAMES.get(language, 'English')}, "
+        "except `quote`, which keeps the ad's original German words."
     )
 
 

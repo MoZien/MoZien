@@ -2,7 +2,7 @@ import random
 from dataclasses import replace
 from datetime import datetime
 
-from helpers import make_analysis
+from helpers import issue, make_analysis
 
 from cardeal.analyzer import AnalysisError
 from cardeal.config import AppConfig
@@ -42,14 +42,14 @@ class FakeSource:
 
     def fetch_details(self, listing):
         self.detail_calls.append(listing.id)
-        listing.description = "Scheckheft, 1. Hand"
+        listing.description = "Scheckheft, 1. Hand. Klima muss befüllt werden."
         listing.details_loaded = True
         return listing
 
 
 class FakeAnalyzer:
     def __init__(self, result=None, error=None):
-        self.result = result or make_analysis(estimated_repair_cost_eur=300)
+        self.result = result or make_analysis(issues=[issue()])  # 300 €, quote is in the ad
         self.error = error
         self.calls = 0
 
