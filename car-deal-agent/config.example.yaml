@@ -58,7 +58,7 @@ deal:
 
 ai:
   enabled: true
-  model: claude-opus-5-5
+  model: claude-haiku-5-5   # cheap; claude-sonnet-5-5 or claude-opus-5-5 for deeper reviews
   effort: medium             # low | medium | high
   max_tokens: 16000
 
