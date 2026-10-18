@@ -74,7 +74,7 @@ cp .env.example .env                 # API key + Telegram
 
 **Ask in Telegram:** while `cardeal run` (or `cardeal chat`) is running, send the bot a Kleinanzeigen link, e.g. via *Share → Copy link* in the app. It answers with market price, profit and the AI review. Only the chat in `TELEGRAM_CHAT_ID` gets answers, so nobody else can spend your API credit. To let friends send links too, put their chat ids into `TELEGRAM_ALLOWED_CHATS` (comma separated). When someone unknown writes to the bot, it tells you their id; deal alerts stay with you. Links sent during a search run are answered right after it.
 
-**Search on demand:** write `suche 3` (or `search 3`, `دورلي 3`) to the bot. It goes through the newest ads of your searches in `config.yaml`, sends every worthwhile car (deal or check) the moment it finds it, and stops after 3 finds or `scraper.max_ads_per_hunt` evaluated ads (default 40). Ads it has already evaluated are skipped, so asking again brings new cars.
+**Search on demand:** write `suche 3` (or `search 3`, `دورلي 3`) to the bot. It goes through the newest ads of your searches in `config.yaml`, sends every worthwhile car (deal or check) the moment it finds it, and stops after 3 finds or `scraper.max_ads_per_hunt` evaluated ads (default 40). Ads it has already evaluated are skipped, so asking again brings new cars. Write `stop` (or `وقف`) to end a running search; other messages sent meanwhile are answered after it. A search request that arrived while the bot was off (older than 10 minutes) is not started automatically.
 
 ```bash
 cardeal once                     # run all searches one time

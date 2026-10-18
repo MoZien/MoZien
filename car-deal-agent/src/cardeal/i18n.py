@@ -4,6 +4,10 @@ from __future__ import annotations
 
 TEXTS: dict[str, dict[str, str]] = {
     "ar": {
+        "hunt_stopping": "⏹️ تمام، عم وقّف البحث…",
+        "hunt_stopped": "⏹️ وقّفت البحث: لقيت {found}، وفحصت {checked} إعلان.",
+        "hunt_not_running": "ما في بحث شغّال هلق.",
+        "hunt_too_old": "طلب البحث تبعك وصل والبوت كان طافي، فما بلّشت فيه. ابعت «دورلي 3» من جديد إذا بدك.",
         "profit_line": "الربح {profit} بعد كل المصاريف",
         "no_issues": "ما في أعطال مذكورة بالإعلان",
         "verdict_deal": "🔥 لقطة",
@@ -28,7 +32,7 @@ TEXTS: dict[str, dict[str, str]] = {
                      "وبحسبلك سعر السوق والربح والمخاطر.\n"
                      "أو اكتب «دورلي 3» وبدورلك على 3 سيارات بتستاهل من أحدث الإعلانات.",
         "hunt_start": "🔎 عم دور على {count} سيارات بتستاهل بأحدث الإعلانات (بفحص لحد {max} إعلان، "
-                      "ممكن ياخد لحد {minutes} دقيقة). كل سيارة بلاقيها ببعتلك ياها فوراً.",
+                      "ممكن ياخد لحد {minutes} دقيقة). كل سيارة بلاقيها ببعتلك ياها فوراً. اكتب «وقف» لتوقّف البحث.",
         "hunt_done": "✅ خلصت: لقيت {found} من {count}، وفحصت {checked} إعلان.",
         "hunt_none": "ما لقيت ولا سيارة بتستاهل بين {checked} إعلان جديد. جرّب كمان شوي.",
         "hunt_no_search": "ما في بحث مضبوط بملف config.yaml.",
@@ -45,6 +49,11 @@ TEXTS: dict[str, dict[str, str]] = {
                          "(إذا في أكتر من شخص، افصل الأرقام بفاصلة)",
     },
     "de": {
+        "hunt_stopping": "⏹️ Okay, ich höre auf…",
+        "hunt_stopped": "⏹️ Suche gestoppt: {found} gefunden, {checked} Anzeigen geprüft.",
+        "hunt_not_running": "Gerade läuft keine Suche.",
+        "hunt_too_old": "Deine Suchanfrage kam an, als der Bot aus war, deshalb habe ich sie nicht gestartet. "
+                        "Schick «suche 3» nochmal, wenn du willst.",
         "profit_line": "Gewinn {profit} nach allen Kosten",
         "no_issues": "Keine Mängel in der Anzeige erwähnt",
         "verdict_deal": "🔥 Schnäppchen",
@@ -71,7 +80,8 @@ TEXTS: dict[str, dict[str, str]] = {
                      "dann berechne ich Marktpreis, Gewinn und Risiken.\n"
                      "Oder schreib «suche 3», dann suche ich 3 lohnende Autos unter den neuesten Anzeigen.",
         "hunt_start": "🔎 Ich suche {count} lohnende Autos unter den neuesten Anzeigen (prüfe bis zu {max} Anzeigen, "
-                      "das kann bis zu {minutes} Minuten dauern). Jeden Fund schicke ich dir sofort.",
+                      "das kann bis zu {minutes} Minuten dauern). Jeden Fund schicke ich dir sofort. "
+                      "Schreib «stop» zum Abbrechen.",
         "hunt_done": "✅ Fertig: {found} von {count} gefunden, {checked} Anzeigen geprüft.",
         "hunt_none": "Unter {checked} neuen Anzeigen war kein lohnendes Auto. Versuch es später nochmal.",
         "hunt_no_search": "In config.yaml ist keine Suche eingerichtet.",
@@ -88,6 +98,11 @@ TEXTS: dict[str, dict[str, str]] = {
                          "(mehrere Personen mit Komma trennen)",
     },
     "en": {
+        "hunt_stopping": "⏹️ Okay, stopping…",
+        "hunt_stopped": "⏹️ Search stopped: found {found}, checked {checked} ads.",
+        "hunt_not_running": "No search is running right now.",
+        "hunt_too_old": "Your search request arrived while the bot was off, so I didn't start it. "
+                        "Send \"search 3\" again if you still want it.",
         "profit_line": "Profit {profit} after all costs",
         "no_issues": "No defects mentioned in the ad",
         "verdict_deal": "🔥 Deal",
@@ -114,7 +129,8 @@ TEXTS: dict[str, dict[str, str]] = {
                      "and I'll work out market price, profit and risks.\n"
                      "Or write \"search 3\" and I'll find 3 worthwhile cars among the newest ads.",
         "hunt_start": "🔎 Looking for {count} worthwhile cars among the newest ads (checking up to {max} ads, "
-                      "this can take up to {minutes} minutes). I'll send each find right away.",
+                      "this can take up to {minutes} minutes). I'll send each find right away. "
+                      "Write \"stop\" to cancel.",
         "hunt_done": "✅ Done: found {found} of {count}, checked {checked} ads.",
         "hunt_none": "No worthwhile car among {checked} new ads. Try again later.",
         "hunt_no_search": "No search is set up in config.yaml.",

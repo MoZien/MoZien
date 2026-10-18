@@ -107,9 +107,11 @@ class DealHunter:
         max_ads: int,
         pages: int = 4,
         on_found: Callable[[DealReport], None] | None = None,
+        should_stop: Callable[[], bool] | None = None,
     ) -> tuple[list[DealReport], int]:
         """Goes through the newest not yet evaluated ads of all searches until `count`
-        worthwhile cars (deal or check) are found or `max_ads` ads were evaluated.
+        worthwhile cars (deal or check) are found, `max_ads` ads were evaluated or
+        `should_stop` (asked before each ad) returns True.
         Returns the finds and the number of ads evaluated."""
         found: list[DealReport] = []
         evaluated = 0
@@ -124,6 +126,8 @@ class DealHunter:
                     return found, evaluated
                 if not self._is_candidate(listing, search) or not self.store.needs_evaluation(listing):
                     continue
+                if should_stop is not None and should_stop():
+                    return found, evaluated
                 evaluated += 1
                 report = self._evaluate_candidate(listing, search, comps)
                 self.store.mark_evaluated(listing)

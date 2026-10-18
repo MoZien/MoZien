@@ -5,6 +5,8 @@ from __future__ import annotations
 import html
 import logging
 import re
+import time
+from collections.abc import Callable
 
 import requests
 
@@ -22,6 +24,13 @@ HUNT_RE = re.compile(r"^\s*/?(such|search|find|ابحث|دور|لاقي|فتش)"
 DEFAULT_HUNT_COUNT = 3
 MAX_HUNT_COUNT = 10
 SECONDS_PER_AD = 20  # detail page + comparables at polite speed, for the time estimate
+STOP_WORDS = {"stop", "stopp", "/stop", "halt", "abbrechen", "cancel", "توقف", "وقف", "خلص", "بس", "كفى"}
+# A search request older than this was sent while the bot was off; don't start it unasked.
+MAX_HUNT_REQUEST_AGE = 10 * 60
+
+
+def is_stop(text: str) -> bool:
+    return (text or "").strip().lower().rstrip("!.") in STOP_WORDS
 
 
 def hunt_count(text: str) -> int | None:
@@ -55,6 +64,7 @@ class ChatBot:
         hunter: DealHunter,
         lang: str,
         allowed_chats: tuple[str, ...] | list[str] = (),
+        now: Callable[[], float] = time.time,
     ):
         self.client = client
         self.chat_id = str(chat_id)
@@ -63,10 +73,18 @@ class ChatBot:
         self.lang = lang
         self.offset: int | None = None
         self._turned_away: set[str] = set()
+        self._now = now
+        # While a search runs, the chat is checked between ads: "stop" ends it,
+        # everything else waits in _deferred until the search is over.
+        self._hunt_chat: str | None = None
+        self._stop_requested = False
+        self._deferred: list[tuple[str, str, int | None]] = []
 
     def poll(self, timeout: int = 30) -> None:
         """Waits up to `timeout` seconds for messages and answers them."""
         for update in self.client.get_updates(self.offset, timeout):
+            if self.offset is not None and update["update_id"] < self.offset:
+                continue  # already handled by a check made during a search
             self.offset = update["update_id"] + 1
             message = update.get("message") or {}
             chat_id = str(message.get("chat", {}).get("id", ""))
@@ -75,12 +93,26 @@ class ChatBot:
             if chat_id not in self.allowed:
                 self._turn_away(chat_id, message)
                 continue
-            self.handle(message.get("text") or message.get("caption") or "", chat_id)
+            text = message.get("text") or message.get("caption") or ""
+            if self._hunt_chat is not None:
+                if chat_id == self._hunt_chat and is_stop(text):
+                    self._stop_requested = True
+                    self.reply(t(self.lang, "hunt_stopping"), chat_id)
+                else:
+                    self._deferred.append((text, chat_id, message.get("date")))
+                continue
+            self.handle(text, chat_id, sent_at=message.get("date"))
 
-    def handle(self, text: str, chat_id: str | None = None) -> None:
+    def handle(self, text: str, chat_id: str | None = None, sent_at: int | None = None) -> None:
         chat_id = chat_id or self.chat_id
+        if is_stop(text):
+            self.reply(t(self.lang, "hunt_not_running"), chat_id)
+            return
         urls = find_ad_urls(text)
         if not urls and (count := hunt_count(text)) is not None:
+            if sent_at is not None and self._now() - sent_at > MAX_HUNT_REQUEST_AGE:
+                self.reply(t(self.lang, "hunt_too_old"), chat_id)
+                return
             self._hunt(count, chat_id)
             return
         if not urls:
@@ -105,17 +137,34 @@ class ChatBot:
             found.append(report)
             self.reply(format_report(report, self.lang), chat_id)
 
+        def should_stop() -> bool:
+            try:
+                self.poll(timeout=0)
+            except (TelegramError, requests.RequestException) as exc:
+                log.warning("Telegram: %s", exc)
+            return self._stop_requested
+
+        self._hunt_chat, self._stop_requested = chat_id, False
         try:
             _, evaluated = self.hunter.find_deals(
-                count, max_ads, pages=self.hunter.config.scraper.hunt_pages, on_found=send
+                count, max_ads, pages=self.hunter.config.scraper.hunt_pages, on_found=send, should_stop=should_stop
             )
         except SourceBlockedError:
             self.reply(t(self.lang, "chat_blocked"), chat_id)
         except Exception as exc:  # report what was found so far instead of going silent
             log.exception("search in chat failed")
             self.reply(t(self.lang, "chat_error", error=html.escape(f"{type(exc).__name__}: {exc}"[:200])), chat_id)
-        key = "hunt_done" if found else "hunt_none"
+        finally:
+            self._hunt_chat = None
+        if self._stop_requested:
+            key = "hunt_stopped"
+        else:
+            key = "hunt_done" if found else "hunt_none"
         self.reply(t(self.lang, key, found=len(found), count=count, checked=evaluated), chat_id)
+
+        deferred, self._deferred = self._deferred, []
+        for text, sender, sent_at in deferred:
+            self.handle(text, sender, sent_at)
 
     def _turn_away(self, chat_id: str, message: dict) -> None:
         """Tells a stranger once that the bot is private, and tells the owner how to let them in."""
