@@ -213,4 +213,6 @@ class DealHunter:
         comps = self._comparables_for(listing)
         if comps is None:
             raise ValueError("could not read make, model and first registration from the ad")
-        return self.evaluate(listing, comps, search_name=f"{listing.make} {listing.model}", force=True), len(comps)
+        report = self.evaluate(listing, comps, search_name=f"{listing.make} {listing.model}", force=True)
+        self.store.mark_evaluated(listing)  # no second alert for an ad the user already asked about
+        return report, len(comps)

@@ -248,8 +248,8 @@ def test_broad_search_caps_detail_pages_per_run():
 
 
 def test_analyze_url_uses_model_comparables():
-    url = "https://www.kleinanzeigen.de/s-anzeige/opel-corsa/123-216-1"
-    details = {"kleinanzeigen:123": {**OPEL_CORSA, "price": 2_200, "year": 2008, "km": 150_000}}
+    url = "https://www.kleinanzeigen.de/s-anzeige/opel-corsa-2008/3545110385-216-1"
+    details = {"kleinanzeigen:3545110385": {**OPEL_CORSA, "price": 2_200, "year": 2008, "km": 150_000}}
     h, source, _ = broad_hunter([], details)
 
     report, comps = h.analyze_url(url)

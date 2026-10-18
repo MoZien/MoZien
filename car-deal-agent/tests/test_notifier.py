@@ -51,3 +51,10 @@ def test_long_messages_fit_telegram_and_keep_the_link():
     assert len(text) <= TELEGRAM_LIMIT
     assert text.endswith("</a>")
     assert text.count("<b>") == text.count("</b>")
+
+
+def test_price_above_market_is_worded_as_such():
+    expensive = report()
+    expensive.listing.price = 9_300
+    assert "über Markt 4 %" in to_plain_text(format_report(expensive, "de"))
+    assert "أغلى من السوق بـ 4 %" in format_report(expensive, "ar")

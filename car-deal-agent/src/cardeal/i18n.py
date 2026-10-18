@@ -11,6 +11,7 @@ TEXTS: dict[str, dict[str, str]] = {
         "negotiable": "قابل للتفاوض",
         "market": "سعر السوق",
         "below_market": "أرخص من السوق بـ",
+        "above_market": "أغلى من السوق بـ",
         "comparables": "{n} سيارة مشابهة، دقة {confidence}",
         "confidence_high": "عالية",
         "confidence_medium": "متوسطة",
@@ -38,6 +39,15 @@ TEXTS: dict[str, dict[str, str]] = {
         "reason_hu_due": "الفحص (TÜV) قرّب: {hu}",
         "reason_scam": "خطر احتيال عالي",
         "reason_ai": "الذكاء الاصطناعي: {reason}",
+        "chat_started": "✅ البوت شغّال وعم يراقب السوق. ابعتلي رابط أي إعلان سيارة من Kleinanzeigen وبقلّك إذا بتستاهل.",
+        "chat_help": "ابعتلي رابط إعلان سيارة من Kleinanzeigen (بالتطبيق: مشاركة ← نسخ الرابط) "
+                     "وبحسبلك سعر السوق والربح والمخاطر.",
+        "chat_working": "⏳ عم حلّل الإعلان، بياخد دقيقة أو دقيقتين…",
+        "chat_not_car": "ما قدرت اقرأ الماركة والموديل وسنة الصنع من هالإعلان. متأكد إنه إعلان سيارة؟",
+        "chat_few_comps": "لقيت بس {n} سيارات مشابهة، وهاد قليل لحتى احسب سعر السوق.",
+        "chat_blocked": "Kleinanzeigen عم يرفض الطلبات هلق. جرّب كمان شوي.",
+        "chat_gone": "هالإعلان ما عاد موجود (انباع أو انحذف).",
+        "chat_error": "صار خطأ أثناء التحليل: {error}",
     },
     "de": {
         "verdict_deal": "🔥 Schnäppchen",
@@ -47,6 +57,7 @@ TEXTS: dict[str, dict[str, str]] = {
         "negotiable": "VB",
         "market": "Marktpreis",
         "below_market": "unter Markt",
+        "above_market": "über Markt",
         "comparables": "{n} Vergleichsautos, Sicherheit {confidence}",
         "confidence_high": "hoch",
         "confidence_medium": "mittel",
@@ -74,6 +85,16 @@ TEXTS: dict[str, dict[str, str]] = {
         "reason_hu_due": "HU fällig {hu}",
         "reason_scam": "hohes Betrugsrisiko",
         "reason_ai": "KI: {reason}",
+        "chat_started": "✅ Der Bot läuft und beobachtet den Markt. Schick mir einen Link zu einer "
+                        "Kleinanzeigen-Autoanzeige und ich sag dir, ob sie sich lohnt.",
+        "chat_help": "Schick mir den Link zu einer Autoanzeige auf Kleinanzeigen (in der App: Teilen → Link kopieren), "
+                     "dann berechne ich Marktpreis, Gewinn und Risiken.",
+        "chat_working": "⏳ Ich analysiere die Anzeige, das dauert ein bis zwei Minuten…",
+        "chat_not_car": "Ich konnte Marke, Modell und Erstzulassung nicht lesen. Ist das eine Autoanzeige?",
+        "chat_few_comps": "Nur {n} Vergleichsautos gefunden, zu wenig für einen Marktpreis.",
+        "chat_blocked": "Kleinanzeigen blockt gerade die Anfragen. Versuch es gleich nochmal.",
+        "chat_gone": "Diese Anzeige gibt es nicht mehr (verkauft oder gelöscht).",
+        "chat_error": "Bei der Analyse ist ein Fehler passiert: {error}",
     },
     "en": {
         "verdict_deal": "🔥 Deal",
@@ -83,6 +104,7 @@ TEXTS: dict[str, dict[str, str]] = {
         "negotiable": "negotiable",
         "market": "Market price",
         "below_market": "below market",
+        "above_market": "above market",
         "comparables": "{n} comparables, confidence {confidence}",
         "confidence_high": "high",
         "confidence_medium": "medium",
@@ -110,6 +132,16 @@ TEXTS: dict[str, dict[str, str]] = {
         "reason_hu_due": "HU due {hu}",
         "reason_scam": "high scam risk",
         "reason_ai": "AI: {reason}",
+        "chat_started": "✅ The bot is running and watching the market. Send me a link to a car ad on "
+                        "Kleinanzeigen and I'll tell you whether it's worth it.",
+        "chat_help": "Send me a link to a car ad on Kleinanzeigen (in the app: Share → Copy link) "
+                     "and I'll work out market price, profit and risks.",
+        "chat_working": "⏳ Analysing the ad, this takes a minute or two…",
+        "chat_not_car": "I couldn't read make, model and first registration. Is this a car ad?",
+        "chat_few_comps": "Only {n} comparable cars found, too few for a market price.",
+        "chat_blocked": "Kleinanzeigen is blocking requests right now. Try again in a bit.",
+        "chat_gone": "This ad no longer exists (sold or deleted).",
+        "chat_error": "Something went wrong during the analysis: {error}",
     },
 }
 

@@ -1,19 +1,29 @@
-"""Command line: `cardeal once`, `cardeal run`, `cardeal analyze <url>`, `cardeal deals`."""
+"""Command line: `cardeal once`, `cardeal run`, `cardeal chat`, `cardeal analyze <url>`, `cardeal deals`."""
 
 from __future__ import annotations
 
 import argparse
 import logging
+import math
 import random
 import time
 from pathlib import Path
 
 import anthropic
+import requests
 
 from cardeal.analyzer import ListingAnalyzer
+from cardeal.chatbot import ChatBot
 from cardeal.config import AppConfig, load_config
-from cardeal.i18n import euro
-from cardeal.notifier import ConsoleNotifier, TelegramNotifier, format_report, to_plain_text
+from cardeal.i18n import euro, t
+from cardeal.notifier import (
+    ConsoleNotifier,
+    TelegramClient,
+    TelegramError,
+    TelegramNotifier,
+    format_report,
+    to_plain_text,
+)
 from cardeal.pipeline import DealHunter
 from cardeal.sources import KleinanzeigenSource
 from cardeal.storage import Store
@@ -56,7 +66,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("-v", "--verbose", action="store_true")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("once", help="run all searches one time")
-    commands.add_parser("run", help="run all searches every interval_minutes")
+    commands.add_parser("run", help="run all searches every interval_minutes and answer links sent in Telegram")
+    commands.add_parser("chat", help="only answer links sent in Telegram, no searches")
     analyze = commands.add_parser("analyze", help="evaluate a single ad by URL")
     analyze.add_argument("url")
     deals = commands.add_parser("deals", help="show the latest deals found")
@@ -96,14 +107,38 @@ def main(argv: list[str] | None = None) -> int:
         log.info("done: %d evaluated, %d deals", len(reports), sum(r.verdict == "deal" for r in reports))
         return 0
 
+    chat = None
+    if config.telegram_token and config.telegram_chat_id:
+        chat = ChatBot(TelegramClient(config.telegram_token), config.telegram_chat_id, hunter, config.language)
+        chat.reply(t(config.language, "chat_started" if args.command == "run" else "chat_help"))
+    elif args.command == "chat":
+        print("The chat needs TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env.")
+        return 1
+    _serve(hunter, chat, config.interval_minutes if args.command == "run" else None)
+    return 0
+
+
+def _serve(hunter: DealHunter, chat: ChatBot | None, interval_minutes: int | None) -> None:
+    """Answers chat messages and, if `interval_minutes` is set, runs the searches on schedule.
+    Single-threaded: a link sent during a search run is answered right after it."""
+    next_run = time.monotonic() if interval_minutes else math.inf
     while True:
-        try:
-            hunter.run_once()
-        except Exception:  # keep the watcher alive; the next run starts fresh
-            log.exception("run failed")
-        pause = config.interval_minutes * 60 * random.uniform(0.85, 1.15)
-        log.info("next run in %.0f minutes", pause / 60)
-        time.sleep(pause)
+        if chat is not None:
+            try:
+                chat.poll(timeout=int(min(max(next_run - time.monotonic(), 0), 30)))
+            except (TelegramError, requests.RequestException) as exc:
+                log.warning("Telegram: %s", exc)
+                time.sleep(10)
+        else:
+            time.sleep(max(next_run - time.monotonic(), 0))
+        if time.monotonic() >= next_run:
+            try:
+                hunter.run_once()
+            except Exception:  # keep the watcher alive; the next run starts fresh
+                log.exception("run failed")
+            pause = interval_minutes * 60 * random.uniform(0.85, 1.15)
+            next_run = time.monotonic() + pause
+            log.info("next run in %.0f minutes", pause / 60)
 
 
 if __name__ == "__main__":

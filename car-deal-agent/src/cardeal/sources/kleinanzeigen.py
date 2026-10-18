@@ -88,11 +88,13 @@ def make_slug(name: str) -> str:
 
 
 def listing_from_url(url: str) -> Listing:
-    """Bare listing for an ad URL like .../s-anzeige/vw-golf/3202186316-216-143."""
-    match = re.search(r"/(\d+)-\d+-\d+/?(?:\?.*)?$", url)
+    """Bare listing for an ad URL like .../s-anzeige/vw-golf/3202186316-216-143
+    (shared links may carry ?utm_... parameters or skip the title part)."""
+    match = re.search(r"/s-anzeige/(?:[^/?#]+/)?(\d{6,})", url)
     if not match or "kleinanzeigen.de" not in url:
         raise ValueError(f"not a Kleinanzeigen ad URL: {url}")
-    return Listing(id=f"kleinanzeigen:{match.group(1)}", source="kleinanzeigen", url=url, title="", price=None)
+    clean_url = url.split("#", 1)[0].split("?", 1)[0]  # drop tracking parameters from shared links
+    return Listing(id=f"kleinanzeigen:{match.group(1)}", source="kleinanzeigen", url=clean_url, title="", price=None)
 
 
 def build_search_url(

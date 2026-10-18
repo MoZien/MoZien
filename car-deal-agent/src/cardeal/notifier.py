@@ -45,7 +45,10 @@ def format_report(report: DealReport, lang: str) -> str:
         f"💶 {t(lang, 'price')}: <b>{euro(listing.price)}</b>"
         + (f" ({t(lang, 'negotiable')})" if listing.negotiable else ""),
         f"📊 {t(lang, 'market')}: ~{euro(valuation.market_price)}"
-        + (f" · {t(lang, 'below_market')} {percent(discount)}" if discount is not None else ""),
+        + (
+            f" · {t(lang, 'below_market' if discount >= 0 else 'above_market')} {percent(abs(discount))}"
+            if discount is not None else ""
+        ),
         "    " + t(lang, "comparables", n=valuation.comparables,
                     confidence=t(lang, f"confidence_{valuation.confidence}")),
         f"📈 {t(lang, 'profit')}: <b>{euro(flip.profit)}</b> (ROI {percent(flip.roi)})",
@@ -83,26 +86,49 @@ def to_plain_text(message: str) -> str:
     return html.unescape(re.sub(r"<[^>]+>", "", message))
 
 
-class TelegramNotifier:
-    def __init__(self, token: str, chat_id: str, lang: str, session: requests.Session | None = None):
-        self.url = f"https://api.telegram.org/bot{token}/sendMessage"
-        self.chat_id = chat_id
-        self.lang = lang
+class TelegramError(RuntimeError):
+    pass
+
+
+class TelegramClient:
+    """The few Telegram Bot API calls the agent needs."""
+
+    def __init__(self, token: str, session: requests.Session | None = None):
+        self.base_url = f"https://api.telegram.org/bot{token}"
         self.session = session or requests.Session()
 
-    def send(self, report: DealReport) -> None:
-        response = self.session.post(
-            self.url,
-            json={
-                "chat_id": self.chat_id,
-                "text": format_report(report, self.lang),
-                "parse_mode": "HTML",
-                "disable_web_page_preview": False,
-            },
-            timeout=20,
+    def call(self, method: str, http_timeout: float = 20, **params):
+        response = self.session.post(f"{self.base_url}/{method}", json=params, timeout=http_timeout)
+        try:
+            data = response.json()
+        except ValueError:
+            data = {}
+        if not data.get("ok"):
+            raise TelegramError(f"{method}: {response.status_code} {data.get('description') or response.text[:200]}")
+        return data["result"]
+
+    def send_message(self, chat_id: str, text: str) -> None:
+        # Link previews are on, so the ad photo shows up under the message.
+        self.call("sendMessage", chat_id=chat_id, text=text, parse_mode="HTML", disable_web_page_preview=False)
+
+    def get_updates(self, offset: int | None, timeout: int) -> list[dict]:
+        """Long polling: waits up to `timeout` seconds for new messages."""
+        return self.call(
+            "getUpdates", http_timeout=timeout + 15, offset=offset, timeout=timeout, allowed_updates=["message"]
         )
-        if not response.ok:
-            log.error("Telegram rejected the message: %s %s", response.status_code, response.text[:300])
+
+
+class TelegramNotifier:
+    def __init__(self, token: str, chat_id: str, lang: str, session: requests.Session | None = None):
+        self.client = TelegramClient(token, session)
+        self.chat_id = chat_id
+        self.lang = lang
+
+    def send(self, report: DealReport) -> None:
+        try:
+            self.client.send_message(self.chat_id, format_report(report, self.lang))
+        except (TelegramError, requests.RequestException) as exc:
+            log.error("Telegram rejected the message: %s", exc)
 
 
 class ConsoleNotifier:
