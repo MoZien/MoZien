@@ -47,6 +47,14 @@ ROI      = profit / (buy + repairs + costs)
 
 ## Setup
 
+**macOS, one command:** paste into Terminal. It installs Python if needed (via Homebrew, or opens the python.org download), puts the bot into `~/car-deal-agent`, asks for the API key and Telegram bot token (it finds the chat id itself), and creates a double-clickable `Car Deal Agent starten.command`. Running it again updates the code and keeps your config, keys and database.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/MoZien/MoZien/claude/intelligent-fermi-lme4t3/car-deal-agent/install-mac.sh | bash
+```
+
+**Manually (any OS):**
+
 ```bash
 cd car-deal-agent
 python -m venv .venv && source .venv/bin/activate

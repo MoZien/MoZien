@@ -29,9 +29,15 @@ def _build_hunter(config: AppConfig, config_path: Path, use_ai: bool, notify: bo
     analyzer = None
     if use_ai and config.ai.enabled:
         try:
-            analyzer = ListingAnalyzer(config.ai, config.language)
+            client = anthropic.Anthropic()
         except anthropic.AnthropicError as exc:
-            log.warning("AI review disabled, no Claude credentials (%s)", exc)
+            client = None
+            log.warning("AI review disabled: %s", exc)
+        # Without credentials the SDK only fails on the first request, so check up front.
+        if client is not None and (client.api_key or client.auth_token or client.credentials):
+            analyzer = ListingAnalyzer(config.ai, config.language, client=client)
+        elif client is not None:
+            log.warning("AI review disabled: ANTHROPIC_API_KEY is not set (see .env)")
 
     notifier = None
     if notify:
