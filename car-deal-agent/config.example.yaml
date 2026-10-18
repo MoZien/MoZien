@@ -1,0 +1,66 @@
+# Copy to config.yaml and adjust. Prices in EUR.
+
+language: ar              # language of the AI review and Telegram messages: ar | de | en
+interval_minutes: 20      # `cardeal run` checks every ~20 minutes (randomised ±15 %)
+database: data/cardeal.sqlite3
+
+# One entry per car you are hunting. make/model are Kleinanzeigen's URL slugs:
+# open a search on kleinanzeigen.de, pick brand and model, and copy them from
+# the URL (e.g. ...+autos.marke_s:volkswagen+autos.model_s:golf).
+searches:
+  - name: VW Golf up to 9,000 €
+    make: volkswagen
+    model: golf
+    max_price: 9000       # your budget
+    min_price: 2000       # filters out "1 €" and swap ads
+    min_year: 2013
+    max_km: 160000
+    zip_code: "10115"     # optional, with radius_km
+    radius_km: 150
+    pages: 3              # result pages per run (~25 ads each)
+
+  - name: Toyota Yaris automatic
+    make: toyota
+    model: yaris
+    max_price: 7000
+    max_km: 150000
+    gearbox: automatik    # manuell | automatik
+    pages: 2
+
+valuation:
+  lookback_days: 60          # how long seen ads count as market data
+  min_comparables: 5
+  year_window: 2             # comparables within ±2 years ...
+  km_window: 0.4             # ... and ±40 % mileage (at least ±20,000 km)
+  price_ceiling_factor: 1.6  # also collect ads up to 1.6× budget as market data
+
+deal:
+  min_discount: 0.12         # at least 12 % below market before we look closer
+  min_profit: 800            # € after all costs
+  min_roi: 0.12
+  negotiation_discount: 0.05 # expected haggling on "VB" ads
+  resale_factor: 0.95        # you resell at ~95 % of the market asking price
+  fixed_costs:               # per car
+    registration: 120        # short-term plates / registration
+    transport: 100
+    cleaning: 150
+  hu_cost: 200               # added when the HU (TÜV) is due within hu_warning_months
+  hu_warning_months: 6
+  vat_margin_scheme: false   # true once you trade as a business (§25a UStG)
+  suspicious_discount: 0.40  # this far below market = "check", never "deal"
+  notify_on: [deal, check]
+  alert_existing: false      # first run only collects market data; true = also rate ads already online
+
+ai:
+  enabled: true
+  model: claude-opus-5-5
+  effort: medium             # low | medium | high
+  max_tokens: 16000
+
+scraper:
+  min_delay_seconds: 4       # pause between requests; keep it slow
+  max_delay_seconds: 9
+
+filters:
+  # Titles containing these words are skipped (dealer "we buy your car" ads etc.)
+  exclude_keywords: [ankauf, wir kaufen, kaufe dein, suche, gesuch, tausche]
