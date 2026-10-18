@@ -36,3 +36,9 @@ def test_allowed_chats_are_read_from_env(tmp_path, monkeypatch):
     path = tmp_path / "config.yaml"
     path.write_text(CONFIG, encoding="utf-8")
     assert load_config(path).telegram_allowed_chats == ["555000111", "777"]
+
+
+def test_watch_market_can_be_switched_off(tmp_path):
+    path = tmp_path / "config.yaml"
+    path.write_text("watch_market: false\n" + CONFIG, encoding="utf-8")
+    assert load_config(path).watch_market is False

@@ -40,6 +40,7 @@ TEXTS: dict[str, dict[str, str]] = {
         "reason_scam": "خطر احتيال عالي",
         "reason_ai": "الذكاء الاصطناعي: {reason}",
         "chat_started": "✅ البوت شغّال وعم يراقب السوق. ابعتلي رابط أي إعلان سيارة من Kleinanzeigen وبقلّك إذا بتستاهل.",
+        "chat_started_links": "✅ البوت شغّال. ابعتلي رابط أي إعلان سيارة من Kleinanzeigen وبقلّك إذا بتستاهل.",
         "chat_help": "ابعتلي رابط إعلان سيارة من Kleinanzeigen (بالتطبيق: مشاركة ← نسخ الرابط) "
                      "وبحسبلك سعر السوق والربح والمخاطر.",
         "chat_working": "⏳ عم حلّل الإعلان، بياخد دقيقة أو دقيقتين…",
@@ -92,6 +93,8 @@ TEXTS: dict[str, dict[str, str]] = {
         "reason_ai": "KI: {reason}",
         "chat_started": "✅ Der Bot läuft und beobachtet den Markt. Schick mir einen Link zu einer "
                         "Kleinanzeigen-Autoanzeige und ich sag dir, ob sie sich lohnt.",
+        "chat_started_links": "✅ Der Bot läuft. Schick mir einen Link zu einer Kleinanzeigen-Autoanzeige "
+                              "und ich sag dir, ob sie sich lohnt.",
         "chat_help": "Schick mir den Link zu einer Autoanzeige auf Kleinanzeigen (in der App: Teilen → Link kopieren), "
                      "dann berechne ich Marktpreis, Gewinn und Risiken.",
         "chat_working": "⏳ Ich analysiere die Anzeige, das dauert ein bis zwei Minuten…",
@@ -142,6 +145,8 @@ TEXTS: dict[str, dict[str, str]] = {
         "reason_hu_due": "HU due {hu}",
         "reason_scam": "high scam risk",
         "reason_ai": "AI: {reason}",
+        "chat_started_links": "✅ The bot is running. Send me a link to a car ad on Kleinanzeigen "
+                              "and I'll tell you whether it's worth it.",
         "chat_started": "✅ The bot is running and watching the market. Send me a link to a car ad on "
                         "Kleinanzeigen and I'll tell you whether it's worth it.",
         "chat_help": "Send me a link to a car ad on Kleinanzeigen (in the app: Share → Copy link) "

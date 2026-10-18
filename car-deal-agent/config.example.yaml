@@ -1,7 +1,8 @@
 # Copy to config.yaml and adjust. Prices in EUR.
 
 language: ar              # language of the AI review and Telegram messages: ar | de | en
-interval_minutes: 15      # `cardeal run` checks every ~15 minutes (randomised ±15 %)
+watch_market: false       # false: only analyse links sent in Telegram; true: also search on its own
+interval_minutes: 15      # with watch_market: true, search every ~15 minutes (randomised ±15 %)
 database: data/cardeal.sqlite3
 
 # One entry per search. Without make/model (like the first one) every new ad is

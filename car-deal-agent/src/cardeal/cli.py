@@ -113,11 +113,13 @@ def main(argv: list[str] | None = None) -> int:
             TelegramClient(config.telegram_token), config.telegram_chat_id, hunter, config.language,
             allowed_chats=config.telegram_allowed_chats,
         )
-        chat.reply(t(config.language, "chat_started" if args.command == "run" else "chat_help"))
-    elif args.command == "chat":
-        print("The chat needs TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env.")
+    watch = args.command == "run" and config.watch_market
+    if chat is not None:
+        chat.reply(t(config.language, "chat_started" if watch else "chat_started_links"))
+    elif not watch:
+        print("Answering links needs TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env.")
         return 1
-    _serve(hunter, chat, config.interval_minutes if args.command == "run" else None)
+    _serve(hunter, chat, config.interval_minutes if watch else None)
     return 0
 
 

@@ -75,6 +75,8 @@ class AppConfig:
     searches: list[SearchCriteria]
     language: str = "ar"
     interval_minutes: int = 20
+    # False: `cardeal run` only answers links sent in Telegram and never searches by itself.
+    watch_market: bool = True
     database: str = "data/cardeal.sqlite3"
     valuation: ValuationSettings = field(default_factory=ValuationSettings)
     deal: DealSettings = field(default_factory=DealSettings)
