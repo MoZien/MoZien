@@ -48,6 +48,11 @@ TEXTS: dict[str, dict[str, str]] = {
         "chat_blocked": "Kleinanzeigen عم يرفض الطلبات هلق. جرّب كمان شوي.",
         "chat_gone": "هالإعلان ما عاد موجود (انباع أو انحذف).",
         "chat_error": "صار خطأ أثناء التحليل: {error}",
+        "chat_private": "🔒 هالبوت خاص. اطلب من صاحبه يسمحلك تستخدمه.",
+        "chat_stranger": "👤 {name} بعت رسالة للبوت وما جاوبته.\n"
+                         "إذا بدك تسمحله يبعت روابط، ضيف هالسطر لملف ‎.env وأعد تشغيل البوت:\n"
+                         "<code>TELEGRAM_ALLOWED_CHATS={id}</code>\n"
+                         "(إذا في أكتر من شخص، افصل الأرقام بفاصلة)",
     },
     "de": {
         "verdict_deal": "🔥 Schnäppchen",
@@ -95,6 +100,11 @@ TEXTS: dict[str, dict[str, str]] = {
         "chat_blocked": "Kleinanzeigen blockt gerade die Anfragen. Versuch es gleich nochmal.",
         "chat_gone": "Diese Anzeige gibt es nicht mehr (verkauft oder gelöscht).",
         "chat_error": "Bei der Analyse ist ein Fehler passiert: {error}",
+        "chat_private": "🔒 Dieser Bot ist privat. Bitte den Besitzer, dich freizuschalten.",
+        "chat_stranger": "👤 {name} hat dem Bot geschrieben und wurde abgewiesen.\n"
+                         "Zum Freischalten diese Zeile in .env eintragen und den Bot neu starten:\n"
+                         "<code>TELEGRAM_ALLOWED_CHATS={id}</code>\n"
+                         "(mehrere Personen mit Komma trennen)",
     },
     "en": {
         "verdict_deal": "🔥 Deal",
@@ -142,6 +152,11 @@ TEXTS: dict[str, dict[str, str]] = {
         "chat_blocked": "Kleinanzeigen is blocking requests right now. Try again in a bit.",
         "chat_gone": "This ad no longer exists (sold or deleted).",
         "chat_error": "Something went wrong during the analysis: {error}",
+        "chat_private": "🔒 This bot is private. Ask its owner to let you in.",
+        "chat_stranger": "👤 {name} wrote to the bot and was turned away.\n"
+                         "To let them in, add this line to .env and restart the bot:\n"
+                         "<code>TELEGRAM_ALLOWED_CHATS={id}</code>\n"
+                         "(separate several people with commas)",
     },
 }
 

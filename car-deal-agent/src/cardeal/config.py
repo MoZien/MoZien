@@ -83,6 +83,8 @@ class AppConfig:
     filters: FilterSettings = field(default_factory=FilterSettings)
     telegram_token: str | None = None
     telegram_chat_id: str | None = None
+    # Further people who may send links to the bot (alerts still go to telegram_chat_id only).
+    telegram_allowed_chats: list[str] = field(default_factory=list)
 
 
 def _build(cls: type, data: dict[str, Any] | None, section: str):
@@ -128,4 +130,7 @@ def load_config(path: str | Path) -> AppConfig:
     config = _build(AppConfig, {**raw, **kwargs, "searches": searches}, "root")
     config.telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN") or None
     config.telegram_chat_id = os.environ.get("TELEGRAM_CHAT_ID") or None
+    config.telegram_allowed_chats = [
+        chat.strip() for chat in os.environ.get("TELEGRAM_ALLOWED_CHATS", "").split(",") if chat.strip()
+    ]
     return config

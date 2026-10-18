@@ -109,7 +109,10 @@ def main(argv: list[str] | None = None) -> int:
 
     chat = None
     if config.telegram_token and config.telegram_chat_id:
-        chat = ChatBot(TelegramClient(config.telegram_token), config.telegram_chat_id, hunter, config.language)
+        chat = ChatBot(
+            TelegramClient(config.telegram_token), config.telegram_chat_id, hunter, config.language,
+            allowed_chats=config.telegram_allowed_chats,
+        )
         chat.reply(t(config.language, "chat_started" if args.command == "run" else "chat_help"))
     elif args.command == "chat":
         print("The chat needs TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env.")

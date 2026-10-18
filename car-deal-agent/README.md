@@ -70,7 +70,7 @@ cp .env.example .env                 # API key + Telegram
 
 ## Usage
 
-**Ask in Telegram:** while `cardeal run` (or `cardeal chat`) is running, send the bot a Kleinanzeigen link, e.g. via *Share → Copy link* in the app. It answers with market price, profit and the AI review. Only the chat in `TELEGRAM_CHAT_ID` gets answers, so nobody else can spend your API credit. Links sent during a search run are answered right after it.
+**Ask in Telegram:** while `cardeal run` (or `cardeal chat`) is running, send the bot a Kleinanzeigen link, e.g. via *Share → Copy link* in the app. It answers with market price, profit and the AI review. Only the chat in `TELEGRAM_CHAT_ID` gets answers, so nobody else can spend your API credit. To let friends send links too, put their chat ids into `TELEGRAM_ALLOWED_CHATS` (comma separated). When someone unknown writes to the bot, it tells you their id; deal alerts stay with you. Links sent during a search run are answered right after it.
 
 ```bash
 cardeal once                     # run all searches one time

@@ -29,3 +29,10 @@ def test_ai_is_enabled_with_api_key(tmp_path, monkeypatch):
     hunter = build(tmp_path)
     assert hunter.analyzer is not None
     assert (tmp_path / "data").is_dir()  # database path is relative to the config file
+
+
+def test_allowed_chats_are_read_from_env(tmp_path, monkeypatch):
+    monkeypatch.setenv("TELEGRAM_ALLOWED_CHATS", " 555000111, 777,, ")
+    path = tmp_path / "config.yaml"
+    path.write_text(CONFIG, encoding="utf-8")
+    assert load_config(path).telegram_allowed_chats == ["555000111", "777"]

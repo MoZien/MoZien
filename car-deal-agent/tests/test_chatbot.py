@@ -58,8 +58,13 @@ class FakeHunter:
         return self.result
 
 
-def message(update_id, text, chat_id=OWNER):
-    return {"update_id": update_id, "message": {"chat": {"id": int(chat_id)}, "text": text}}
+FRIEND = "555000111"
+
+
+def message(update_id, text, chat_id=OWNER, first_name="Mohamad"):
+    return {"update_id": update_id, "message": {
+        "chat": {"id": int(chat_id)}, "from": {"id": int(chat_id), "first_name": first_name}, "text": text,
+    }}
 
 
 def report():
@@ -69,9 +74,9 @@ def report():
                       FlipEstimate(2200, 3325, 0, 370, 0, 755, 0.29), "deal", search_name="Opel Corsa")
 
 
-def bot(updates, hunter):
+def bot(updates, hunter, allowed=()):
     telegram = FakeTelegram(updates)
-    return ChatBot(telegram, OWNER, hunter, "de"), telegram
+    return ChatBot(telegram, OWNER, hunter, "de", allowed_chats=allowed), telegram
 
 
 def test_link_gets_evaluated_and_answered():
@@ -88,11 +93,26 @@ def test_link_gets_evaluated_and_answered():
     assert telegram.offsets == [None, 8]  # confirms the handled update
 
 
-def test_strangers_are_ignored():
+def test_strangers_are_turned_away_and_the_owner_learns_their_id():
     hunter = FakeHunter(result=(report(), 16))
-    chat, telegram = bot([message(1, AD, chat_id="999")], hunter)
+    chat, telegram = bot([message(1, AD, chat_id=FRIEND, first_name="Ali <3"), message(2, AD, chat_id=FRIEND)],
+                         hunter)
     chat.poll(timeout=0)
-    assert hunter.urls == [] and telegram.sent == []
+
+    assert hunter.urls == []  # no analysis, no API credit spent
+    (to_stranger, private), (to_owner, note) = telegram.sent  # second message: no repeat
+    assert (to_stranger, to_owner) == (FRIEND, OWNER)
+    assert "privat" in private
+    assert "Ali &lt;3" in note and f"<code>TELEGRAM_ALLOWED_CHATS={FRIEND}</code>" in note
+
+
+def test_allowed_friend_gets_the_answer_in_their_own_chat():
+    hunter = FakeHunter(result=(report(), 16))
+    chat, telegram = bot([message(1, AD, chat_id=FRIEND)], hunter, allowed=[FRIEND])
+    chat.poll(timeout=0)
+    assert hunter.urls == [AD]
+    assert [chat_id for chat_id, _ in telegram.sent] == [FRIEND, FRIEND]
+    assert "Schnäppchen" in telegram.sent[1][1]
 
 
 def test_text_without_link_gets_help():

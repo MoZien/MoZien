@@ -32,30 +32,60 @@ def find_ad_urls(text: str) -> list[str]:
 
 
 class ChatBot:
-    def __init__(self, client: TelegramClient, chat_id: str, hunter: DealHunter, lang: str):
+    """Answers ad links from the owner (`chat_id`) and from `allowed_chats`.
+    Everyone else is turned away, so nobody can spend the owner's API credit."""
+
+    def __init__(
+        self,
+        client: TelegramClient,
+        chat_id: str,
+        hunter: DealHunter,
+        lang: str,
+        allowed_chats: tuple[str, ...] | list[str] = (),
+    ):
         self.client = client
         self.chat_id = str(chat_id)
+        self.allowed = {self.chat_id, *(str(c) for c in allowed_chats)}
         self.hunter = hunter
         self.lang = lang
         self.offset: int | None = None
+        self._turned_away: set[str] = set()
 
     def poll(self, timeout: int = 30) -> None:
         """Waits up to `timeout` seconds for messages and answers them."""
         for update in self.client.get_updates(self.offset, timeout):
             self.offset = update["update_id"] + 1
             message = update.get("message") or {}
-            if str(message.get("chat", {}).get("id")) != self.chat_id:
-                continue  # private bot: only the owner may use it (and spend the API credit)
-            self.handle(message.get("text") or message.get("caption") or "")
+            chat_id = str(message.get("chat", {}).get("id", ""))
+            if not chat_id:
+                continue
+            if chat_id not in self.allowed:
+                self._turn_away(chat_id, message)
+                continue
+            self.handle(message.get("text") or message.get("caption") or "", chat_id)
 
-    def handle(self, text: str) -> None:
+    def handle(self, text: str, chat_id: str | None = None) -> None:
+        chat_id = chat_id or self.chat_id
         urls = find_ad_urls(text)
         if not urls:
-            self.reply(t(self.lang, "chat_help"))
+            self.reply(t(self.lang, "chat_help"), chat_id)
             return
         for url in urls[:MAX_LINKS_PER_MESSAGE]:
-            self.reply(t(self.lang, "chat_working"))
-            self.reply(self._evaluate(url))
+            self.reply(t(self.lang, "chat_working"), chat_id)
+            self.reply(self._evaluate(url), chat_id)
+
+    def _turn_away(self, chat_id: str, message: dict) -> None:
+        """Tells a stranger once that the bot is private, and tells the owner how to let them in."""
+        log.info("message from chat %s ignored (not in TELEGRAM_ALLOWED_CHATS)", chat_id)
+        if chat_id in self._turned_away:
+            return
+        self._turned_away.add(chat_id)
+        sender = message.get("from") or message.get("chat") or {}
+        name = " ".join(filter(None, [sender.get("first_name"), sender.get("last_name")])) or "?"
+        if sender.get("username"):
+            name += f" (@{sender['username']})"
+        self.reply(t(self.lang, "chat_private"), chat_id)
+        self.reply(t(self.lang, "chat_stranger", name=html.escape(name), id=chat_id))
 
     def _evaluate(self, url: str) -> str:
         try:
@@ -75,8 +105,8 @@ class ChatBot:
             return t(self.lang, "chat_few_comps", n=comparables)
         return format_report(report, self.lang)
 
-    def reply(self, text: str) -> None:
+    def reply(self, text: str, chat_id: str | None = None) -> None:
         try:
-            self.client.send_message(self.chat_id, text)
+            self.client.send_message(chat_id or self.chat_id, text)
         except (TelegramError, requests.RequestException) as exc:
             log.error("could not answer in Telegram: %s", exc)
