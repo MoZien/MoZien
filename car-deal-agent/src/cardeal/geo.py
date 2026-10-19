@@ -6,10 +6,13 @@ Coordinates: GeoNames (www.geonames.org), CC BY 4.0, shipped in data/de_zip.csv.
 from __future__ import annotations
 
 import csv
+import logging
 import math
 import re
 from functools import lru_cache
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 ZIP_FILE = Path(__file__).parent / "data" / "de_zip.csv"
 EARTH_RADIUS_KM = 6371.0
@@ -17,9 +20,14 @@ EARTH_RADIUS_KM = 6371.0
 
 @lru_cache(maxsize=1)
 def _coordinates() -> dict[str, tuple[float, float]]:
-    with ZIP_FILE.open(encoding="utf-8") as f:
-        rows = csv.DictReader(line for line in f if not line.startswith("#"))
-        return {row["zip"]: (float(row["lat"]), float(row["lon"])) for row in rows}
+    try:
+        with ZIP_FILE.open(encoding="utf-8") as f:
+            rows = csv.DictReader(line for line in f if not line.startswith("#"))
+            return {row["zip"]: (float(row["lat"]), float(row["lon"])) for row in rows}
+    except OSError as exc:
+        # Without the table there is no distance, so no fuel cost; the evaluation itself goes on.
+        log.warning("postal code table missing (%s), fuel costs are left out", exc)
+        return {}
 
 
 def zip_of(location: str | None) -> str | None:

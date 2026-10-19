@@ -144,3 +144,29 @@ def test_default_fuel_prices_and_consumption():
     km = road_km("06108", "08529")
     assert estimate_flip(car, valuation(9000), DealSettings(), today=TODAY, trip=trip).fuel_cost == round(
         2 * km * 7.5 / 100 * 2.10)
+
+
+def test_missing_postal_code_table_only_drops_the_fuel_cost(monkeypatch, tmp_path):
+    from cardeal import geo
+    from cardeal.config import TripSettings
+
+    monkeypatch.setattr(geo, "ZIP_FILE", tmp_path / "missing.csv")
+    geo._coordinates.cache_clear()
+    try:
+        car = listing(6000)
+        car.location = "08529 Plauen"
+        flip = estimate_flip(car, valuation(9000), DealSettings(), today=TODAY, trip=TripSettings(home_zip="06108"))
+        assert flip.fuel_cost == 0 and flip.profit > 0
+    finally:
+        geo._coordinates.cache_clear()
+
+
+def test_postal_code_table_ships_with_the_code():
+    import subprocess
+    from pathlib import Path
+
+    from cardeal import geo
+    root = Path(geo.__file__).resolve().parents[2]
+    tracked = subprocess.run(["git", "ls-files", "--error-unmatch", str(geo.ZIP_FILE)], cwd=root,
+                             capture_output=True, text=True)
+    assert tracked.returncode == 0, "de_zip.csv is not in git (ignored?), installs would miss it"
