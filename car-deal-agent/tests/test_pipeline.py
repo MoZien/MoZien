@@ -377,3 +377,28 @@ def test_unknown_brand_has_no_model():
     from cardeal.pipeline import model_name
     assert model_name(Listing(id="a", source="k", url="u", title="Auto zu verkaufen", price=1,
                               make="Andere", model="Andere")) == ""
+
+
+def test_areas_can_be_left_out():
+    config = AppConfig(searches=[BROAD])
+    config.filters.exclude_zip_ranges = ["10115-14199"]
+    config.filters.exclude_places = ["Berlin"]
+    h = DealHunter(config, FakeSource([]), Store(":memory:"), clock=lambda: NOW)
+
+    def at(location):
+        return h._is_candidate(replace(ad("x", 2_000, year=2008, km=150_000), location=location), BROAD)
+
+    assert not at("10115 Mitte")  # search results show only the district
+    assert not at("13409 Reinickendorf")
+    assert not at("14199 Berlin - Schmargendorf")
+    assert not at("Berlin - Spandau")
+    assert at("14467 Potsdam")  # just outside the Berlin range
+    assert at("06108 Halle")
+
+
+def test_bad_zip_range_is_reported():
+    import pytest
+
+    from cardeal.config import FilterSettings
+    with pytest.raises(ValueError, match="10115-14199"):
+        FilterSettings(exclude_zip_ranges=["Berlin"]).zip_ranges()

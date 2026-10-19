@@ -58,7 +58,7 @@ deal:
 
 ai:
   enabled: true
-  model: claude-haiku-5-5   # cheap; claude-sonnet-5-5 or claude-opus-5-5 for deeper reviews
+  model: claude-sonnet-5-5  # ~2-3.5 ct per car; claude-haiku-5-5 is cheaper but shallower
   effort: medium             # low | medium | high
   max_tokens: 16000
 
@@ -70,3 +70,6 @@ scraper:
 filters:
   # Titles containing these words are skipped (dealer "we buy your car" ads etc.)
   exclude_keywords: [ankauf, wir kaufen, kaufe dein, suche, gesuch, tausche]
+  # Leave out ads from these areas (only for searches; links you send are always analysed).
+  exclude_zip_ranges: ["10115-14199"]   # Berlin
+  exclude_places: [Berlin]

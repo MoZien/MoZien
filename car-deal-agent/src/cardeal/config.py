@@ -73,6 +73,18 @@ class ScraperSettings:
 @dataclass
 class FilterSettings:
     exclude_keywords: list[str] = field(default_factory=lambda: list(DEFAULT_SPAM_KEYWORDS))
+    # Leave out ads from these areas: ZIP ranges like "10115-14199" (Berlin) and place names.
+    exclude_zip_ranges: list[str] = field(default_factory=list)
+    exclude_places: list[str] = field(default_factory=list)
+
+    def zip_ranges(self) -> list[tuple[int, int]]:
+        ranges = []
+        for entry in self.exclude_zip_ranges:
+            low, _, high = str(entry).replace(" ", "").partition("-")
+            if not low.isdigit() or (high and not high.isdigit()):
+                raise ValueError(f"filters.exclude_zip_ranges: '{entry}' is not like '10115-14199'")
+            ranges.append((int(low), int(high or low)))
+        return ranges
 
 
 @dataclass

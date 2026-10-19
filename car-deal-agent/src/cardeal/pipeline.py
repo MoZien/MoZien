@@ -76,6 +76,12 @@ class DealHunter:
             re.compile(r"\b(" + "|".join(re.escape(k) for k in keywords) + r")\b", re.IGNORECASE)
             if keywords else None
         )
+        self._excluded_zips = config.filters.zip_ranges()
+        places = config.filters.exclude_places
+        self._excluded_places = (
+            re.compile(r"\b(" + "|".join(re.escape(p) for p in places) + r")\b", re.IGNORECASE)
+            if places else None
+        )
 
     def run_once(self) -> list[DealReport]:
         reports: list[DealReport] = []
@@ -308,7 +314,17 @@ class DealHunter:
             and within(listing.year, search.min_year, search.max_year)
             and within(listing.km, search.min_km, search.max_km)
             and not (self._excluded and self._excluded.search(listing.title))
+            and not self._excluded_area(listing)
         )
+
+    def _excluded_area(self, listing: Listing) -> bool:
+        """Ad from an area the user left out (filters.exclude_zip_ranges / exclude_places)."""
+        location = listing.location or ""
+        if zip_code := re.match(r"\s*(\d{5})\b", location):
+            number = int(zip_code.group(1))
+            if any(low <= number <= high for low, high in self._excluded_zips):
+                return True
+        return bool(self._excluded_places and self._excluded_places.search(location))
 
     def evaluate(
         self,
