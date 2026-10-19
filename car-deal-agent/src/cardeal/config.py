@@ -55,8 +55,8 @@ class TripSettings:
     """Fuel to fetch the car: from home to the seller and back."""
 
     home_zip: str | None = None  # default: zip_code of the first search
-    consumption_l_per_100km: float = 7.0
-    fuel_prices: dict[str, float] = field(default_factory=lambda: {"benzin": 1.75, "diesel": 1.65})
+    consumption_l_per_100km: float = 7.5
+    fuel_prices: dict[str, float] = field(default_factory=lambda: {"benzin": 2.10, "diesel": 2.20})
     round_trip: bool = True
     road_factor: float = 1.3  # road distance ≈ straight line × 1.3
 

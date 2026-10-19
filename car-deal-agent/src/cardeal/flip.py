@@ -36,7 +36,7 @@ def trip_costs(listing: Listing, trip: TripSettings | None) -> tuple[int, int, i
     if km is None:
         return 0, 0, 0
     fuel = (listing.fuel_slug or listing.fuel or "").lower()
-    price = next((p for kind, p in trip.fuel_prices.items() if kind in fuel), trip.fuel_prices.get("benzin", 1.75))
+    price = next((p for kind, p in trip.fuel_prices.items() if kind in fuel), trip.fuel_prices.get("benzin", 2.10))
     legs = 2 if trip.round_trip else 1
     return round(km * legs * trip.consumption_l_per_100km / 100 * price), round(km), legs
 

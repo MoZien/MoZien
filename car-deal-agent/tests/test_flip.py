@@ -131,3 +131,16 @@ def test_home_zip_defaults_to_the_search_location(tmp_path):
     path = tmp_path / "config.yaml"
     path.write_text('searches:\n  - name: x\n    zip_code: "06108"\n', encoding="utf-8")
     assert load_config(path).trip.home_zip == "06108"
+
+
+def test_default_fuel_prices_and_consumption():
+    from cardeal.config import TripSettings
+    from cardeal.geo import road_km
+
+    trip = TripSettings(home_zip="06108")
+    assert (trip.consumption_l_per_100km, trip.fuel_prices) == (7.5, {"benzin": 2.10, "diesel": 2.20})
+    car = listing(6000)
+    car.location, car.fuel_slug = "08529 Plauen", "benzin"
+    km = road_km("06108", "08529")
+    assert estimate_flip(car, valuation(9000), DealSettings(), today=TODAY, trip=trip).fuel_cost == round(
+        2 * km * 7.5 / 100 * 2.10)
