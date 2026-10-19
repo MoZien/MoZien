@@ -42,6 +42,11 @@ _AMOUNT_RE = re.compile(r"(\d{1,3}(?:\.\d{3})+|\d+)\s*€")
 _KM_RE = re.compile(r"^([\d.]+)\s*km$", re.IGNORECASE)
 _EZ_RE = re.compile(r"^EZ\s*(\d{1,2})/(\d{4})$")
 _ZIP_CITY_RE = re.compile(r"^\d{5}\s+\S")
+# Ad-targeting data on every ad page carries the search filter values of the car.
+_SLUG_FIELDS = {
+    "Marke": "make_slug", "Modell": "model_slug", "Kraftstoffart": "fuel_slug",
+    "Getriebe": "gearbox_slug", "Fahrzeugtyp": "body_slug",
+}
 _SELLER_RE = re.compile(r"^\s*(Privater|Gewerblicher)\s+(Nutzer|Anbieter)\s*$")
 
 
@@ -134,6 +139,9 @@ def build_search_url(
         f"autos.model_s:{criteria.model}" if criteria.model else None,
         f"autos.fuel_s:{criteria.fuel}" if criteria.fuel else None,
         f"autos.shift_s:{criteria.gearbox}" if criteria.gearbox else None,
+        f"autos.typ_s:{criteria.body_type}" if criteria.body_type else None,
+        range_filter("power_i", criteria.min_power, criteria.max_power),
+        f"autos.schaden_s:{'ja' if criteria.damaged else 'nein'}" if criteria.damaged is not None else None,
     ]
     path.append(code + "".join(f"+{f}" for f in filters if f))
     return f"{BASE_URL}/{'/'.join(path)}"
@@ -229,9 +237,15 @@ def parse_detail_page(html: str, listing: Listing) -> Listing:
             listing.power_ps = _to_int(value)
         elif label == "Fahrzeugzustand":
             listing.condition = value
+        elif label == "Fahrzeugtyp":
+            listing.body_type = value
         elif label == "HU bis":
             month, year = parse_month_year(value)
             listing.hu_until = f"{month or 1:02d}/{year}" if year else value
+
+    for key, attr in _SLUG_FIELDS.items():
+        if match := re.search(rf'"{key}":"([a-z0-9_-]+)"', html):
+            setattr(listing, attr, match.group(1))
 
     listing.features = [_clean(li.get_text()) for li in soup.select("li.checktag")]
     if seller := soup.find(string=_SELLER_RE):

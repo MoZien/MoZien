@@ -25,6 +25,8 @@ class ValuationSettings:
     # Broad searches look up comparables per model and year; reuse them this long.
     comparables_refresh_hours: int = 24
     comparables_pages: int = 2
+    # You buy and resell privately, so compare with private asking prices (dealers add warranty).
+    comparables_seller: str | None = "privat"
 
 
 @dataclass

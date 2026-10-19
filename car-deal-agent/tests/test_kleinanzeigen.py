@@ -102,6 +102,9 @@ def test_parse_detail_page():
         "Verkaufe meinen Golf.", "Steuerkette wurde 2023 gewechselt.", "Klima muss befüllt werden.",
     ]
     assert listing.details_loaded
+    assert (listing.make_slug, listing.model_slug, listing.fuel_slug, listing.gearbox_slug, listing.body_slug) == (
+        "volkswagen", "golf", "benzin", "manuell", "limousine")
+    assert listing.body_type == "Limousine" and not listing.damaged
 
 
 def test_parse_detail_page_new_design():
@@ -171,3 +174,19 @@ def test_source_raises_when_blocked():
     source = KleinanzeigenSource(session=FakeSession([FakeResponse(status_code=403)]), sleep=lambda s: None)
     with pytest.raises(SourceBlockedError):
         source.search(SearchCriteria(name="x", make="bmw"))
+
+
+def test_build_search_url_for_exact_comparables():
+    criteria = SearchCriteria(name="x", make="volkswagen", model="golf", min_year=2012, max_year=2016,
+                              fuel="benzin", gearbox="manuell", body_type="limousine", min_power=104, max_power=140,
+                              damaged=False, seller="privat")
+    assert build_search_url(criteria) == (
+        "https://www.kleinanzeigen.de/s-autos/volkswagen/anbieter:privat/c216+autos.ez_i:2012%2C2016"
+        "+autos.marke_s:volkswagen+autos.model_s:golf+autos.fuel_s:benzin+autos.shift_s:manuell"
+        "+autos.typ_s:limousine+autos.power_i:104%2C140+autos.schaden_s:nein"
+    )
+
+
+def test_damaged_flag_from_condition():
+    assert Listing(id="a", source="k", url="u", title="", price=1, condition="Beschädigtes Fahrzeug").damaged
+    assert not Listing(id="a", source="k", url="u", title="", price=1, condition="Unbeschädigtes Fahrzeug").damaged

@@ -79,14 +79,16 @@ def decide(
         return "skip", reasons
 
     verdict = "deal"
+    if listing.damaged:
+        # Compared with undamaged cars, a damaged one always looks cheap; the damage decides.
+        verdict = "check"
+        reasons.append(t(lang, "reason_damaged"))
     if valuation.confidence == "low":
         verdict = "check"
         reasons.append(t(lang, "reason_few_comparables", n=valuation.comparables))
     if discount >= settings.suspicious_discount:
         verdict = "check"
         reasons.append(t(lang, "reason_suspicious", discount=percent(discount)))
-    if hu_due_soon(listing, settings, today):
-        reasons.append(t(lang, "reason_hu_due", hu=listing.hu_until))
 
     if analysis is not None:
         if analysis.scam_risk == "high":

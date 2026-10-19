@@ -29,6 +29,12 @@ CREATE TABLE IF NOT EXISTS listings (
 );
 CREATE INDEX IF NOT EXISTS listings_segment ON listings (segment, last_seen);
 
+CREATE TABLE IF NOT EXISTS comparable_sets (
+    key TEXT NOT NULL,
+    listing_id TEXT NOT NULL,
+    PRIMARY KEY (key, listing_id)
+);
+
 CREATE TABLE IF NOT EXISTS comparables_fetched (
     key TEXT PRIMARY KEY,
     fetched_at TEXT NOT NULL
@@ -88,11 +94,31 @@ class Store:
     def has_segment(self, segment: str) -> bool:
         return self.db.execute("SELECT 1 FROM listings WHERE segment = ? LIMIT 1", (segment,)).fetchone() is not None
 
+    def add_to_set(self, key: str, listing_ids: list[str]) -> None:
+        """Remembers which ads a comparables search (key = its URL) returned."""
+        self.db.executemany(
+            "INSERT OR IGNORE INTO comparable_sets (key, listing_id) VALUES (?, ?)",
+            [(key, listing_id) for listing_id in listing_ids],
+        )
+        self.db.commit()
+
+    def comparable_set(self, key: str, since: datetime) -> list[Listing]:
+        rows = self.db.execute(
+            "SELECT l.* FROM listings l JOIN comparable_sets c ON c.listing_id = l.id "
+            "WHERE c.key = ? AND l.last_seen >= ?",
+            (key, since.isoformat()),
+        )
+        return self._listings(rows)
+
     def comparables(self, segment: str, since: datetime) -> list[Listing]:
         rows = self.db.execute(
             "SELECT * FROM listings WHERE segment = ? AND last_seen >= ?",
             (segment, since.isoformat()),
         )
+        return self._listings(rows)
+
+    @staticmethod
+    def _listings(rows) -> list[Listing]:
         return [
             Listing(
                 id=r["id"], source=r["source"], url=r["url"], title=r["title"], price=r["price"],

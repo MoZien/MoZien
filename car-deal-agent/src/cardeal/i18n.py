@@ -4,6 +4,8 @@ from __future__ import annotations
 
 TEXTS: dict[str, dict[str, str]] = {
     "ar": {
+        "comparables_link": "{n} سيارة مشابهة",
+        "reason_damaged": "البائع كاتب إنها متضررة: شوف الضرر قبل ما تقرر",
         "hunt_stopping": "⏹️ تمام، عم وقّف البحث…",
         "hunt_stopped": "⏹️ وقّفت البحث: لقيت {found}، وفحصت {checked} إعلان.",
         "hunt_not_running": "ما في بحث شغّال هلق.",
@@ -23,7 +25,6 @@ TEXTS: dict[str, dict[str, str]] = {
         "reason_roi_low": "العائد {roi} أقل من الحد الأدنى {minimum}",
         "reason_few_comparables": "سعر السوق مش أكيد ({n} سيارات مشابهة)",
         "reason_suspicious": "أرخص من السوق بـ {discount}: لازم تعرف السبب (عطل؟ احتيال؟)",
-        "reason_hu_due": "الفحص (TÜV) قرّب: {hu}",
         "reason_scam": "خطر احتيال عالي",
         "reason_ai": "الذكاء الاصطناعي: {reason}",
         "chat_started": "✅ البوت شغّال وعم يراقب السوق. ابعتلي رابط أي إعلان سيارة من Kleinanzeigen وبقلّك إذا بتستاهل.",
@@ -49,6 +50,8 @@ TEXTS: dict[str, dict[str, str]] = {
                          "(إذا في أكتر من شخص، افصل الأرقام بفاصلة)",
     },
     "de": {
+        "comparables_link": "{n} Vergleichsautos",
+        "reason_damaged": "vom Verkäufer als beschädigt markiert: Schaden erst prüfen",
         "hunt_stopping": "⏹️ Okay, ich höre auf…",
         "hunt_stopped": "⏹️ Suche gestoppt: {found} gefunden, {checked} Anzeigen geprüft.",
         "hunt_not_running": "Gerade läuft keine Suche.",
@@ -69,7 +72,6 @@ TEXTS: dict[str, dict[str, str]] = {
         "reason_roi_low": "Rendite {roi} unter Minimum {minimum}",
         "reason_few_comparables": "Marktpreis unsicher ({n} Vergleichsautos)",
         "reason_suspicious": "{discount} unter Markt: Grund klären (Schaden? Betrug?)",
-        "reason_hu_due": "HU fällig {hu}",
         "reason_scam": "hohes Betrugsrisiko",
         "reason_ai": "KI: {reason}",
         "chat_started": "✅ Der Bot läuft und beobachtet den Markt. Schick mir einen Link zu einer "
@@ -98,6 +100,8 @@ TEXTS: dict[str, dict[str, str]] = {
                          "(mehrere Personen mit Komma trennen)",
     },
     "en": {
+        "comparables_link": "{n} comparable cars",
+        "reason_damaged": "marked as damaged by the seller: check the damage first",
         "hunt_stopping": "⏹️ Okay, stopping…",
         "hunt_stopped": "⏹️ Search stopped: found {found}, checked {checked} ads.",
         "hunt_not_running": "No search is running right now.",
@@ -118,7 +122,6 @@ TEXTS: dict[str, dict[str, str]] = {
         "reason_roi_low": "ROI {roi} below minimum {minimum}",
         "reason_few_comparables": "market price uncertain ({n} comparables)",
         "reason_suspicious": "{discount} below market: find out why (damage? scam?)",
-        "reason_hu_due": "HU due {hu}",
         "reason_scam": "high scam risk",
         "reason_ai": "AI: {reason}",
         "chat_started_links": "✅ The bot is running. Send me a link to a car ad on Kleinanzeigen "

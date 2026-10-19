@@ -254,9 +254,9 @@ def test_analyze_url_uses_model_comparables():
 
     report, comps = h.analyze_url(url)
 
-    assert comps == 16  # 15 comparables + the ad itself
+    assert comps == 15
     assert report.valuation.market_price == 3_500
-    assert source.model_searches()[0].seller is None
+    assert source.model_searches()[0].seller == "privat"  # you resell privately
 
 
 def test_between_ads_hook_runs_before_each_evaluated_ad():
@@ -294,3 +294,86 @@ def test_find_deals_respects_the_ad_limit():
                                 {f"kleinanzeigen:x{i}": OPEL_CORSA for i in range(5)})
     found, evaluated = h.find_deals(3, max_ads=2)
     assert found == [] and evaluated == 2 and len(source.detail_calls) == 2
+
+
+class TieredMarketplace(FakeSource):
+    """Comparables depend on how exact the search is: the exact one finds only 2 cars."""
+
+    def __init__(self, ad_details):
+        super().__init__([])
+        self.ad_details = ad_details
+
+    def search(self, criteria, price_ceiling=None):
+        self.searches.append(criteria)
+        n = 2 if criteria.body_type else 15
+        return [ad(f"golf-{criteria.body_type}-{i}", 9_000 + (i % 3) * 100, year=2014, km=100_000) for i in range(n)]
+
+    def fetch_details(self, listing):
+        self.detail_calls.append(listing.id)
+        for key, value in self.ad_details.items():
+            setattr(listing, key, value)
+        listing.details_loaded = True
+        return listing
+
+
+GOLF_DETAILS = dict(
+    make="Volkswagen", model="Weitere Golf", year=2014, km=100_000, price=6_000, fuel="Benzin", gearbox="Manuell",
+    body_type="Limousine", power_ps=122, make_slug="volkswagen", model_slug="golf", fuel_slug="benzin",
+    gearbox_slug="manuell", body_slug="limousine",
+)
+
+
+def test_exact_comparables_widen_step_by_step():
+    source = TieredMarketplace(GOLF_DETAILS)
+    h = DealHunter(AppConfig(searches=[BROAD]), source, Store(":memory:"), None, None, clock=lambda: NOW)
+
+    report, comparables = h.analyze_url("https://www.kleinanzeigen.de/s-anzeige/vw-golf/3202186316-216-143")
+
+    exact, same_drive = source.searches
+    assert (exact.model, exact.fuel, exact.gearbox, exact.body_type, exact.min_power, exact.max_power) == (
+        "golf", "benzin", "manuell", "limousine", 104, 140)
+    assert (same_drive.body_type, same_drive.min_power, same_drive.max_power) == (None, 92, 152)
+    assert all(s.damaged is False and s.seller == "privat" and (s.min_year, s.max_year) == (2012, 2016)
+               for s in source.searches)
+    assert comparables == 15
+    assert report.valuation.market_price == 9_100
+    assert report.valuation.basis == "Golf · Benzin · Manuell · 92–152 PS · 2012–2016"
+    assert "power_i:92%2C152" in report.valuation.comparables_url
+
+    h.analyze_url("https://www.kleinanzeigen.de/s-anzeige/vw-golf/3202186399-216-143")
+    assert len(source.searches) == 2  # both searches cached for the next ad
+
+
+def test_damaged_car_is_never_a_deal():
+    source = TieredMarketplace({**GOLF_DETAILS, "condition": "Beschädigtes Fahrzeug"})
+    h = DealHunter(AppConfig(searches=[BROAD]), source, Store(":memory:"), None, None, clock=lambda: NOW)
+    report, _ = h.analyze_url("https://www.kleinanzeigen.de/s-anzeige/vw-golf/3202186316-216-143")
+    assert report.verdict == "check"
+    assert any("beschädigt" in r or "متضررة" in r for r in report.reasons)
+
+
+def test_model_name_for_models_filed_under_andere():
+    from cardeal.pipeline import model_name
+
+    def car(**kw):
+        return Listing(**{"id": "a", "source": "k", "url": "u", "title": "", "price": 1, **kw})
+
+    assert model_name(car(make="Volkswagen", model="Weitere Golf")) == "Golf"
+    assert model_name(car(make="Volkswagen", model="Weitere Volkswagen", title="VW Scirocco 1.4 TSI")) == "Scirocco"
+    assert model_name(car(make="Mercedes-Benz", model="Andere", title="Mercedes Benz SLK 200")) == "SLK"
+    assert model_name(car(make="Opel", model="", title="")) == ""
+
+
+def test_andere_models_are_compared_by_name_within_andere():
+    source = TieredMarketplace({**GOLF_DETAILS, "model": "Weitere Volkswagen", "model_slug": "andere",
+                                "title": "VW Scirocco 1.4 TSI", "body_slug": "coupe", "body_type": "Coupé"})
+    h = DealHunter(AppConfig(searches=[BROAD]), source, Store(":memory:"), None, None, clock=lambda: NOW)
+    report, _ = h.analyze_url("https://www.kleinanzeigen.de/s-anzeige/vw-scirocco/3540190341-216-4225")
+    assert all((s.model, s.query) == ("andere", "scirocco") for s in source.searches)
+    assert report.valuation.basis.startswith("Scirocco · Benzin")
+
+
+def test_unknown_brand_has_no_model():
+    from cardeal.pipeline import model_name
+    assert model_name(Listing(id="a", source="k", url="u", title="Auto zu verkaufen", price=1,
+                              make="Andere", model="Andere")) == ""

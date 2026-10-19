@@ -18,14 +18,38 @@ import requests
 from cardeal.analyzer import AnalysisError, ListingAnalyzer, repair_costs
 from cardeal.config import AppConfig
 from cardeal.flip import decide, estimate_flip
-from cardeal.models import DealReport, Listing, SearchCriteria
+from cardeal.models import DealReport, Listing, SearchCriteria, Valuation
 from cardeal.notifier import Notifier
 from cardeal.sources.base import ListingSource, SourceBlockedError
-from cardeal.sources.kleinanzeigen import listing_from_url, make_slug
+from cardeal.sources.kleinanzeigen import build_search_url, listing_from_url, make_slug
 from cardeal.storage import Store
 from cardeal.valuation import estimate_market_price
 
 log = logging.getLogger(__name__)
+
+UNKNOWN_MODELS = {"andere", "weitere", "sonstige", "sonstige_autos"}
+MAKE_WORDS = {
+    "vw", "volkswagen", "mercedes", "benz", "mercedes-benz", "mb", "bmw", "opel", "ford", "audi", "seat", "skoda",
+    "škoda", "fiat", "renault", "peugeot", "citroen", "citroën", "toyota", "nissan", "mazda", "honda", "hyundai",
+    "kia", "dacia", "volvo", "mini", "smart", "suzuki", "mitsubishi", "chevrolet", "alfa", "romeo",
+}
+# Title words that never name a model.
+GENERIC_WORDS = {"auto", "pkw", "verkaufe", "verkauf", "top", "neu", "tüv", "tuev", "hu", "gepflegt", "zustand"}
+
+
+def model_name(listing: Listing) -> str:
+    """The model as people call it: "Golf" from "Weitere Golf", or for models Kleinanzeigen
+    files under "Andere" the first word of the title that isn't the make ("VW Scirocco 1.4" → "Scirocco")."""
+    if (listing.make or "").lower() in UNKNOWN_MODELS or (listing.make_slug or "") in UNKNOWN_MODELS:
+        return ""  # unknown brand: nothing reliable to compare with
+    shown = re.sub(r"^(Weitere|Andere)\s+", "", listing.model or "", flags=re.IGNORECASE).strip()
+    make_words = MAKE_WORDS | {w.lower() for w in re.split(r"[\s-]+", listing.make or "") if w}
+    if shown and shown.lower() not in UNKNOWN_MODELS | make_words:
+        return shown
+    for word in re.findall(r"[A-Za-zÄÖÜäöüß][\w-]*", listing.title or ""):
+        if word.lower() not in make_words | GENERIC_WORDS and len(word) >= 2:
+            return word
+    return ""
 
 
 class DealHunter:
@@ -95,10 +119,7 @@ class DealHunter:
     def _evaluate_candidate(self, listing: Listing, search: SearchCriteria, comps: list[Listing]) -> DealReport | None:
         if search.is_broad:
             listing = self.source.fetch_details(listing)
-            comps = self._comparables_for(listing, search.seller)
-            if comps is None:
-                log.info("unknown make/model, skipped: %s", listing.url)
-                return None
+            comps = []
         return self.evaluate(listing, comps, search.name)
 
     def find_deals(
@@ -178,35 +199,102 @@ class DealHunter:
         log.info("%s: %d listings, %d reports", search.name, len(listings), len(reports))
         return reports
 
-    def _comparables_for(self, listing: Listing, seller: str | None = None) -> list[Listing] | None:
-        """Comparables for one ad's make and model, fetched from Kleinanzeigen at most
-        once per `comparables_refresh_hours` per model and year. None if the ad has no
-        usable make/model."""
-        if not listing.make or not listing.year:
-            return None
-        model = re.sub(r"^(Weitere|Andere)\s+", "", listing.model or "", flags=re.IGNORECASE).strip()
-        if model.lower() in {"", "andere", "weitere", "sonstige"}:
-            return None
+    def _comparable_searches(self, listing: Listing) -> list[SearchCriteria]:
+        """Searches for the same kind of car, from exact to loose: same model, fuel, gearbox,
+        body and power first; each later step drops a filter in case too few cars match."""
+        v = self.config.valuation
+        if listing.year is None:
+            return []
+        common = dict(
+            min_year=listing.year - v.year_window, max_year=listing.year + v.year_window,
+            seller=v.comparables_seller, damaged=False, pages=v.comparables_pages,
+        )
+        if listing.make_slug and listing.model_slug and listing.model_slug not in UNKNOWN_MODELS:
+            base = SearchCriteria(name="", make=listing.make_slug, model=listing.model_slug, **common)
+        else:
+            # Model missing from Kleinanzeigen's list (filed under "Andere", e.g. a Scirocco) or
+            # no filter values on the page: search by the model's name, within "Andere" if so filed.
+            name = model_name(listing)
+            if not listing.make or not name:
+                return []
+            base = SearchCriteria(
+                name="", make=listing.make_slug or make_slug(listing.make),
+                model=listing.model_slug if listing.model_slug in UNKNOWN_MODELS else None,
+                query=name.lower(), **common,
+            )
 
+        def power_band(tolerance: float) -> dict:
+            if not listing.power_ps:
+                return {}
+            return dict(min_power=round(listing.power_ps * (1 - tolerance)),
+                        max_power=round(listing.power_ps * (1 + tolerance)))
+
+        searches = []
+        if listing.fuel_slug and listing.gearbox_slug:
+            same_drive = replace(base, fuel=listing.fuel_slug, gearbox=listing.gearbox_slug)
+            searches.append(replace(same_drive, body_type=listing.body_slug, **power_band(0.15)))
+            searches.append(replace(same_drive, **power_band(0.25)))
+        if listing.fuel_slug:
+            searches.append(replace(base, fuel=listing.fuel_slug))
+        searches.append(base)
+        unique = {build_search_url(c): c for c in reversed(searches)}  # keep the first of duplicates
+        return [c for c in searches if unique.get(build_search_url(c)) is c]
+
+    @staticmethod
+    def _describe(criteria: SearchCriteria, listing: Listing) -> str:
+        parts = [model_name(listing) or criteria.model or criteria.query]
+        if criteria.fuel:
+            parts.append(listing.fuel or criteria.fuel)
+        if criteria.gearbox:
+            parts.append(listing.gearbox or criteria.gearbox)
+        if criteria.body_type:
+            parts.append(listing.body_type or criteria.body_type)
+        if criteria.min_power and criteria.max_power:
+            parts.append(f"{criteria.min_power}–{criteria.max_power} PS")
+        parts.append(f"{criteria.min_year}–{criteria.max_year}")
+        return " · ".join(str(p) for p in parts if p)
+
+    def _exact_valuation(self, listing: Listing) -> Valuation:
+        """Market price from cars as similar as possible to this one (needs the ad page loaded).
+        Comparables per search are fetched at most once per `comparables_refresh_hours`."""
         v = self.config.valuation
         now = self.clock()
-        criteria = SearchCriteria(
-            name=f"{listing.make} {model}",
-            make=make_slug(listing.make),
-            query=model.lower(),
-            min_year=listing.year - v.year_window,
-            max_year=listing.year + v.year_window,
-            seller=seller,
-            pages=v.comparables_pages,
-        )
-        cache_key = f"{criteria.segment}|{listing.year}|{seller or 'all'}"
-        fetched_at = self.store.comparables_fetched_at(cache_key)
-        if fetched_at is None or now - fetched_at > timedelta(hours=v.comparables_refresh_hours):
-            for comp in self.source.search(criteria):
-                self.store.upsert(comp, criteria.segment, now)
-            self.store.mark_comparables_fetched(cache_key, now)
-        self.store.upsert(listing, criteria.segment, now)
-        return self.store.comparables(criteria.segment, now - timedelta(days=v.lookback_days))
+        searches = self._comparable_searches(listing)
+        if not searches:
+            log.info("unknown make/model, can't value: %s", listing.url)
+            return Valuation(None, 0, None, "none", "unknown make or model")
+        self.store.upsert(listing, f"{searches[0].make}:{searches[0].model or searches[0].query}", now)
+
+        best = Valuation(None, 0, None, "none", "not enough comparables")
+        for criteria in searches:
+            url = build_search_url(criteria)
+            fetched_at = self.store.comparables_fetched_at(url)
+            if fetched_at is None or now - fetched_at > timedelta(hours=v.comparables_refresh_hours):
+                found = self.source.search(criteria)
+                segment = f"{criteria.make}:{criteria.model or criteria.query}"
+                for comp in found:
+                    self.store.upsert(comp, segment, now)
+                self.store.add_to_set(url, [comp.id for comp in found])
+                self.store.mark_comparables_fetched(url, now)
+            comps = self.store.comparable_set(url, now - timedelta(days=v.lookback_days))
+            valuation = estimate_market_price(listing, comps, v)
+            valuation.basis = self._describe(criteria, listing)
+            valuation.comparables_url = url
+            if valuation.market_price is not None:
+                return valuation
+            if valuation.comparables >= best.comparables:
+                best = valuation
+        return best
+
+    def _worth_a_closer_look(self, listing: Listing, valuation: Valuation) -> bool:
+        """Cheap checks before spending requests and AI credit: far enough below market and
+        profitable before repairs (repairs only lower the profit)."""
+        settings = self.config.deal
+        discount = valuation.discount(listing.price) or 0.0
+        if discount < settings.min_discount:
+            return False
+        flip = estimate_flip(listing, valuation, settings, today=self.clock().date())
+        return flip.profit >= settings.min_profit
 
     def _is_candidate(self, listing: Listing, search: SearchCriteria) -> bool:
         def within(value: int | None, low: int | None, high: int | None) -> bool:
@@ -223,26 +311,36 @@ class DealHunter:
         )
 
     def evaluate(
-        self, listing: Listing, comps: list[Listing], search_name: str = "", force: bool = False
+        self,
+        listing: Listing,
+        comps: list[Listing],
+        search_name: str = "",
+        force: bool = False,
+        valuation: Valuation | None = None,
     ) -> DealReport | None:
         """Full evaluation of one listing. Returns None when it is clearly no deal
-        (unless `force`) or when there is not enough market data."""
+        (unless `force`) or when there is not enough market data.
+
+        `comps` (the search's own results) give a rough first look before the ad is
+        opened; the price that counts comes from exact comparables afterwards."""
         settings = self.config.deal
         today = self.clock().date()
 
-        valuation = estimate_market_price(listing, comps, self.config.valuation)
-        if valuation.market_price is None:
-            return None
-        if not force:
-            discount = valuation.discount(listing.price) or 0.0
-            if discount < settings.min_discount:
+        if valuation is None and comps and not listing.details_loaded and not force:
+            rough = estimate_market_price(listing, comps, self.config.valuation)
+            if rough.market_price is None or not self._worth_a_closer_look(listing, rough):
                 return None
-            # Repairs only lower the profit, so if it fails now it will fail later.
-            if estimate_flip(listing, valuation, settings, today=today).profit < settings.min_profit:
-                return None
-
         if not listing.details_loaded:
             listing = self.source.fetch_details(listing)
+        if valuation is None:
+            valuation = self._exact_valuation(listing)
+            if valuation.market_price is None and comps:
+                valuation = estimate_market_price(listing, comps, self.config.valuation)
+        if valuation.market_price is None:
+            return None
+        if not force and not self._worth_a_closer_look(listing, valuation):
+            return None
+
         flip = estimate_flip(listing, valuation, settings, today=today)
         analysis = None
         if self.analyzer is not None:
@@ -263,9 +361,11 @@ class DealHunter:
         """Evaluates one ad by URL, collecting fresh comparables for it first.
         Returns the report (None if the market price can't be estimated) and the number of comparables."""
         listing = self.source.fetch_details(listing_from_url(url))
-        comps = self._comparables_for(listing)
-        if comps is None:
+        if not self._comparable_searches(listing):
             raise ValueError("could not read make, model and first registration from the ad")
-        report = self.evaluate(listing, comps, search_name=f"{listing.make} {listing.model}", force=True)
+        valuation = self._exact_valuation(listing)
         self.store.mark_evaluated(listing)  # no second alert for an ad the user already asked about
-        return report, len(comps)
+        if valuation.market_price is None:
+            return None, valuation.comparables
+        report = self.evaluate(listing, [], f"{listing.make} {listing.model}", force=True, valuation=valuation)
+        return report, valuation.comparables

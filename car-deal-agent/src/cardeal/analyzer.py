@@ -137,8 +137,8 @@ def _format_listing(listing: Listing) -> str:
 def build_prompt(listing: Listing, valuation: Valuation, flip: FlipEstimate, language: str) -> str:
     discount = valuation.discount(listing.price)
     market = (
-        f"Market context from {valuation.comparables} comparable ads "
-        f"(confidence {valuation.confidence}):\n"
+        f"Market context from {valuation.comparables} comparable private ads "
+        f"({valuation.basis or 'same model'}, undamaged; confidence {valuation.confidence}):\n"
         f"- Estimated market asking price: {euro(valuation.market_price)}\n"
         f"- This ad: {euro(listing.price)}"
         + (f" ({percent(discount)} below market)" if discount is not None else "")

@@ -76,3 +76,23 @@ def test_due_tuv_and_its_cost_are_shown():
     due.flip.hu_cost = 200
     assert "TÜV 03/2027 ⚠️ +200 €" in to_plain_text(format_report(due, "de"))
     assert "TÜV" in to_plain_text(format_report(report(), "de")) and "⚠️" not in format_report(report(), "de")
+
+
+def test_comparables_line_links_to_the_search_and_preview_stays_on_the_ad():
+    from cardeal.notifier import TelegramClient
+
+    r = report()
+    r.valuation.basis = "Golf · Benzin · Manuell · 92–152 PS · 2012–2016"
+    r.valuation.comparables_url = "https://www.kleinanzeigen.de/s-autos/c216+autos.model_s:golf"
+    text = format_report(r, "de")
+    assert ('📊 <a href="https://www.kleinanzeigen.de/s-autos/c216+autos.model_s:golf">14 Vergleichsautos</a>: '
+            "Golf · Benzin · Manuell · 92–152 PS · 2012–2016") in text
+
+    class Session:
+        def post(self, url, json, timeout):
+            self.sent = json
+            return type("R", (), {"status_code": 200, "json": lambda _: {"ok": True, "result": {}}})()
+
+    session = Session()
+    TelegramClient("t", session).send_message("1", text)
+    assert session.sent["link_preview_options"] == {"url": r.listing.url}

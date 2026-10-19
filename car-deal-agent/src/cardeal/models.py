@@ -34,6 +34,20 @@ class Listing:
     seller_type: str | None = None
     features: list[str] = field(default_factory=list)
     details_loaded: bool = False
+    body_type: str | None = None
+    # Kleinanzeigen's own filter values from the ad page ("golf", "benzin", "manuell", ...),
+    # used to search for exactly the same kind of car as comparables.
+    make_slug: str | None = None
+    model_slug: str | None = None
+    fuel_slug: str | None = None
+    gearbox_slug: str | None = None
+    body_slug: str | None = None
+
+    @property
+    def damaged(self) -> bool:
+        """The seller filed the car under "Beschädigtes Fahrzeug"."""
+        condition = (self.condition or "").lower()
+        return "beschädigt" in condition and "unbeschädigt" not in condition
 
 
 @dataclass
@@ -55,6 +69,10 @@ class SearchCriteria:
     zip_code: str | None = None
     radius_km: int | None = None
     seller: str | None = None  # "privat" | "gewerblich"
+    body_type: str | None = None  # "limousine", "kombi", "kleinwagen", ...
+    min_power: int | None = None  # PS
+    max_power: int | None = None
+    damaged: bool | None = None  # False: only undamaged cars
     pages: int = 2
 
     @property
@@ -77,6 +95,8 @@ class Valuation:
     spread: float | None
     confidence: str  # "high" | "medium" | "low" | "none"
     method: str
+    basis: str = ""  # what was compared, e.g. "Golf · Benzin · Manuell · 104–140 PS · 2012–2016"
+    comparables_url: str = ""  # the comparables search on Kleinanzeigen, to check it yourself
 
     def discount(self, price: int | None) -> float | None:
         """How far below the market price an asking price is (0.2 = 20 % cheaper)."""

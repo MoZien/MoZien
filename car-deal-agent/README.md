@@ -26,6 +26,8 @@ deal / check / skip ──► Telegram message
 
 ## How the numbers work
 
+**Exact comparables.** Every ad page carries Kleinanzeigen's own filter values for the car (model, fuel, gearbox, body type, power). After opening an ad, the bot searches private, undamaged ads of exactly that kind of car: same model, fuel, gearbox and body, ±15 % power, ±2 years. With too few matches it widens step by step (±25 % power without body type, then same fuel, then the model only). Models Kleinanzeigen files under "Andere" (e.g. Scirocco) are searched by the model name from the title. The Telegram message shows what was compared, with a link to exactly that search. Cars the seller marks as damaged are never a "deal".
+
 **Market price.** Every ad the bot sees is stored. For a candidate it takes ads of the same make and model within ±2 years and ±40 % mileage, adjusts each one's price to the candidate's year and mileage, and uses the median. The adjustment factors (how much a year or 10,000 km cost in this segment) are fitted by least squares on log prices once there are ≥ 12 ads; before that, defaults are used (−8 % per year, −4 % per 10,000 km). The number of comparables and their spread set the confidence; with low confidence a car is never more than "check".
 
 The market data search is wider than your limits (by the same ±2 years / ±40 % km) so that a car at the edge of your filters is still compared with cars on both sides of it.

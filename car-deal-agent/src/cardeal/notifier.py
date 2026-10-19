@@ -58,6 +58,12 @@ def format_report(report: DealReport, lang: str) -> str:
         + f" {'←' if rtl else '→'} {market}",
         f"📈 {t(lang, 'profit_line', profit=ltr('~' + euro(flip.profit)))} {ltr(f'(ROI {percent(flip.roi)})')}",
     ]
+    if valuation.basis:
+        count = t(lang, "comparables_link", n=valuation.comparables)
+        if valuation.comparables_url:
+            count = f'<a href="{e(valuation.comparables_url, quote=True)}">{count}</a>'
+        unsure = " ⚠️" if valuation.confidence == "low" else ""
+        lines.append(f"📊 {count}: {ltr(e(valuation.basis))}{unsure}")
 
     other_reasons = report.reasons
     if analysis is not None:
@@ -114,8 +120,12 @@ class TelegramClient:
         return data["result"]
 
     def send_message(self, chat_id: str, text: str) -> None:
-        # Link previews are on, so the ad photo shows up under the message.
-        self.call("sendMessage", chat_id=chat_id, text=text, parse_mode="HTML", disable_web_page_preview=False)
+        params = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
+        links = re.findall(r'href="([^"]+)"', text)
+        if links:
+            # Preview the last link (the ad, with its photo), not the comparables search.
+            params["link_preview_options"] = {"url": html.unescape(links[-1])}
+        self.call("sendMessage", **params)
 
     def get_updates(self, offset: int | None, timeout: int) -> list[dict]:
         """Long polling: waits up to `timeout` seconds for new messages."""
