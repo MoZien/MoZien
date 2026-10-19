@@ -28,6 +28,7 @@ from cardeal.valuation import estimate_market_price
 log = logging.getLogger(__name__)
 
 UNKNOWN_MODELS = {"andere", "weitere", "sonstige", "sonstige_autos"}
+SAME_ENGINE_TOLERANCE = 0.05  # ±5 % PS: the same engine (122 PS → 116–128 PS), not a weaker or stronger one
 MAKE_WORDS = {
     "vw", "volkswagen", "mercedes", "benz", "mercedes-benz", "mb", "bmw", "opel", "ford", "audi", "seat", "skoda",
     "škoda", "fiat", "renault", "peugeot", "citroen", "citroën", "toyota", "nissan", "mazda", "honda", "hyundai",
@@ -206,8 +207,9 @@ class DealHunter:
         return reports
 
     def _comparable_searches(self, listing: Listing) -> list[SearchCriteria]:
-        """Searches for the same kind of car, from exact to loose: same model, fuel, gearbox,
-        body and power first; each later step drops a filter in case too few cars match."""
+        """Searches for the same car: always the same model, the same engine (±5 % PS) and
+        ±year_window years. First also same fuel, gearbox and body; if too few cars match,
+        those are dropped, but never model, power or years: rather no price than a wrong one."""
         v = self.config.valuation
         if listing.year is None:
             return []
@@ -229,17 +231,13 @@ class DealHunter:
                 query=name.lower(), **common,
             )
 
-        def power_band(tolerance: float) -> dict:
-            if not listing.power_ps:
-                return {}
-            return dict(min_power=round(listing.power_ps * (1 - tolerance)),
-                        max_power=round(listing.power_ps * (1 + tolerance)))
-
+        if listing.power_ps:
+            base = replace(base, min_power=round(listing.power_ps * (1 - SAME_ENGINE_TOLERANCE)),
+                           max_power=round(listing.power_ps * (1 + SAME_ENGINE_TOLERANCE)))
         searches = []
         if listing.fuel_slug and listing.gearbox_slug:
-            same_drive = replace(base, fuel=listing.fuel_slug, gearbox=listing.gearbox_slug)
-            searches.append(replace(same_drive, body_type=listing.body_slug, **power_band(0.15)))
-            searches.append(replace(same_drive, **power_band(0.25)))
+            searches.append(replace(base, fuel=listing.fuel_slug, gearbox=listing.gearbox_slug,
+                                    body_type=listing.body_slug))
         if listing.fuel_slug:
             searches.append(replace(base, fuel=listing.fuel_slug))
         searches.append(base)

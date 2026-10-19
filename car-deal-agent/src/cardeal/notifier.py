@@ -80,9 +80,6 @@ def format_report(report: DealReport, lang: str) -> str:
         cost_parts.append(t(lang, "cost_vat", cost=ltr(euro(flip.vat))))
     if cost_parts:
         lines.append(f"🧾 {t(lang, 'costs')}: " + " · ".join(cost_parts))
-    if flip.max_buy_price > 0 and report.verdict != "skip":
-        lines.append("💰 " + t(lang, "max_buy_line", price=ltr(euro(flip.max_buy_price)),
-                               profit=ltr(euro(flip.target_profit))))
 
     other_reasons = report.reasons
     if analysis is not None:

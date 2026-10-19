@@ -26,7 +26,7 @@ deal / check / skip ──► Telegram message
 
 ## How the numbers work
 
-**Exact comparables.** Every ad page carries Kleinanzeigen's own filter values for the car (model, fuel, gearbox, body type, power). After opening an ad, the bot searches private, undamaged ads of exactly that kind of car: same model, fuel, gearbox and body, ±15 % power, ±2 years. With too few matches it widens step by step (±25 % power without body type, then same fuel, then the model only). Models Kleinanzeigen files under "Andere" (e.g. Scirocco) are searched by the model name from the title. The Telegram message shows what was compared, with a link to exactly that search. Cars the seller marks as damaged are never a "deal".
+**Exact comparables.** Every ad page carries Kleinanzeigen's own filter values for the car (model, fuel, gearbox, body type, power). After opening an ad, the bot searches private, undamaged ads of the same model with the same engine (±5 % PS, e.g. 122 PS → 116–128 PS) from ±2 years. It first also requires the same fuel, gearbox and body type and drops those if too few cars match, but never model, power or years: with too few matches there is no market price rather than a wrong one. If too few comparables have a similar mileage, the mileage range is widened and their prices are adjusted by the mileage effect learned from the same data. Models Kleinanzeigen files under "Andere" (e.g. Scirocco) are searched by the model name from the title. The Telegram message shows what was compared, with a link to exactly that search. Cars the seller marks as damaged are never a "deal".
 
 **Market price.** Every ad the bot sees is stored. For a candidate it takes ads of the same make and model within ±2 years and ±40 % mileage, adjusts each one's price to the candidate's year and mileage, and uses the median. The adjustment factors (how much a year or 10,000 km cost in this segment) are fitted by least squares on log prices once there are ≥ 12 ads; before that, defaults are used (−8 % per year, −4 % per 10,000 km). The number of comparables and their spread set the confidence; with low confidence a car is never more than "check".
 
@@ -42,7 +42,7 @@ resale   = market price × resale_factor                       # asking prices a
 costs    = repairs named in the ad + fuel to fetch the car + TÜV if expired or due within 2 months
            (+ deal.fixed_costs if you set any, + §25a margin VAT if enabled)
 profit   = resale − buy − costs
-max buy  = the purchase price at which profit = deal.min_profit
+max buy  = the purchase price at which profit = deal.min_profit (guides the offer in the seller message)
 ```
 
 **Repair costs.** The AI lists problems it sees in the ad, and every cost must come with the exact words from the ad (`quote`). The program checks that those words really are in the ad; costs without a matching quote, and typical-for-the-model risks the ad doesn't mention, count as 0 € and become questions for the seller instead. The Telegram message shows each counted cost with its quote, or "No defects mentioned in the ad".

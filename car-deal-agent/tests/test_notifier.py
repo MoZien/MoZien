@@ -104,7 +104,7 @@ def test_max_purchase_price_and_seller_message():
     r = report(analysis)
     r.flip.max_buy_price, r.flip.target_profit = 6_390, 500
     text = format_report(r, "de")
-    assert "💰 Zahl höchstens 6.390 €, dann bleiben 500 € Gewinn" in text
+    assert "💰" not in text  # the max purchase price only guides the offer in the message
     assert "✉️ Nachricht an den Verkäufer (kopieren):\n<pre>Guten Tag,\nist der Golf noch da?" in text
     assert text.endswith("</a>")  # the ad link stays last (link preview)
 

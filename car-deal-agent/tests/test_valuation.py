@@ -81,3 +81,15 @@ def test_missing_year_or_km():
     valuation = estimate_market_price(car("t", 6_000, None, 100_000), [])
     assert valuation.market_price is None
     assert valuation.method == "missing year or mileage"
+
+
+def test_rare_low_mileage_car_is_valued_against_adjusted_high_mileage_ones():
+    # A 2008 car with 114,000 km while all comparables have 190,000-260,000 km.
+    rng = random.Random(1)
+    comps = []
+    for i in range(30):
+        km = rng.randint(190_000, 260_000)
+        comps.append(car(i, round(true_price(2008, km)), 2008, km))
+    valuation = estimate_market_price(car("t", 3_000, 2008, 114_000), comps)
+    assert valuation.market_price == pytest.approx(true_price(2008, 114_000), rel=0.08)
+    assert valuation.confidence != "high"  # mileage range had to be widened

@@ -5,7 +5,7 @@ from __future__ import annotations
 TEXTS: dict[str, dict[str, str]] = {
     "ar": {
         "costs": "المصاريف",
-        "cost_fuel": "بنزين {cost} ({km})",
+        "cost_fuel": "وقود {cost} ({km})",
         "cost_tuv": "TÜV {cost}",
         "cost_repairs": "تصليح {cost}",
         "cost_other": "غيرها {cost}",
@@ -17,7 +17,6 @@ TEXTS: dict[str, dict[str, str]] = {
         "hunt_not_running": "ما في بحث شغّال هلق.",
         "hunt_too_old": "طلب البحث تبعك وصل والبوت كان طافي، فما بلّشت فيه. ابعت «دورلي 3» من جديد إذا بدك.",
         "profit_line": "الربح {profit} = بيع {resale} − شراء {buy} − مصاريف {costs}",
-        "max_buy_line": "لا تدفع أكتر من {price} لتضمن ربح {profit}",
         "seller_message": "رسالة للبائع (انسخها):",
         "no_issues": "ما في أعطال مذكورة بالإعلان",
         "verdict_deal": "🔥 لقطة",
@@ -72,7 +71,6 @@ TEXTS: dict[str, dict[str, str]] = {
         "hunt_too_old": "Deine Suchanfrage kam an, als der Bot aus war, deshalb habe ich sie nicht gestartet. "
                         "Schick «suche 3» nochmal, wenn du willst.",
         "profit_line": "Gewinn {profit} = Verkauf {resale} − Kauf {buy} − Kosten {costs}",
-        "max_buy_line": "Zahl höchstens {price}, dann bleiben {profit} Gewinn",
         "seller_message": "Nachricht an den Verkäufer (kopieren):",
         "no_issues": "Keine Mängel in der Anzeige erwähnt",
         "verdict_deal": "🔥 Schnäppchen",
@@ -130,7 +128,6 @@ TEXTS: dict[str, dict[str, str]] = {
         "hunt_too_old": "Your search request arrived while the bot was off, so I didn't start it. "
                         "Send \"search 3\" again if you still want it.",
         "profit_line": "Profit {profit} = sell {resale} − buy {buy} − costs {costs}",
-        "max_buy_line": "Pay at most {price} to keep {profit} profit",
         "seller_message": "Message to the seller (copy):",
         "no_issues": "No defects mentioned in the ad",
         "verdict_deal": "🔥 Deal",

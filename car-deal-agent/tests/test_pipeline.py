@@ -329,16 +329,16 @@ def test_exact_comparables_widen_step_by_step():
 
     report, comparables = h.analyze_url("https://www.kleinanzeigen.de/s-anzeige/vw-golf/3202186316-216-143")
 
-    exact, same_drive = source.searches
-    assert (exact.model, exact.fuel, exact.gearbox, exact.body_type, exact.min_power, exact.max_power) == (
-        "golf", "benzin", "manuell", "limousine", 104, 140)
-    assert (same_drive.body_type, same_drive.min_power, same_drive.max_power) == (None, 92, 152)
-    assert all(s.damaged is False and s.seller == "privat" and (s.min_year, s.max_year) == (2012, 2016)
-               for s in source.searches)
+    exact, same_fuel = source.searches
+    assert (exact.model, exact.fuel, exact.gearbox, exact.body_type) == ("golf", "benzin", "manuell", "limousine")
+    assert (same_fuel.fuel, same_fuel.gearbox, same_fuel.body_type) == ("benzin", None, None)
+    # never loosened: same model, same engine (122 PS ±5 %), ±2 years, private, undamaged
+    assert all((s.model, s.min_power, s.max_power, s.min_year, s.max_year, s.seller, s.damaged)
+               == ("golf", 116, 128, 2012, 2016, "privat", False) for s in source.searches)
     assert comparables == 15
     assert report.valuation.market_price == 9_100
-    assert report.valuation.basis == "Golf · Benzin · Manuell · 92–152 PS · 2012–2016"
-    assert "power_i:92%2C152" in report.valuation.comparables_url
+    assert report.valuation.basis == "Golf · Benzin · 116–128 PS · 2012–2016"
+    assert "power_i:116%2C128" in report.valuation.comparables_url
 
     h.analyze_url("https://www.kleinanzeigen.de/s-anzeige/vw-golf/3202186399-216-143")
     assert len(source.searches) == 2  # both searches cached for the next ad
@@ -402,3 +402,16 @@ def test_bad_zip_range_is_reported():
     from cardeal.config import FilterSettings
     with pytest.raises(ValueError, match="10115-14199"):
         FilterSettings(exclude_zip_ranges=["Berlin"]).zip_ranges()
+
+
+def test_no_price_rather_than_other_engines():
+    class FewMatches(TieredMarketplace):
+        def search(self, criteria, price_ceiling=None):
+            self.searches.append(criteria)
+            return [ad(f"g{i}", 9_000, year=2014, km=100_000) for i in range(3)]  # too few in every step
+
+    source = FewMatches(GOLF_DETAILS)
+    h = DealHunter(AppConfig(searches=[BROAD]), source, Store(":memory:"), None, None, clock=lambda: NOW)
+    report, comparables = h.analyze_url("https://www.kleinanzeigen.de/s-anzeige/vw-golf/3202186316-216-143")
+    assert report is None and comparables == 3
+    assert all(s.min_power == 116 and s.max_power == 128 for s in source.searches)

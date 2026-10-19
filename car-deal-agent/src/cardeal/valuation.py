@@ -5,8 +5,9 @@ Method:
    log(price) = a + b * year + c * (km / 10,000) on all comparables
    (robust: one refit without points off by more than 2x). With little data
    the defaults below are used instead.
-2. Take comparables close in year and mileage, adjust each one's price to the
-   target's year and mileage with those factors, and drop outliers.
+2. Take comparables close in year and mileage (widening the mileage range if
+   too few), adjust each one's price to the target's year and mileage with
+   those factors, and drop outliers.
 3. Market price = median of the adjusted prices; the spread (IQR / median)
    and the number of comparables decide the confidence.
 
@@ -54,6 +55,12 @@ def _ols(points: Sequence[Listing]) -> tuple[float, float, float, float, float] 
     svt = sum((k - mk) * (t - ml) for k, t in zip(kms, logs))
     det = suu * svv - suv**2
     if det <= 1e-9 * max(suu * svv, 1e-9):
+        # All comparables from one year (or all with the same mileage): learn the factor
+        # that the data does show and keep the default for the other.
+        if svv > 1e-9:
+            return ml, DEFAULT_YEAR_COEF, svt / svv, my, mk
+        if suu > 1e-9:
+            return ml, sut / suu, DEFAULT_KM_COEF, my, mk
         return None
     b = (sut * svv - svt * suv) / det
     c = (svt * suu - sut * suv) / det
@@ -92,18 +99,26 @@ def estimate_market_price(
     method = "regression" if coefs else "default depreciation"
     year_coef, km_coef = coefs or (DEFAULT_YEAR_COEF, DEFAULT_KM_COEF)
 
-    km_tolerance = max(settings.km_window * target.km, 20_000)
-    window = [
-        c for c in pool
-        if abs(c.year - target.year) <= settings.year_window and abs(c.km - target.km) <= km_tolerance
-    ]
-    adjusted = [
-        c.price * math.exp(year_coef * (target.year - c.year) + km_coef * (target.km - c.km) / 10_000)
-        for c in window
-    ]
-    if adjusted:
-        mid = statistics.median(adjusted)
-        adjusted = [p for p in adjusted if mid / OUTLIER_FACTOR <= p <= mid * OUTLIER_FACTOR]
+    # Start with cars of similar mileage; if too few, widen and let the mileage adjustment
+    # carry more weight (a rare low-mileage car vs. the many high-mileage ones of its year).
+    adjusted: list[float] = []
+    widened = False
+    for factor in (settings.km_window, settings.km_window * 2, math.inf):
+        km_tolerance = max(factor * target.km, 20_000)
+        window = [
+            c for c in pool
+            if abs(c.year - target.year) <= settings.year_window and abs(c.km - target.km) <= km_tolerance
+        ]
+        adjusted = [
+            c.price * math.exp(year_coef * (target.year - c.year) + km_coef * (target.km - c.km) / 10_000)
+            for c in window
+        ]
+        if adjusted:
+            mid = statistics.median(adjusted)
+            adjusted = [p for p in adjusted if mid / OUTLIER_FACTOR <= p <= mid * OUTLIER_FACTOR]
+        if len(adjusted) >= settings.min_comparables:
+            break
+        widened = True
     if len(adjusted) < settings.min_comparables:
         return Valuation(None, len(adjusted), None, "none", "not enough comparables")
 
@@ -111,7 +126,7 @@ def estimate_market_price(
     q1, _, q3 = statistics.quantiles(adjusted, n=4)
     spread = (q3 - q1) / market
     n = len(adjusted)
-    if n >= 12 and spread <= 0.25:
+    if n >= 12 and spread <= 0.25 and not widened:
         confidence = "high"
     elif n >= 6 and spread <= 0.40:
         confidence = "medium"
