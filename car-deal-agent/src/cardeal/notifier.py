@@ -65,6 +65,21 @@ def format_report(report: DealReport, lang: str) -> str:
             count = f'<a href="{e(valuation.comparables_url, quote=True)}">{count}</a>'
         unsure = " ⚠️" if valuation.confidence == "low" else ""
         lines.insert(3, f"📊 {count}: {ltr(e(valuation.basis))}{unsure}")
+    cost_parts = []
+    if flip.fuel_cost:
+        trip = f"{flip.trip_legs} × {flip.trip_km} km" if flip.trip_legs > 1 else f"{flip.trip_km} km"
+        cost_parts.append(t(lang, "cost_fuel", cost=ltr("~" + euro(flip.fuel_cost)), km=ltr(trip)))
+    if flip.hu_cost:
+        cost_parts.append(t(lang, "cost_tuv", cost=ltr(euro(flip.hu_cost))))
+    if flip.repair_costs:
+        cost_parts.append(t(lang, "cost_repairs", cost=ltr(euro(flip.repair_costs))))
+    fixed = flip.other_costs - flip.fuel_cost - flip.hu_cost
+    if fixed:
+        cost_parts.append(t(lang, "cost_other", cost=ltr(euro(fixed))))
+    if flip.vat:
+        cost_parts.append(t(lang, "cost_vat", cost=ltr(euro(flip.vat))))
+    if cost_parts:
+        lines.append(f"🧾 {t(lang, 'costs')}: " + " · ".join(cost_parts))
     if flip.max_buy_price > 0 and report.verdict != "skip":
         lines.append("💰 " + t(lang, "max_buy_line", price=ltr(euro(flip.max_buy_price)),
                                profit=ltr(euro(flip.target_profit))))

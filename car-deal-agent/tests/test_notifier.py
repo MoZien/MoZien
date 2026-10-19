@@ -35,11 +35,12 @@ def test_short_report_in_arabic_with_quoted_repair():
     assert lines[1] == "📍 10115 Mitte · 72.500 km · EZ 08/2014 · TÜV 03/2027"
     assert lines[2] == "💶 <b>6.200 €</b> قابل للتفاوض ← السوق ~8.900 € (−30 %)"
     assert lines[3] == "📈 الربح ~1.895 € = بيع ~8.455 € − شراء ~5.890 € − مصاريف 670 €"
-    assert lines[4] == "🔧 المكيف بحاجة تعبئة ~300 € – “Klima muss befüllt werden”"
+    assert lines[4] == "🧾 المصاريف: تصليح 300 € · غيرها 370 €"
+    assert lines[5] == "🔧 المكيف بحاجة تعبئة ~300 € – “Klima muss befüllt werden”"
     assert "Motorschaden" not in text  # an invented quote never shows up as a cost
-    assert lines[5] == "🧠 سيارة نظيفة وسعرها منيح"
-    assert lines[6] == "❓ في سجل صيانة؟ · إيمت انغيّر الزيت؟"  # at most two questions
-    assert len(lines) == 8 and lines[7].startswith("🔗 <a href=")  # AI reason not repeated
+    assert lines[6] == "🧠 سيارة نظيفة وسعرها منيح"
+    assert lines[7] == "❓ في سجل صيانة؟ · إيمت انغيّر الزيت؟"  # at most two questions
+    assert len(lines) == 9 and lines[8].startswith("🔗 <a href=")  # AI reason not repeated
 
 
 def test_report_says_when_the_ad_mentions_no_defects():
@@ -110,3 +111,10 @@ def test_max_purchase_price_and_seller_message():
     r.verdict = "skip"
     skipped = format_report(r, "de")
     assert "💰" not in skipped and "✉️" not in skipped  # no offer for a car to skip
+
+
+def test_cost_breakdown_names_fuel_trip_and_tuv():
+    r = report()
+    r.flip.other_costs, r.flip.fuel_cost, r.flip.trip_km, r.flip.trip_legs, r.flip.hu_cost = 186, 36, 145, 2, 150
+    r.flip.repair_costs = 0
+    assert "🧾 Kosten: Sprit ~36 € (2 × 145 km) · TÜV 150 €" in to_plain_text(format_report(r, "de"))

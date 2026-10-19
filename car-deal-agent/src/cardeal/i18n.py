@@ -4,6 +4,12 @@ from __future__ import annotations
 
 TEXTS: dict[str, dict[str, str]] = {
     "ar": {
+        "costs": "المصاريف",
+        "cost_fuel": "بنزين {cost} ({km})",
+        "cost_tuv": "TÜV {cost}",
+        "cost_repairs": "تصليح {cost}",
+        "cost_other": "غيرها {cost}",
+        "cost_vat": "ضريبة الهامش {cost}",
         "comparables_link": "{n} سيارة مشابهة",
         "reason_damaged": "البائع كاتب إنها متضررة: شوف الضرر قبل ما تقرر",
         "hunt_stopping": "⏹️ تمام، عم وقّف البحث…",
@@ -52,6 +58,12 @@ TEXTS: dict[str, dict[str, str]] = {
                          "(إذا في أكتر من شخص، افصل الأرقام بفاصلة)",
     },
     "de": {
+        "costs": "Kosten",
+        "cost_fuel": "Sprit {cost} ({km})",
+        "cost_tuv": "TÜV {cost}",
+        "cost_repairs": "Reparatur {cost}",
+        "cost_other": "Sonstiges {cost}",
+        "cost_vat": "Margensteuer {cost}",
         "comparables_link": "{n} Vergleichsautos",
         "reason_damaged": "vom Verkäufer als beschädigt markiert: Schaden erst prüfen",
         "hunt_stopping": "⏹️ Okay, ich höre auf…",
@@ -104,6 +116,12 @@ TEXTS: dict[str, dict[str, str]] = {
                          "(mehrere Personen mit Komma trennen)",
     },
     "en": {
+        "costs": "Costs",
+        "cost_fuel": "fuel {cost} ({km})",
+        "cost_tuv": "TÜV {cost}",
+        "cost_repairs": "repairs {cost}",
+        "cost_other": "other {cost}",
+        "cost_vat": "margin VAT {cost}",
         "comparables_link": "{n} comparable cars",
         "reason_damaged": "marked as damaged by the seller: check the damage first",
         "hunt_stopping": "⏹️ Okay, stopping…",

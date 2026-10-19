@@ -39,8 +39,10 @@ The market data search is wider than your limits (by the same ±2 years / ±40 %
 ```
 buy      = asking price × (1 − negotiation_discount)        # only for "VB" ads
 resale   = market price × resale_factor                       # asking prices are not sale prices
-profit   = resale − buy − repairs (AI estimate) − fixed costs − HU if due soon − VAT (§25a, optional)
-ROI      = profit / (buy + repairs + costs)
+costs    = repairs named in the ad + fuel to fetch the car + TÜV if expired or due within 2 months
+           (+ deal.fixed_costs if you set any, + §25a margin VAT if enabled)
+profit   = resale − buy − costs
+max buy  = the purchase price at which profit = deal.min_profit
 ```
 
 **Repair costs.** The AI lists problems it sees in the ad, and every cost must come with the exact words from the ad (`quote`). The program checks that those words really are in the ad; costs without a matching quote, and typical-for-the-model risks the ad doesn't mention, count as 0 € and become questions for the seller instead. The Telegram message shows each counted cost with its quote, or "No defects mentioned in the ad".
@@ -131,3 +133,8 @@ src/cardeal/
 - variant-aware valuation using power (PS) and trim from the detail page
 - Claude vision on the ad photos (rust, paint differences, dashboard warning lights)
 - Telegram commands to change the budget or add a search from the phone
+
+## Credits
+
+Postal code coordinates for the fuel distance: [GeoNames](https://www.geonames.org), licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (`src/cardeal/data/de_zip.csv`).

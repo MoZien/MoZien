@@ -117,6 +117,9 @@ class FlipEstimate:
     hu_cost: int = 0  # part of other_costs: HU/TÜV due soon
     max_buy_price: int = 0  # most you can pay and still make target_profit
     target_profit: int = 0  # deal.min_profit
+    fuel_cost: int = 0  # part of other_costs: fetching the car
+    trip_km: int = 0  # one way
+    trip_legs: int = 0  # 2 = there and back
 
     @property
     def total_costs(self) -> int:

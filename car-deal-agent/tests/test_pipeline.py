@@ -290,7 +290,7 @@ def test_find_deals_stops_at_the_requested_number():
 
 
 def test_find_deals_respects_the_ad_limit():
-    h, source, _ = broad_hunter([ad(f"x{i}", 2_900, year=2008, km=150_000) for i in range(5)],
+    h, source, _ = broad_hunter([ad(f"x{i}", 3_000, year=2008, km=150_000) for i in range(5)],  # ~325 € profit
                                 {f"kleinanzeigen:x{i}": OPEL_CORSA for i in range(5)})
     found, evaluated = h.find_deals(3, max_ads=2)
     assert found == [] and evaluated == 2 and len(source.detail_calls) == 2

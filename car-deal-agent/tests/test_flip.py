@@ -98,3 +98,36 @@ def test_max_purchase_price_keeps_the_minimum_profit():
     flip = estimate_flip(listing(6000), valuation(9000), vat, today=TODAY)
     at_max = estimate_flip(listing(flip.max_buy_price), valuation(9000), vat, today=TODAY)
     assert 495 <= at_max.profit <= 505  # margin VAT included (rounding)
+
+
+def test_tuv_only_counts_when_expired_or_due_within_two_months():
+    settings = DealSettings()  # defaults: no fixed costs, TÜV 150 € within 2 months
+    costs = {hu: estimate_flip(listing(hu=hu), valuation(), settings, today=TODAY).other_costs
+             for hu in ("08/2026", "10/2026", "12/2026", "01/2027", None)}
+    assert costs == {"08/2026": 150, "10/2026": 150, "12/2026": 150, "01/2027": 0, None: 0}
+
+
+def test_fuel_to_fetch_the_car_from_home():
+    from cardeal.config import TripSettings
+    from cardeal.geo import road_km
+
+    assert 135 <= road_km("06108", "08529") <= 155  # Halle -> Plauen by road (~140 km)
+    assert road_km("06108", "99999") is None
+
+    car = listing(6000)
+    car.location, car.fuel_slug = "08529 Sachsen - Plauen", "diesel"
+    trip = TripSettings(home_zip="06108", consumption_l_per_100km=7, fuel_prices={"benzin": 1.80, "diesel": 1.60})
+    flip = estimate_flip(car, valuation(9000), DealSettings(), today=TODAY, trip=trip)
+    km = road_km("06108", "08529")
+    assert (flip.trip_km, flip.trip_legs) == (round(km), 2)
+    assert flip.fuel_cost == round(2 * km * 7 / 100 * 1.60) and flip.other_costs == flip.fuel_cost
+
+    car.location = "Plauen"  # no ZIP: no fuel cost rather than a guess
+    assert estimate_flip(car, valuation(9000), DealSettings(), today=TODAY, trip=trip).fuel_cost == 0
+
+
+def test_home_zip_defaults_to_the_search_location(tmp_path):
+    from cardeal.config import load_config
+    path = tmp_path / "config.yaml"
+    path.write_text('searches:\n  - name: x\n    zip_code: "06108"\n', encoding="utf-8")
+    assert load_config(path).trip.home_zip == "06108"

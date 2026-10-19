@@ -36,11 +36,11 @@ class DealSettings:
     min_roi: float = 0.12
     negotiation_discount: float = 0.05
     resale_factor: float = 0.95
-    fixed_costs: dict[str, int] = field(
-        default_factory=lambda: {"registration": 120, "transport": 100, "cleaning": 150}
-    )
-    hu_cost: int = 200
-    hu_warning_months: int = 6
+    # Extra costs per car on top of repairs from the ad, fuel and TÜV, e.g. {"kurzzeitkennzeichen": 100}.
+    fixed_costs: dict[str, int] = field(default_factory=dict)
+    # TÜV (HU+AU) is counted when it has expired or expires within hu_warning_months.
+    hu_cost: int = 150
+    hu_warning_months: int = 2
     # §25a UStG: dealers pay 19 % VAT on the margin. Off for private sellers.
     vat_margin_scheme: bool = False
     suspicious_discount: float = 0.40
@@ -48,6 +48,17 @@ class DealSettings:
     # False: the first run of a search only collects market data, alerts start
     # with ads posted after that. True: also evaluate the ads already online.
     alert_existing: bool = False
+
+
+@dataclass
+class TripSettings:
+    """Fuel to fetch the car: from home to the seller and back."""
+
+    home_zip: str | None = None  # default: zip_code of the first search
+    consumption_l_per_100km: float = 7.0
+    fuel_prices: dict[str, float] = field(default_factory=lambda: {"benzin": 1.75, "diesel": 1.65})
+    round_trip: bool = True
+    road_factor: float = 1.3  # road distance ≈ straight line × 1.3
 
 
 @dataclass
@@ -97,6 +108,7 @@ class AppConfig:
     database: str = "data/cardeal.sqlite3"
     valuation: ValuationSettings = field(default_factory=ValuationSettings)
     deal: DealSettings = field(default_factory=DealSettings)
+    trip: TripSettings = field(default_factory=TripSettings)
     ai: AISettings = field(default_factory=AISettings)
     scraper: ScraperSettings = field(default_factory=ScraperSettings)
     filters: FilterSettings = field(default_factory=FilterSettings)
@@ -139,6 +151,7 @@ def load_config(path: str | Path) -> AppConfig:
     sections = {
         "valuation": ValuationSettings,
         "deal": DealSettings,
+        "trip": TripSettings,
         "ai": AISettings,
         "scraper": ScraperSettings,
         "filters": FilterSettings,
@@ -147,6 +160,8 @@ def load_config(path: str | Path) -> AppConfig:
         name: _build(cls, raw.pop(name, None), name) for name, cls in sections.items()
     }
     config = _build(AppConfig, {**raw, **kwargs, "searches": searches}, "root")
+    if not config.trip.home_zip:
+        config.trip.home_zip = next((s.zip_code for s in searches if s.zip_code), None)
     config.telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN") or None
     config.telegram_chat_id = os.environ.get("TELEGRAM_CHAT_ID") or None
     config.telegram_allowed_chats = [

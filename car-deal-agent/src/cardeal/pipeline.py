@@ -299,7 +299,7 @@ class DealHunter:
         discount = valuation.discount(listing.price) or 0.0
         if discount < settings.min_discount:
             return False
-        flip = estimate_flip(listing, valuation, settings, today=self.clock().date())
+        flip = estimate_flip(listing, valuation, settings, today=self.clock().date(), trip=self.config.trip)
         return flip.profit >= settings.min_profit
 
     def _is_candidate(self, listing: Listing, search: SearchCriteria) -> bool:
@@ -357,13 +357,14 @@ class DealHunter:
         if not force and not self._worth_a_closer_look(listing, valuation):
             return None
 
-        flip = estimate_flip(listing, valuation, settings, today=today)
+        flip = estimate_flip(listing, valuation, settings, today=today, trip=self.config.trip)
         analysis = None
         if self.analyzer is not None:
             try:
                 analysis = self.analyzer.analyze(listing, valuation, flip)
                 flip = estimate_flip(
-                    listing, valuation, settings, repair_costs=repair_costs(analysis, listing), today=today
+                    listing, valuation, settings, repair_costs=repair_costs(analysis, listing), today=today,
+                    trip=self.config.trip,
                 )
             except (AnalysisError, anthropic.APIError) as exc:
                 log.warning("AI analysis failed for %s: %s", listing.url, exc)

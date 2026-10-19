@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from datetime import date
 
-from cardeal.config import DealSettings
+from cardeal.config import DealSettings, TripSettings
+from cardeal.geo import road_km, zip_of
 from cardeal.i18n import percent, t
 from cardeal.models import FlipEstimate, Listing, Valuation
 
@@ -22,8 +23,22 @@ def months_until_hu(hu_until: str | None, today: date) -> int | None:
 
 
 def hu_due_soon(listing: Listing, settings: DealSettings, today: date) -> bool:
+    """HU expired or due within hu_warning_months (e.g. 2: this month, next month, the one after)."""
     months = months_until_hu(listing.hu_until, today)
-    return months is not None and months < settings.hu_warning_months
+    return months is not None and months <= settings.hu_warning_months
+
+
+def trip_costs(listing: Listing, trip: TripSettings | None) -> tuple[int, int, int]:
+    """(fuel cost in €, one-way km, legs) to fetch the car from home; zeros if the distance is unknown."""
+    if trip is None:
+        return 0, 0, 0
+    km = road_km(trip.home_zip, zip_of(listing.location), trip.road_factor)
+    if km is None:
+        return 0, 0, 0
+    fuel = (listing.fuel_slug or listing.fuel or "").lower()
+    price = next((p for kind, p in trip.fuel_prices.items() if kind in fuel), trip.fuel_prices.get("benzin", 1.75))
+    legs = 2 if trip.round_trip else 1
+    return round(km * legs * trip.consumption_l_per_100km / 100 * price), round(km), legs
 
 
 def estimate_flip(
@@ -32,6 +47,7 @@ def estimate_flip(
     settings: DealSettings,
     repair_costs: int = 0,
     today: date | None = None,
+    trip: TripSettings | None = None,
 ) -> FlipEstimate:
     today = today or date.today()
     asking = listing.price or 0
@@ -39,7 +55,8 @@ def estimate_flip(
     resale = round((valuation.market_price or 0) * settings.resale_factor)
 
     hu_cost = settings.hu_cost if hu_due_soon(listing, settings, today) else 0
-    other = sum(settings.fixed_costs.values()) + hu_cost
+    fuel_cost, trip_km, trip_legs = trip_costs(listing, trip)
+    other = sum(settings.fixed_costs.values()) + hu_cost + fuel_cost
 
     # Differenzbesteuerung (§25a UStG): VAT is 19/119 of (sale price - purchase price).
     vat = round(max(resale - buy, 0) * VAT_RATE / (1 + VAT_RATE)) if settings.vat_margin_scheme else 0
@@ -62,6 +79,9 @@ def estimate_flip(
         hu_cost=hu_cost,
         max_buy_price=max(max_buy, 0),
         target_profit=settings.min_profit,
+        fuel_cost=fuel_cost,
+        trip_km=trip_km,
+        trip_legs=trip_legs,
     )
 
 
