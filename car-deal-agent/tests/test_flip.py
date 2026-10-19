@@ -85,3 +85,16 @@ def test_reasons_are_localised():
     flip = estimate_flip(pricey, val, SETTINGS, today=TODAY)
     _, reasons = decide(pricey, val, flip, SETTINGS, today=TODAY, lang="ar")
     assert reasons[0].startswith("الربح")
+
+
+def test_max_purchase_price_keeps_the_minimum_profit():
+    settings = DealSettings(fixed_costs={"registration": 120, "transport": 100, "cleaning": 150}, min_profit=500)
+    flip = estimate_flip(listing(6000), valuation(9000), settings, repair_costs=300, today=TODAY)
+    assert flip.max_buy_price == 8550 - 500 - 300 - 370
+    at_max = estimate_flip(listing(flip.max_buy_price), valuation(9000), settings, repair_costs=300, today=TODAY)
+    assert at_max.profit == 500
+
+    vat = DealSettings(fixed_costs={}, min_profit=500, vat_margin_scheme=True)
+    flip = estimate_flip(listing(6000), valuation(9000), vat, today=TODAY)
+    at_max = estimate_flip(listing(flip.max_buy_price), valuation(9000), vat, today=TODAY)
+    assert 495 <= at_max.profit <= 505  # margin VAT included (rounding)

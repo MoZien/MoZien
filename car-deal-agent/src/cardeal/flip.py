@@ -45,6 +45,12 @@ def estimate_flip(
     vat = round(max(resale - buy, 0) * VAT_RATE / (1 + VAT_RATE)) if settings.vat_margin_scheme else 0
     profit = resale - buy - repair_costs - other - vat
     invested = buy + repair_costs + other
+
+    # Highest purchase price that still leaves min_profit (with §25a the margin VAT shrinks the gain).
+    needed = settings.min_profit + repair_costs + other
+    if settings.vat_margin_scheme:
+        needed = round(needed * (1 + VAT_RATE))
+    max_buy = resale - needed
     return FlipEstimate(
         buy_price=buy,
         resale_price=resale,
@@ -54,6 +60,8 @@ def estimate_flip(
         profit=profit,
         roi=round(profit / invested, 3) if invested else 0.0,
         hu_cost=hu_cost,
+        max_buy_price=max(max_buy, 0),
+        target_profit=settings.min_profit,
     )
 
 

@@ -89,4 +89,6 @@ def test_only_costs_backed_by_the_ad_count():
 
 
 def test_prompt_keeps_quotes_in_german():
-    assert "except `quote`, which keeps the ad's original German words." in build_prompt(LISTING, VALUATION, FLIP, "ar")
+    prompt = build_prompt(LISTING, VALUATION, FLIP, "ar")
+    assert "except `quote` (the ad's original German words) and `seller_message` (German)." in prompt
+    assert "Maximum purchase price for the buyer's minimum profit" in prompt

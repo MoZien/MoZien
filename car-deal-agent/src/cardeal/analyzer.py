@@ -36,6 +36,7 @@ class ListingAnalysis(BaseModel):
     resale_difficulty: Literal["easy", "normal", "hard"]
     questions_for_seller: list[str]
     negotiation_tip: str
+    seller_message: str
 
 
 SYSTEM_PROMPT = """\
@@ -73,6 +74,15 @@ invent or paraphrase quotes.
 - Leave out the HU/TÜV inspection, cleaning, registration and normal wear: \
 they are already counted separately.
 - No problems mentioned in the ad means no issues with costs. That is fine.
+
+seller_message: a message the buyer can send the seller on Kleinanzeigen as it is, \
+in German, polite Sie-form, natural and short (3-6 sentences, no emojis, no \
+placeholders like [Name]). Say you are interested, ask the 2-3 questions that \
+matter most for this car, and ask for a viewing with a test drive. If the price \
+is negotiable, add a concrete offer: below the asking price and never above the \
+maximum purchase price from the market context minus the repair costs you found, \
+justified briefly by something real in the ad (e.g. HU due soon, mileage, a defect). Never mention \
+reselling, profit or a market analysis.
 
 Keep it short, it is read on a phone: verdict_reason one sentence (max 20 \
 words), each issue max 6 words, at most 3 positives and 3 questions for the \
@@ -145,11 +155,12 @@ def build_prompt(listing: Listing, valuation: Valuation, flip: FlipEstimate, lan
         + f"\n- Flip estimate before repairs: buy ~{euro(flip.buy_price)}, "
         f"resell ~{euro(flip.resale_price)}, other costs {euro(flip.other_costs)}, "
         f"profit ~{euro(flip.profit)}"
+        f"\n- Maximum purchase price for the buyer's minimum profit: {euro(flip.max_buy_price)}"
     )
     return (
         f"{market}\n\n<listing>\n{_format_listing(listing)}\n</listing>\n\n"
         f"Write all free-text fields in {LANGUAGE_NAMES.get(language, 'English')}, "
-        "except `quote`, which keeps the ad's original German words."
+        "except `quote` (the ad's original German words) and `seller_message` (German)."
     )
 
 

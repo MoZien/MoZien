@@ -56,14 +56,18 @@ def format_report(report: DealReport, lang: str) -> str:
         "📍 " + " · ".join(ltr(f) for f in facts),
         f"💶 <b>{ltr(euro(listing.price))}</b>" + (f" {t(lang, 'negotiable')}" if listing.negotiable else "")
         + f" {'←' if rtl else '→'} {market}",
-        f"📈 {t(lang, 'profit_line', profit=ltr('~' + euro(flip.profit)))} {ltr(f'(ROI {percent(flip.roi)})')}",
+        "📈 " + t(lang, "profit_line", profit=ltr("~" + euro(flip.profit)), resale=ltr("~" + euro(flip.resale_price)),
+                  buy=ltr("~" + euro(flip.buy_price)), costs=ltr(euro(flip.total_costs))),
     ]
     if valuation.basis:
         count = t(lang, "comparables_link", n=valuation.comparables)
         if valuation.comparables_url:
             count = f'<a href="{e(valuation.comparables_url, quote=True)}">{count}</a>'
         unsure = " ⚠️" if valuation.confidence == "low" else ""
-        lines.append(f"📊 {count}: {ltr(e(valuation.basis))}{unsure}")
+        lines.insert(3, f"📊 {count}: {ltr(e(valuation.basis))}{unsure}")
+    if flip.max_buy_price > 0 and report.verdict != "skip":
+        lines.append("💰 " + t(lang, "max_buy_line", price=ltr(euro(flip.max_buy_price)),
+                               profit=ltr(euro(flip.target_profit))))
 
     other_reasons = report.reasons
     if analysis is not None:
@@ -81,7 +85,10 @@ def format_report(report: DealReport, lang: str) -> str:
         if analysis.scam_risk != "low":
             signal = f": {e(analysis.scam_signals[0])}" if analysis.scam_signals else ""
             lines.append(f"🚩 {t(lang, 'scam_risk')} {t(lang, f'risk_{analysis.scam_risk}')}{signal}")
-        if analysis.questions_for_seller:
+        if analysis.seller_message and report.verdict != "skip":
+            # <pre> gets a copy button in Telegram.
+            lines.append(f"✉️ {t(lang, 'seller_message')}\n<pre>{e(analysis.seller_message.strip())}</pre>")
+        elif analysis.questions_for_seller:
             lines.append("❓ " + e(" · ".join(analysis.questions_for_seller[:MAX_QUESTIONS_SHOWN])))
 
     if other_reasons:

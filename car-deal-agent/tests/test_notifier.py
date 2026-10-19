@@ -34,7 +34,7 @@ def test_short_report_in_arabic_with_quoted_repair():
     assert lines[0] == "<b>🔥 لقطة · Golf &lt;GTI&gt; &amp; more</b>"
     assert lines[1] == "📍 10115 Mitte · 72.500 km · EZ 08/2014 · TÜV 03/2027"
     assert lines[2] == "💶 <b>6.200 €</b> قابل للتفاوض ← السوق ~8.900 € (−30 %)"
-    assert lines[3] == "📈 الربح ~1.895 € بعد كل المصاريف (ROI 29 %)"
+    assert lines[3] == "📈 الربح ~1.895 € = بيع ~8.455 € − شراء ~5.890 € − مصاريف 670 €"
     assert lines[4] == "🔧 المكيف بحاجة تعبئة ~300 € – “Klima muss befüllt werden”"
     assert "Motorschaden" not in text  # an invented quote never shows up as a cost
     assert lines[5] == "🧠 سيارة نظيفة وسعرها منيح"
@@ -96,3 +96,17 @@ def test_comparables_line_links_to_the_search_and_preview_stays_on_the_ad():
     session = Session()
     TelegramClient("t", session).send_message("1", text)
     assert session.sent["link_preview_options"] == {"url": r.listing.url}
+
+
+def test_max_purchase_price_and_seller_message():
+    analysis = make_analysis(seller_message="Guten Tag,\nist der Golf noch da? Würden Sie 5.500 € nehmen?")
+    r = report(analysis)
+    r.flip.max_buy_price, r.flip.target_profit = 6_390, 500
+    text = format_report(r, "de")
+    assert "💰 Zahl höchstens 6.390 €, dann bleiben 500 € Gewinn" in text
+    assert "✉️ Nachricht an den Verkäufer (kopieren):\n<pre>Guten Tag,\nist der Golf noch da?" in text
+    assert text.endswith("</a>")  # the ad link stays last (link preview)
+
+    r.verdict = "skip"
+    skipped = format_report(r, "de")
+    assert "💰" not in skipped and "✉️" not in skipped  # no offer for a car to skip

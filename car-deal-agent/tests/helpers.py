@@ -4,7 +4,7 @@ from cardeal.analyzer import Issue, ListingAnalysis
 def make_analysis(**overrides) -> ListingAnalysis:
     data = dict(
         verdict="buy", verdict_reason="solid car", issues=[], positives=[], scam_risk="low", scam_signals=[],
-        resale_difficulty="easy", questions_for_seller=[], negotiation_tip="",
+        resale_difficulty="easy", questions_for_seller=[], negotiation_tip="", seller_message="",
     )
     return ListingAnalysis(**{**data, **overrides})
 
