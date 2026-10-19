@@ -92,3 +92,23 @@ def test_prompt_keeps_quotes_in_german():
     prompt = build_prompt(LISTING, VALUATION, FLIP, "ar")
     assert "except `quote` (the ad's original German words) and `seller_message` (German)." in prompt
     assert "Maximum purchase price for the buyer's minimum profit" in prompt
+
+
+def test_ai_judges_the_car_and_leaves_the_numbers_to_the_program():
+    from cardeal.analyzer import SYSTEM_PROMPT
+    assert "contains no prices, profit or cost totals" in SYSTEM_PROMPT
+    assert "Judge the car and the ad, not the arithmetic" in SYSTEM_PROMPT
+    prompt = build_prompt(LISTING, VALUATION, FLIP, "de")
+    assert "worked out by the program" in prompt
+    assert "other costs (fuel to fetch it, TÜV if due) 370 €" in prompt
+
+
+def test_prompt_for_an_ad_without_price_and_for_a_car_for_tinkerers():
+    from dataclasses import replace
+    unpriced = replace(LISTING, price=None)
+    flip = FlipEstimate(0, 8455, 0, 370, 0, 0, 0.0, max_buy_price=7285, priced=False)
+    prompt = build_prompt(unpriced, VALUATION, flip, "de")
+    assert "no real price: in seller_message ask for the price" in prompt
+    assert "profit ~" not in prompt and "7.285 €" in prompt
+    broken = replace(LISTING, title="VW Golf 1.2 TSI für Bastler")
+    assert "the market price is for a running car" in build_prompt(broken, VALUATION, FLIP, "de")

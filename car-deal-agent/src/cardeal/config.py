@@ -27,6 +27,9 @@ class ValuationSettings:
     comparables_pages: int = 2
     # You buy and resell privately, so compare with private asking prices (dealers add warranty).
     comparables_seller: str | None = "privat"
+    # Comparables come from all of Germany; the market price is adjusted to the price level within
+    # this distance of trip.home_zip, learned from the stored comparables (0 = off).
+    local_radius_km: int = 150
 
 
 @dataclass

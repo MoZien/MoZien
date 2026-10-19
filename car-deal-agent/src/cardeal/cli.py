@@ -21,10 +21,11 @@ from cardeal.notifier import (
     TelegramClient,
     TelegramError,
     TelegramNotifier,
+    format_details,
     format_report,
     to_plain_text,
 )
-from cardeal.pipeline import DealHunter
+from cardeal.pipeline import DealHunter, ImplausibleMileage
 from cardeal.sources import KleinanzeigenSource
 from cardeal.storage import Store
 
@@ -94,11 +95,17 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "analyze":
         hunter = _build_hunter(config, config_path, use_ai=not args.no_ai, notify=False)
-        report, comps = hunter.analyze_url(args.url)
+        try:
+            report, comps = hunter.analyze_url(args.url)
+        except ImplausibleMileage as exc:
+            print(to_plain_text(t(config.language, "chat_bad_km", km=exc.km)))
+            return 1
         if report is None:
             print(f"Only {comps} comparable ads found, not enough for a market price.")
             return 1
         print(to_plain_text(format_report(report, config.language)))
+        details = format_details(report, config.language, config.trip.home_zip, config.valuation.local_radius_km)
+        print("\n" + to_plain_text(details))
         return 0
 
     hunter = _build_hunter(config, config_path, use_ai=not args.no_ai)

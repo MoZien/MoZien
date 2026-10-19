@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import pytest
@@ -7,6 +8,7 @@ from cardeal.sources.base import SourceBlockedError
 from cardeal.sources.kleinanzeigen import (
     KleinanzeigenSource,
     build_search_url,
+    hu_from_text,
     listing_from_url,
     make_slug,
     parse_detail_page,
@@ -190,3 +192,26 @@ def test_build_search_url_for_exact_comparables():
 def test_damaged_flag_from_condition():
     assert Listing(id="a", source="k", url="u", title="", price=1, condition="Beschädigtes Fahrzeug").damaged
     assert not Listing(id="a", source="k", url="u", title="", price=1, condition="Unbeschädigtes Fahrzeug").damaged
+
+
+@pytest.mark.parametrize("text, hu", [
+    ("Polo 1.2 TUV 01/27 fur Bastler", "01/2027"),
+    ("HU 03.28 neu", "03/2028"),
+    ("TÜV: neu (11/2026)", "11/2026"),
+    ("HU/AU neu 06/2026", "06/2026"),
+    ("Tüv bis Mai 2027, Zahnriemen neu", "05/2027"),
+    ("TÜV-Bericht vom 12.03.2025", None),  # a full date is no HU month
+    ("TÜV neu 1.6 TDI 150.000 km für 2.500 €", None),
+    ("TÜV 2 Jahre", None),
+    ("TÜV 13/2027", None),
+])
+def test_hu_date_from_the_ad_text(text, hu):
+    assert hu_from_text(text) == hu
+
+
+def test_hu_from_the_text_when_the_field_is_empty():
+    html = (FIXTURES / "detail_page_new.html").read_text(encoding="utf-8")
+    html = re.sub(r"<li[^>]*><span>HU bis</span>.*?</li>", "", html)
+    assert "HU bis" not in html
+    listing = parse_detail_page(html, Listing(id="kleinanzeigen:2", source="kleinanzeigen", url="u", title="", price=None))
+    assert listing.hu_until == "04/2028"  # "Fiat Panda TÜV bis 04/28 !!!"

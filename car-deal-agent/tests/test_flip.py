@@ -142,8 +142,9 @@ def test_default_fuel_prices_and_consumption():
     car = listing(6000)
     car.location, car.fuel_slug = "08529 Plauen", "benzin"
     km = road_km("06108", "08529")
+    # the rounded distance, so the formula in "details" gives exactly this amount
     assert estimate_flip(car, valuation(9000), DealSettings(), today=TODAY, trip=trip).fuel_cost == round(
-        2 * km * 7.5 / 100 * 2.10)
+        2 * round(km) * 7.5 / 100 * 2.10)
 
 
 def test_missing_postal_code_table_only_drops_the_fuel_cost(monkeypatch, tmp_path):
@@ -170,3 +171,60 @@ def test_postal_code_table_ships_with_the_code():
     tracked = subprocess.run(["git", "ls-files", "--error-unmatch", str(geo.ZIP_FILE)], cwd=root,
                              capture_output=True, text=True)
     assert tracked.returncode == 0, "de_zip.csv is not in git (ignored?), installs would miss it"
+
+
+def test_no_price_means_no_profit_but_an_offer_limit():
+    for price in (None, 1):  # "VB" without an amount, "1 €" placeholder
+        car = listing(price, negotiable=True)
+        flip = estimate_flip(car, valuation(9000), SETTINGS, today=TODAY)
+        assert not flip.priced and (flip.buy_price, flip.profit, flip.roi) == (0, 0, 0.0)
+        assert flip.max_buy_price == 8550 - 800 - 370
+        verdict, reasons = decide(car, valuation(9000), flip, SETTINGS, today=TODAY, lang="de")
+        assert verdict == "check" and reasons[0].startswith("kein echter Preis")
+
+
+def test_leasing_take_over_price_is_no_price():
+    car = listing(2500)
+    car.title = "Leasingübernahme Golf 7"
+    assert not estimate_flip(car, valuation(9000), SETTINGS, today=TODAY).priced
+
+
+def test_tuv_is_counted_when_the_ad_says_there_is_none():
+    car = listing(6000)
+    car.description = "Auto läuft gut, leider kein TÜV mehr."
+    assert estimate_flip(car, valuation(9000), DealSettings(), today=TODAY).hu_cost == 150
+    car.hu_until = "08/2027"  # a date in the ad wins over old text
+    assert estimate_flip(car, valuation(9000), DealSettings(), today=TODAY).hu_cost == 0
+
+
+def test_car_for_tinkerers_is_never_a_deal():
+    car = listing(3000)
+    car.title = "Golf 5 für Bastler"
+    flip = estimate_flip(car, valuation(9000), SETTINGS, today=TODAY)
+    verdict, reasons = decide(car, valuation(9000), flip, SETTINGS, today=TODAY, lang="de")
+    assert verdict == "check" and "Bastler" in reasons[0] and "Reparatur nicht eingerechnet" in reasons[0]
+
+
+def test_uncertain_market_price_says_why():
+    car = listing(6000)
+    car.power_ps = 103
+
+    def first_reason(v):
+        return decide(car, v, estimate_flip(car, v, SETTINGS, today=TODAY), SETTINGS, today=TODAY, lang="de")[1][0]
+
+    assert first_reason(Valuation(9000, 6, 0.2, "low", "regression")) == "Marktpreis unsicher (nur 6 Vergleichsautos)"
+    assert "streuen stark (±30 %)" in first_reason(Valuation(9000, 30, 0.6, "low", "regression"))
+    assert first_reason(Valuation(9000, 30, 0.2, "low", "regression", power_as_kw=True)).startswith(
+        "103 PS gibt es bei dem Modell kaum")
+
+
+def test_profit_adds_up_exactly():
+    car = listing(6000, negotiable=True, hu="11/2026")
+    car.location, car.fuel_slug = "08529 Plauen", "diesel"
+    from cardeal.config import TripSettings
+    flip = estimate_flip(car, valuation(9000), SETTINGS, repair_costs=450, today=TODAY,
+                         trip=TripSettings(home_zip="06108"))
+    assert flip.fuel_cost == round(2 * flip.trip_km * 7.5 / 100 * 2.20)  # diesel price
+    assert flip.other_costs == 370 + 150 + flip.fuel_cost  # fixed + TÜV (due next month) + fuel
+    assert flip.profit == flip.resale_price - flip.buy_price - flip.total_costs
+    assert flip.max_buy_price == flip.resale_price - 800 - 450 - flip.other_costs

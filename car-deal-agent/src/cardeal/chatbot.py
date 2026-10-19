@@ -11,8 +11,15 @@ from collections.abc import Callable
 import requests
 
 from cardeal.i18n import t
-from cardeal.notifier import TelegramClient, TelegramError, format_report
-from cardeal.pipeline import DealHunter
+from cardeal.models import DealReport
+from cardeal.notifier import (
+    TELEGRAM_LIMIT,
+    TelegramClient,
+    TelegramError,
+    format_details,
+    format_report,
+)
+from cardeal.pipeline import DealHunter, ImplausibleMileage
 from cardeal.sources.base import SourceBlockedError
 
 log = logging.getLogger(__name__)
@@ -25,12 +32,18 @@ DEFAULT_HUNT_COUNT = 3
 MAX_HUNT_COUNT = 10
 SECONDS_PER_AD = 20  # detail page + comparables at polite speed, for the time estimate
 STOP_WORDS = {"stop", "stopp", "/stop", "halt", "abbrechen", "cancel", "توقف", "وقف", "خلص", "بس", "كفى"}
+# "تفاصيل" after a report: the comparables and the whole calculation behind it.
+DETAILS_WORDS = {"تفاصيل", "التفاصيل", "تفصيل", "شرح", "details", "detail", "/details", "rechnung", "berechnung"}
 # A search request older than this was sent while the bot was off; don't start it unasked.
 MAX_HUNT_REQUEST_AGE = 10 * 60
 
 
 def is_stop(text: str) -> bool:
     return (text or "").strip().lower().rstrip("!.") in STOP_WORDS
+
+
+def is_details(text: str) -> bool:
+    return (text or "").strip().lower().rstrip("!.?؟") in DETAILS_WORDS
 
 
 def hunt_count(text: str) -> int | None:
@@ -79,6 +92,7 @@ class ChatBot:
         self._hunt_chat: str | None = None
         self._stop_requested = False
         self._deferred: list[tuple[str, str, int | None]] = []
+        self._last_report: dict[str, DealReport] = {}  # per chat, for "تفاصيل"
 
     def poll(self, timeout: int = 30) -> None:
         """Waits up to `timeout` seconds for messages and answers them."""
@@ -108,6 +122,15 @@ class ChatBot:
         if is_stop(text):
             self.reply(t(self.lang, "hunt_not_running"), chat_id)
             return
+        if is_details(text):
+            report = self._last_report.get(chat_id)
+            if report is None:
+                self.reply(t(self.lang, "details_none"), chat_id)
+            else:
+                config = self.hunter.config
+                details = format_details(report, self.lang, config.trip.home_zip, config.valuation.local_radius_km)
+                self.reply(details, chat_id, preview=False)
+            return
         urls = find_ad_urls(text)
         if not urls and (count := hunt_count(text)) is not None:
             if sent_at is not None and self._now() - sent_at > MAX_HUNT_REQUEST_AGE:
@@ -120,7 +143,7 @@ class ChatBot:
             return
         for url in urls[:MAX_LINKS_PER_MESSAGE]:
             self.reply(t(self.lang, "chat_working"), chat_id)
-            self.reply(self._evaluate(url), chat_id)
+            self.reply(self._evaluate(url, chat_id), chat_id)
 
     def _hunt(self, count: int, chat_id: str) -> None:
         """Searches the newest ads until `count` worthwhile cars are found, sending each right away."""
@@ -135,7 +158,7 @@ class ChatBot:
 
         def send(report) -> None:
             found.append(report)
-            self.reply(format_report(report, self.lang), chat_id)
+            self.reply(self._with_details_hint(report, chat_id), chat_id)
 
         def should_stop() -> bool:
             try:
@@ -179,11 +202,20 @@ class ChatBot:
         self.reply(t(self.lang, "chat_private"), chat_id)
         self.reply(t(self.lang, "chat_stranger", name=html.escape(name), id=chat_id))
 
-    def _evaluate(self, url: str) -> str:
+    def _with_details_hint(self, report: DealReport, chat_id: str) -> str:
+        """The report, remembered for "تفاصيل", with a hint how to ask for the calculation."""
+        self._last_report[chat_id] = report
+        text = format_report(report, self.lang)
+        hint = t(self.lang, "details_hint")
+        return f"{text}\n{hint}" if len(text) + len(hint) < TELEGRAM_LIMIT else text
+
+    def _evaluate(self, url: str, chat_id: str | None = None) -> str:
         try:
             report, comparables = self.hunter.analyze_url(url)
         except ValueError:
             return t(self.lang, "chat_not_car")
+        except ImplausibleMileage as exc:
+            return t(self.lang, "chat_bad_km", km=exc.km)
         except SourceBlockedError:
             return t(self.lang, "chat_blocked")
         except requests.HTTPError as exc:
@@ -195,10 +227,10 @@ class ChatBot:
             return t(self.lang, "chat_error", error=html.escape(f"{type(exc).__name__}: {exc}"[:200]))
         if report is None:
             return t(self.lang, "chat_few_comps", n=comparables)
-        return format_report(report, self.lang)
+        return self._with_details_hint(report, chat_id or self.chat_id)
 
-    def reply(self, text: str, chat_id: str | None = None) -> None:
+    def reply(self, text: str, chat_id: str | None = None, preview: bool = True) -> None:
         try:
-            self.client.send_message(chat_id or self.chat_id, text)
+            self.client.send_message(chat_id or self.chat_id, text, preview=preview)
         except (TelegramError, requests.RequestException) as exc:
             log.error("could not answer in Telegram: %s", exc)

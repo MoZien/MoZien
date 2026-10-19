@@ -110,6 +110,18 @@ class Store:
         )
         return self._listings(rows)
 
+    def comparable_groups(self, since: datetime) -> list[list[Listing]]:
+        """Every stored comparables search with its ads seen since `since` (for the regional price level)."""
+        rows = self.db.execute(
+            "SELECT c.key AS set_key, l.* FROM comparable_sets c JOIN listings l ON l.id = c.listing_id "
+            "WHERE l.last_seen >= ? ORDER BY c.key",
+            (since.isoformat(),),
+        ).fetchall()
+        groups: dict[str, list[Listing]] = {}
+        for row in rows:
+            groups.setdefault(row["set_key"], []).extend(self._listings([row]))
+        return list(groups.values())
+
     def comparables(self, segment: str, since: datetime) -> list[Listing]:
         rows = self.db.execute(
             "SELECT * FROM listings WHERE segment = ? AND last_seen >= ?",

@@ -48,6 +48,27 @@ _SLUG_FIELDS = {
     "Getriebe": "gearbox_slug", "Fahrzeugtyp": "body_slug",
 }
 _SELLER_RE = re.compile(r"^\s*(Privater|Gewerblicher)\s+(Nutzer|Anbieter)\s*$")
+# "TÜV bis 09/27", "HU 03.2028", "TÜV neu bis Oktober 2027" in title or text, for ads that leave
+# the "HU bis" field empty.
+_HU_IN_TEXT_RE = re.compile(
+    r"\b(?:tüv|tuv|tuev|hu)\b[^\d\n]{0,15}?"
+    r"(?:(\d{1,2})\s*[./-]\s*(20\d{2}|\d{2})\b(?![./-]\d)"  # not the day and month of a full date
+    r"|\b(" + "|".join(GERMAN_MONTHS) + r")\.?\s+(20\d{2})\b)",
+    re.IGNORECASE,
+)
+
+
+def hu_from_text(text: str) -> str | None:
+    """'TÜV bis 09/27' -> '09/2027'; None if the text names no HU date."""
+    for match in _HU_IN_TEXT_RE.finditer(text or ""):
+        if match.group(1):
+            month, year = int(match.group(1)), int(match.group(2))
+            year += 2000 if year < 100 else 0
+        else:
+            month, year = GERMAN_MONTHS[match.group(3).lower()], int(match.group(4))
+        if 1 <= month <= 12 and 2000 <= year <= 2100:
+            return f"{month:02d}/{year}"
+    return None
 
 
 def _clean(text: str | None) -> str:
@@ -247,6 +268,8 @@ def parse_detail_page(html: str, listing: Listing) -> Listing:
         if match := re.search(rf'"{key}":"([a-z0-9_-]+)"', html):
             setattr(listing, attr, match.group(1))
 
+    if listing.hu_until is None:
+        listing.hu_until = hu_from_text(f"{listing.title}\n{listing.description}")
     listing.features = [_clean(li.get_text()) for li in soup.select("li.checktag")]
     if seller := soup.find(string=_SELLER_RE):
         listing.seller_type = "private" if seller.strip().startswith("Privat") else "dealer"

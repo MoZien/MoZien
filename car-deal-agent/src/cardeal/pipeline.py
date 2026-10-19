@@ -23,12 +23,23 @@ from cardeal.notifier import Notifier
 from cardeal.sources.base import ListingSource, SourceBlockedError
 from cardeal.sources.kleinanzeigen import build_search_url, listing_from_url, make_slug
 from cardeal.storage import Store
-from cardeal.valuation import estimate_market_price
+from cardeal.valuation import (
+    ad_flags,
+    estimate_market_price,
+    local_price_factor,
+    no_fair_price,
+    plausible_km,
+)
 
 log = logging.getLogger(__name__)
 
+# Ads a search never brings: not a running car, the price isn't the car's price, or no offer.
+NOT_A_CANDIDATE = {"broken", "not_its_price", "no_offer"}
 UNKNOWN_MODELS = {"andere", "weitere", "sonstige", "sonstige_autos"}
 SAME_ENGINE_TOLERANCE = 0.05  # ±5 % PS: the same engine (122 PS → 116–128 PS), not a weaker or stronger one
+# The median of 5 asking prices can be off by a third; a narrower search only decides with this many.
+SOLID_COMPARABLES = 8
+KW_TO_PS = 1.36
 MAKE_WORDS = {
     "vw", "volkswagen", "mercedes", "benz", "mercedes-benz", "mb", "bmw", "opel", "ford", "audi", "seat", "skoda",
     "škoda", "fiat", "renault", "peugeot", "citroen", "citroën", "toyota", "nissan", "mazda", "honda", "hyundai",
@@ -36,6 +47,14 @@ MAKE_WORDS = {
 }
 # Title words that never name a model.
 GENERIC_WORDS = {"auto", "pkw", "verkaufe", "verkauf", "top", "neu", "tüv", "tuev", "hu", "gepflegt", "zustand"}
+
+
+class ImplausibleMileage(Exception):
+    """The ad's mileage can't be right (114 km on a 2007 car), so it can't be valued."""
+
+    def __init__(self, km: int | None):
+        super().__init__(f"implausible mileage: {km} km")
+        self.km = km
 
 
 def model_name(listing: Listing) -> str:
@@ -51,6 +70,21 @@ def model_name(listing: Listing) -> str:
         if word.lower() not in make_words | GENERIC_WORDS and len(word) >= 2:
             return word
     return ""
+
+
+def engine_power(listing: Listing) -> tuple[int | None, bool]:
+    """(power in PS, whether the ad's PS field held kW). Sellers often type the kW from the
+    registration papers into the PS field; the ad text then says "103 kW" or "140 PS"."""
+    ps = listing.power_ps
+    if not ps:
+        return ps, False
+    text = f"{listing.title} {listing.description}"
+    converted = round(ps * KW_TO_PS)
+    if re.search(rf"\b{ps}\s*ps\b", text, re.IGNORECASE):
+        return ps, False
+    says_kw = re.search(rf"\b{ps}\s*kw\b", text, re.IGNORECASE)
+    says_converted = re.search(rf"\b(?:{'|'.join(str(converted + d) for d in range(-2, 3))})\s*ps\b", text, re.IGNORECASE)
+    return (converted, True) if says_kw or says_converted else (ps, False)
 
 
 class DealHunter:
@@ -206,13 +240,15 @@ class DealHunter:
         log.info("%s: %d listings, %d reports", search.name, len(listings), len(reports))
         return reports
 
-    def _comparable_searches(self, listing: Listing) -> list[SearchCriteria]:
-        """Searches for the same car: always the same model, the same engine (±5 % PS) and
-        ±year_window years. First also same fuel, gearbox and body; if too few cars match,
-        those are dropped, but never model, power or years: rather no price than a wrong one."""
+    def _comparable_searches(self, listing: Listing, power: int | None = None) -> list[SearchCriteria]:
+        """Searches for the same car: always the same model, fuel, engine (±5 % PS, `power` or
+        the ad's) and ±year_window years. First also the same gearbox and body; if too few cars
+        match, those are dropped, but never model, fuel, power or years: rather no price than a
+        wrong one (a petrol Fiesta is no diesel Fiesta, even with the same PS)."""
         v = self.config.valuation
         if listing.year is None:
             return []
+        power = power or engine_power(listing)[0]
         common = dict(
             min_year=listing.year - v.year_window, max_year=listing.year + v.year_window,
             seller=v.comparables_seller, damaged=False, pages=v.comparables_pages,
@@ -231,15 +267,15 @@ class DealHunter:
                 query=name.lower(), **common,
             )
 
-        if listing.power_ps:
-            base = replace(base, min_power=round(listing.power_ps * (1 - SAME_ENGINE_TOLERANCE)),
-                           max_power=round(listing.power_ps * (1 + SAME_ENGINE_TOLERANCE)))
-        searches = []
-        if listing.fuel_slug and listing.gearbox_slug:
-            searches.append(replace(base, fuel=listing.fuel_slug, gearbox=listing.gearbox_slug,
-                                    body_type=listing.body_slug))
+        if power:
+            base = replace(base, min_power=round(power * (1 - SAME_ENGINE_TOLERANCE)),
+                           max_power=round(power * (1 + SAME_ENGINE_TOLERANCE)))
         if listing.fuel_slug:
-            searches.append(replace(base, fuel=listing.fuel_slug))
+            base = replace(base, fuel=listing.fuel_slug)
+        searches = []
+        if listing.gearbox_slug:
+            searches.append(replace(base, gearbox=listing.gearbox_slug, body_type=listing.body_slug))
+            searches.append(replace(base, gearbox=listing.gearbox_slug))
         searches.append(base)
         unique = {build_search_url(c): c for c in reversed(searches)}  # keep the first of duplicates
         return [c for c in searches if unique.get(build_search_url(c)) is c]
@@ -251,42 +287,84 @@ class DealHunter:
             parts.append(listing.fuel or criteria.fuel)
         if criteria.gearbox:
             parts.append(listing.gearbox or criteria.gearbox)
+        elif listing.gearbox_slug:
+            parts.append("alle Getriebe")
         if criteria.body_type:
             parts.append(listing.body_type or criteria.body_type)
         if criteria.min_power and criteria.max_power:
-            parts.append(f"{criteria.min_power}–{criteria.max_power} PS")
+            power = f"{criteria.min_power}–{criteria.max_power} PS"
+            if listing.power_ps and not criteria.min_power <= listing.power_ps <= criteria.max_power:
+                # The ad's PS field held the kW: certain if the ad text says so, else a guess.
+                power += f" ({listing.power_ps} kW)" if engine_power(listing)[1] else f" ({listing.power_ps} = kW?)"
+            parts.append(power)
         parts.append(f"{criteria.min_year}–{criteria.max_year}")
         return " · ".join(str(p) for p in parts if p)
 
     def _exact_valuation(self, listing: Listing) -> Valuation:
-        """Market price from cars as similar as possible to this one (needs the ad page loaded).
+        """Market price from cars as similar as possible to this one (needs the ad page loaded):
+        the narrowest search with at least SOLID_COMPARABLES cars, else the one with the most.
         Comparables per search are fetched at most once per `comparables_refresh_hours`."""
-        v = self.config.valuation
         now = self.clock()
         searches = self._comparable_searches(listing)
         if not searches:
             log.info("unknown make/model, can't value: %s", listing.url)
             return Valuation(None, 0, None, "none", "unknown make or model")
         self.store.upsert(listing, f"{searches[0].make}:{searches[0].model or searches[0].query}", now)
+        if not plausible_km(listing, now.date()):
+            return Valuation(None, 0, None, "none", "implausible mileage")  # 114 km meant as 114,000
 
+        valuation = self._value_against(listing, searches, now)
+        power, read_as_kw = engine_power(listing)
+        if valuation.market_price is None and listing.power_ps and not read_as_kw:
+            # Hardly any car with this power: sellers often type the kW from the registration
+            # papers into the PS field (103 for a 140 PS Insignia 1.8). Take that reading only if
+            # it finds plenty of cars, and say so: confidence low, a reason in the message.
+            as_kw = self._value_against(listing, self._comparable_searches(listing, round(power * KW_TO_PS)), now)
+            if as_kw.market_price is not None and as_kw.comparables >= SOLID_COMPARABLES:
+                as_kw.confidence, as_kw.power_as_kw = "low", True
+                valuation = as_kw
+        if valuation.market_price is not None:
+            self._apply_local_level(valuation, now)
+        return valuation
+
+    def _apply_local_level(self, valuation: Valuation, now: datetime) -> None:
+        """The comparables come from all of Germany, but the car is resold around home: adjust the
+        market price to the price level there, learned from all stored comparables."""
+        v, home = self.config.valuation, self.config.trip.home_zip
+        if not v.local_radius_km or not home:
+            return
+        groups = self.store.comparable_groups(now - timedelta(days=v.lookback_days))
+        level = local_price_factor(groups, home, v.local_radius_km, now.date())
+        if level is None or abs(level[0] - 1) < 0.01:
+            return
+        valuation.local_factor, valuation.local_ads = level
+        valuation.market_price = int(round(valuation.market_price * level[0] / 10) * 10)
+
+    def _value_against(self, listing: Listing, searches: list[SearchCriteria], now: datetime) -> Valuation:
+        """Values `listing` against each search in turn (narrowest first), fetching its comparables
+        if they are older than comparables_refresh_hours."""
+        v = self.config.valuation
         best = Valuation(None, 0, None, "none", "not enough comparables")
         for criteria in searches:
             url = build_search_url(criteria)
             fetched_at = self.store.comparables_fetched_at(url)
             if fetched_at is None or now - fetched_at > timedelta(hours=v.comparables_refresh_hours):
-                found = self.source.search(criteria)
+                # Only real prices of running cars; the ad text that tells is only on the results page.
+                found = [comp for comp in self.source.search(criteria) if not no_fair_price(comp)]
                 segment = f"{criteria.make}:{criteria.model or criteria.query}"
                 for comp in found:
                     self.store.upsert(comp, segment, now)
                 self.store.add_to_set(url, [comp.id for comp in found])
                 self.store.mark_comparables_fetched(url, now)
             comps = self.store.comparable_set(url, now - timedelta(days=v.lookback_days))
-            valuation = estimate_market_price(listing, comps, v)
+            valuation = estimate_market_price(listing, comps, v, today=now.date())
             valuation.basis = self._describe(criteria, listing)
             valuation.comparables_url = url
-            if valuation.market_price is not None:
+            if valuation.market_price is not None and valuation.comparables >= SOLID_COMPARABLES:
                 return valuation
-            if valuation.comparables >= best.comparables:
+            if (valuation.market_price is not None, valuation.comparables) > (
+                best.market_price is not None, best.comparables
+            ) or not best.comparables_url:
                 best = valuation
         return best
 
@@ -313,6 +391,7 @@ class DealHunter:
             and within(listing.km, search.min_km, search.max_km)
             and not (self._excluded and self._excluded.search(listing.title))
             and not self._excluded_area(listing)
+            and not ad_flags(listing) & NOT_A_CANDIDATE
         )
 
     def _excluded_area(self, listing: Listing) -> bool:
@@ -341,15 +420,17 @@ class DealHunter:
         today = self.clock().date()
 
         if valuation is None and comps and not listing.details_loaded and not force:
-            rough = estimate_market_price(listing, comps, self.config.valuation)
+            rough = estimate_market_price(listing, comps, self.config.valuation, today=today)
             if rough.market_price is None or not self._worth_a_closer_look(listing, rough):
                 return None
         if not listing.details_loaded:
             listing = self.source.fetch_details(listing)
+        if not force and ad_flags(listing) & NOT_A_CANDIDATE:
+            return None  # the full ad text says "Bastler", "Export", leasing ...
         if valuation is None:
             valuation = self._exact_valuation(listing)
             if valuation.market_price is None and comps:
-                valuation = estimate_market_price(listing, comps, self.config.valuation)
+                valuation = estimate_market_price(listing, comps, self.config.valuation, today=today)
         if valuation.market_price is None:
             return None
         if not force and not self._worth_a_closer_look(listing, valuation):
@@ -378,6 +459,8 @@ class DealHunter:
         listing = self.source.fetch_details(listing_from_url(url))
         if not self._comparable_searches(listing):
             raise ValueError("could not read make, model and first registration from the ad")
+        if not plausible_km(listing, self.clock().date()):
+            raise ImplausibleMileage(listing.km)
         valuation = self._exact_valuation(listing)
         self.store.mark_evaluated(listing)  # no second alert for an ad the user already asked about
         if valuation.market_price is None:

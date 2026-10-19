@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from cardeal.config import AISettings
 from cardeal.i18n import LANGUAGE_NAMES, euro, percent
 from cardeal.models import FlipEstimate, Listing, Valuation
+from cardeal.valuation import ad_flags
 
 # Models that accept server-side refusal fallbacks (`fallbacks="default"`).
 FALLBACK_MODELS = {"claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5", "claude-fable-5-1", "claude-fable-5"}
@@ -88,10 +89,15 @@ Keep it short, it is read on a phone: verdict_reason one sentence (max 20 \
 words), each issue max 6 words, at most 3 positives and 3 questions for the \
 seller (max 10 words each), negotiation_tip one short sentence.
 
-Verdict: "buy" when the car is likely profitable to flip after the repairs \
-you found, "check" when it could be a good deal but needs an inspection or \
-answers from the seller first, "skip" when the risk or costs eat the margin \
-or it looks like a scam."""
+Judge the car and the ad, not the arithmetic: the program works out market \
+price and profit from comparable ads and subtracts the repair costs you list. \
+Verdict "buy" when nothing in the ad speaks against buying this car to resell \
+it, "check" when it needs an inspection or answers from the seller first, \
+"skip" for a likely scam or problems whose cost can't be estimated from the ad \
+(engine or gearbox damage, accident car, missing papers). verdict_reason names \
+what decides it (condition, risks, paperwork) and contains no prices, profit or \
+cost totals: the message shows the program's numbers, and different ones from \
+you would contradict them."""
 
 
 def _normalize(text: str) -> str:
@@ -145,18 +151,26 @@ def _format_listing(listing: Listing) -> str:
 
 
 def build_prompt(listing: Listing, valuation: Valuation, flip: FlipEstimate, language: str) -> str:
-    discount = valuation.discount(listing.price)
-    market = (
-        f"Market context from {valuation.comparables} comparable private ads "
-        f"({valuation.basis or 'same model'}, undamaged; confidence {valuation.confidence}):\n"
-        f"- Estimated market asking price: {euro(valuation.market_price)}\n"
-        f"- This ad: {euro(listing.price)}"
-        + (f" ({percent(discount)} below market)" if discount is not None else "")
-        + f"\n- Flip estimate before repairs: buy ~{euro(flip.buy_price)}, "
-        f"resell ~{euro(flip.resale_price)}, other costs {euro(flip.other_costs)}, "
-        f"profit ~{euro(flip.profit)}"
-        f"\n- Maximum purchase price for the buyer's minimum profit: {euro(flip.max_buy_price)}"
-    )
+    lines = [
+        (f"Market context, worked out by the program from {valuation.comparables} comparable private ads "
+         f"({valuation.basis or 'same model'}, undamaged; confidence {valuation.confidence}):"),
+        f"- Estimated market asking price: {euro(valuation.market_price)}",
+    ]
+    if flip.priced:
+        discount = valuation.discount(listing.price)
+        lines += [
+            f"- This ad: {euro(listing.price)}"
+            + (f" ({percent(discount)} below market)" if discount is not None and discount >= 0 else ""),
+            (f"- Flip estimate before repairs: buy ~{euro(flip.buy_price)}, resell ~{euro(flip.resale_price)}, "
+             f"other costs (fuel to fetch it, TÜV if due) {euro(flip.other_costs)}, profit ~{euro(flip.profit)}"),
+        ]
+    else:
+        lines.append("- The ad has no real price: in seller_message ask for the price and make an offer.")
+    lines.append(f"- Maximum purchase price for the buyer's minimum profit, before repairs: {euro(flip.max_buy_price)}")
+    if "broken" in ad_flags(listing):
+        lines.append("- The ad presents the car as not roadworthy, for tinkerers or export; "
+                     "the market price is for a running car.")
+    market = "\n".join(lines)
     return (
         f"{market}\n\n<listing>\n{_format_listing(listing)}\n</listing>\n\n"
         f"Write all free-text fields in {LANGUAGE_NAMES.get(language, 'English')}, "

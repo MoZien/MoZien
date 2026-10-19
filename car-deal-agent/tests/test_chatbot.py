@@ -35,18 +35,23 @@ class FakeTelegram:
         self.updates = list(updates)
         self.sent = []
         self.offsets = []
+        self.previews = []
 
     def get_updates(self, offset, timeout):
         self.offsets.append(offset)
         updates, self.updates = self.updates, []
         return updates
 
-    def send_message(self, chat_id, text):
+    def send_message(self, chat_id, text, preview=True):
         self.sent.append((chat_id, text))
+        self.previews.append(preview)
 
 
 class FakeHunter:
     def __init__(self, result=None, error=None):
+        from cardeal.config import AppConfig
+        from cardeal.models import SearchCriteria
+        self.config = AppConfig(searches=[SearchCriteria(name="Alle Autos", max_price=3000)])
         self.result = result
         self.error = error
         self.urls = []
@@ -256,3 +261,33 @@ def test_stop_without_search_and_old_search_requests():
     chat.poll(timeout=0)
     assert hunter.calls == []  # sent 11 minutes ago, while the bot was off
     assert "als der Bot aus war" in telegram.sent[-1][1]
+
+
+def test_details_after_a_report_show_the_calculation():
+    hunter = FakeHunter(result=(report(), 16))
+    chat, telegram = bot([message(1, AD), message(2, "Details?")], hunter)
+    chat.poll(timeout=0)
+    _, answer, details = (text for _, text in telegram.sent)
+    assert answer.endswith("ℹ️ Schreib «details», dann zeige ich, wie jede Zahl zustande kommt")
+    assert details.startswith("<b>🧮 Die Rechnung im Detail · Opel Corsa D</b>")
+    assert "Gewinn 755 € = 3.325 € − 2.200 € − 370 €" in details
+    assert telegram.previews == [True, True, False]  # no preview of some comparable for the details
+
+
+def test_details_without_a_report_and_in_arabic():
+    chat, telegram = bot([message(1, "تفاصيل")], FakeHunter())
+    chat.poll(timeout=0)
+    assert "ابعتلي رابط إعلان أول" not in telegram.sent[-1][1]  # German bot
+    assert "Noch kein Bericht" in telegram.sent[-1][1]
+
+    telegram = FakeTelegram([message(1, AD), message(2, "تفاصيل")])
+    chat = ChatBot(telegram, OWNER, FakeHunter(result=(report(), 16)), "ar")
+    chat.poll(timeout=0)
+    assert "الحساب بالتفصيل" in telegram.sent[-1][1]
+
+
+def test_ad_with_an_impossible_mileage_is_explained():
+    from cardeal.pipeline import ImplausibleMileage
+    chat, telegram = bot([message(1, AD)], FakeHunter(error=ImplausibleMileage(114)))
+    chat.poll(timeout=0)
+    assert "Kilometerstand in der Anzeige (114 km) kann nicht stimmen" in telegram.sent[-1][1]

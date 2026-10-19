@@ -89,6 +89,21 @@ class SearchCriteria:
 
 
 @dataclass
+class Comparable:
+    """One comparable ad behind a market price, with its asking price adjusted to the
+    registration date and mileage of the car being valued."""
+
+    url: str
+    title: str
+    price: int
+    adjusted: int
+    km: int
+    year: int
+    month: int | None
+    location: str
+
+
+@dataclass
 class Valuation:
     market_price: int | None
     comparables: int
@@ -97,6 +112,15 @@ class Valuation:
     method: str
     basis: str = ""  # what was compared, e.g. "Golf · Benzin · Manuell · 104–140 PS · 2012–2016"
     comparables_url: str = ""  # the comparables search on Kleinanzeigen, to check it yourself
+    year_effect: float | None = None  # one year newer: +0.08 = +8 %
+    km_effect: float | None = None  # 10,000 km more: -0.04 = -4 %
+    used: list[Comparable] = field(default_factory=list)
+    # The ad's PS value found hardly any car, so it was read as kW (103 -> 140 PS): a guess.
+    power_as_kw: bool = False
+    # market_price = median of the comparables × local_factor: asking prices around home vs. all
+    # of Germany (0.95 = 5 % lower), learned from local_ads ads. None: not applied.
+    local_factor: float | None = None
+    local_ads: int = 0
 
     def discount(self, price: int | None) -> float | None:
         """How far below the market price an asking price is (0.2 = 20 % cheaper)."""
@@ -120,6 +144,12 @@ class FlipEstimate:
     fuel_cost: int = 0  # part of other_costs: fetching the car
     trip_km: int = 0  # one way
     trip_legs: int = 0  # 2 = there and back
+    # False: the ad has no real price ("VB" only, "1 €"), so buy price and profit are unknown;
+    # max_buy_price then says what to offer.
+    priced: bool = True
+    fuel_price: float = 0.0  # € per litre used for fuel_cost
+    consumption: float = 0.0  # l/100 km used for fuel_cost
+    resale_factor: float = 0.0  # resale_price = market price × this
 
     @property
     def total_costs(self) -> int:

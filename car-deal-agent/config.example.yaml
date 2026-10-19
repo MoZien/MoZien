@@ -38,6 +38,7 @@ valuation:
   price_ceiling_factor: 1.6  # model searches also collect ads up to 1.6× budget as market data
   comparables_refresh_hours: 24  # broad searches: fetch comparables per model/year at most daily
   comparables_pages: 2
+  local_radius_km: 150       # adjust to the price level within 150 km of trip.home_zip (0 = off)
 
 deal:
   min_discount: 0.12         # at least 12 % below market before we look closer
