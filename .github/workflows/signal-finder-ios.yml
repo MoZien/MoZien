@@ -1,0 +1,43 @@
+name: SignalFinder iOS build
+
+on:
+  push:
+    paths:
+      - "SignalFinder/**"
+      - ".github/workflows/signal-finder-ios.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: SignalFinder
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode version
+        run: xcodebuild -version
+
+      - name: Build (unsigned)
+        run: |
+          xcodebuild build \
+            -project SignalFinder.xcodeproj \
+            -scheme SignalFinder \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/SignalFinder.app Payload/
+          zip -qry SignalFinder-unsigned.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalFinder-unsigned-ipa
+          path: SignalFinder/SignalFinder-unsigned.ipa
+          retention-days: 30
