@@ -22,6 +22,71 @@ Der Lauf auf dem MacBook Pro: Intel i5-8259U, macOS 15.7.5, OpenDex 1.1.14.
 | 9 | Das Terminal hat Festplattenvollzugriff (sonst wäre TCC.db nicht lesbar). | Info | Nicht nötig für OpenDex. Bei Bedarf in den Systemeinstellungen entziehen. |
 | 10 | Die Unified-Log-Einträge (TCC-Requests, `AXTTSResourceManager`) sind normal und gutartig. | ✅ | — |
 
+## Kostenlos-Setup: lokal, ohne Karte, ohne API-Kosten
+
+Realtime-Voice ist bei Vercel nicht kostenlos zu bekommen (Kreditkarte nötig). Apple Intelligence läuft nur auf Apple Silicon. Komplett kostenlos geht auf deinem Intel-Mac deshalb nur der **Pipeline-Modus mit lokalen Modellen**:
+
+| Baustein | Kostenlos-Variante | Getestet |
+|---|---|---|
+| Wake Word | Vosk, „Remo“ | „remo“ steht im Modell-Wortschatz |
+| Spracherkennung | Whisper lokal, **mehrsprachiges** Modell (`Xenova/whisper-small` oder `-base`) | Die Modelle existieren. OpenDex übergibt keine Sprache, also erkennt Whisper sie automatisch. In OpenDex selbst nicht getestet. |
+| Sprachmodell | **Ollama** + `qwen2.5:7b` über OpenDex' *Anthropic*-Anbindung | ✅ (siehe unten) |
+| Sprachausgabe | macOS-Systemstimme | — |
+
+**Warum der Umweg über „Anthropic“?** OpenDex' OpenAI-Anbindung nutzt die Responses-API mit gespeichertem Verlauf (`item_reference`). Ollama lehnt das ab der zweiten Frage ab (getestet). Die Anthropic-Anbindung ist zustandslos. Ollama spricht dieses Protokoll, und `ANTHROPIC_BASE_URL` lässt sich per Umgebungsvariable umlenken. Für xAI gibt es keine solche Variable.
+
+**Testergebnisse** (gleiche Bibliotheksversionen wie OpenDex 1.1.14, CPU mit 4 Kernen ohne GPU, ähnlich deinem i5):
+
+| Modell | Sprachwahl DE/EN/AR | Tools + mehrere Turns | Antwortzeit (warm) | Fazit |
+|---|---|---|---|---|
+| `qwen2.5:3b` | fehlerhaft, Arabisch unbrauchbar | ✅ | 1–5 s | zu schwach |
+| **`qwen2.5:7b`** | ✅ mit der Persona unten | ✅ | 2–4 s, mit Tool bis ~18 s | **Empfehlung** |
+| `qwen3:8b` | Arabisch endlos wiederholt | — | 30+ s (denkt trotz `/no_think`) | zu langsam |
+
+Der erste Aufruf nach dem Start lädt das Modell und dauert 15–50 s. Auch `qwen2.5:7b` hat im Test Wetterdetails erfunden („Gewitter“, obwohl das Tool „bewölkt“ lieferte).
+
+### Einrichtung
+
+1. **Ollama installieren** (offiziell: ollama.com; ab macOS 14, auf Intel nur CPU). Danach im Terminal:
+   ```bash
+   ollama pull qwen2.5:7b
+   ```
+   Das sind ca. 4,7 GB Download und ca. 5 GB RAM im Betrieb. Ollama lauscht nur auf `localhost`. Nicht mit `OLLAMA_HOST=0.0.0.0` freigeben.
+2. **OpenDex über Tray → Quit beenden**, dann das Whisper-Modell auf ein mehrsprachiges umstellen. Mit Backup, also umkehrbar:
+   ```bash
+   cd ~/Library/Application\ Support/OpenDex && cp config.json config.json.bak && sed -i '' 's#"Xenova/whisper-base.en"#"Xenova/whisper-small"#' config.json
+   ```
+   `whisper-small` ist genauer (wichtig für Arabisch), aber langsamer. `Xenova/whisper-base` ist schneller.
+3. **OpenDex lokal starten:**
+   ```bash
+   bash opendex-local.sh
+   ```
+4. **In den Settings:**
+   - *Language model*: Provider **Anthropic**, Modell **Custom…** → `qwen2.5:7b`. Als Anthropic-Key einen Platzhalter eintragen, z. B. `ollama`. Er geht nur an `localhost`.
+   - *Voice mode*: **Pipeline**.
+   - *Voice (TTS)*: **System**, eine Stimme wählen.
+   - *Assistant → Persona*: den Text unten einfügen.
+5. **Rückweg:** OpenDex normal starten (ohne Skript) und den Provider zurückstellen. Die Config stellst du mit `cp config.json.bak config.json` wieder her.
+
+### Grenzen der Kostenlos-Variante
+
+- **Nur eine Systemstimme für alle Sprachen.** OpenDex wählt keine Stimme pro Sprache. Mit einer deutschen Stimme klingen englische Antworten nach Akzent, und arabische Antworten werden vermutlich nicht sinnvoll vorgelesen. Arabisch *verstehen* geht, Arabisch *sprechen* praktisch nicht.
+- **Kein natürliches Echtzeit-Gespräch:** Wake Word → Aufnahme → Whisper → LLM → Systemstimme. Pro Runde sind es mehrere Sekunden.
+- **Keine Computersteuerung:** Dafür braucht OpenDex ein Modell mit Bildverständnis. `qwen2.5:7b` kann keine Screenshots lesen.
+
+### Persona (getestet mit qwen2.5:7b, passt auch für Realtime)
+
+```
+You are Dex, a warm and concise voice assistant. Keep replies to one or two short sentences.
+LANGUAGE RULE (most important): reply in the SAME language as the user's latest message.
+- User writes German -> reply in German.
+- User writes English -> reply in English.
+- User writes Arabic -> reply in Syrian colloquial Arabic (شامي), e.g. "منيح", "شو", "هلق", "كتير".
+Never answer in Arabic unless the user's latest message is in Arabic.
+```
+
+Die erste, lockerere Persona-Fassung (weiter unten) brachte `qwen2.5:7b` dazu, auch auf Deutsch und Englisch arabisch zu antworten.
+
 ## Diagnose-Skript
 
 ```bash
@@ -85,7 +150,7 @@ Dabei fragt das Skript den Gateway-Key ab. Die Eingabe ist unsichtbar und wird w
 | Geringe Latenz | ✅ | Realtime (Speech-to-Speech) ist in OpenDex der schnellste Modus. |
 | Gesprächskontext | ⚠️ nur innerhalb einer Session | Nach `idleDisconnectSec` Stille (Standard **10 s**) endet die Session, und die nächste startet **ohne Verlauf**. Wird der Wert erhöht (z. B. 60–120 s, muss unter 300 s bleiben), bleibt der Kontext länger erhalten. Dafür wächst mit längeren Sessions der berechnete Input-Kontext pro Antwort. |
 
-### Persona-Vorschlag (Settings → Assistant → Persona, jederzeit wieder leerbar)
+### Persona-Vorschlag (Settings → Assistant → Persona, jederzeit wieder leerbar). Besser getestet ist die Fassung im Abschnitt „Kostenlos-Setup“.
 
 ```
 You are Dex, a warm, calm and concise voice assistant with a friendly female persona.
