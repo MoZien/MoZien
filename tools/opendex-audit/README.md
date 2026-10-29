@@ -1,0 +1,107 @@
+# OpenDex Audit (macOS Intel)
+
+Befunde aus der Analyse des OpenDex-Quellcodes (v1.1.14, die aktuell neueste Version, Stand 29.10.2026),
+der verwendeten Gateway-SDK (`@ai-sdk/gateway@4.0.0-canary.107`) und Tests gegen das Vercel AI Gateway.
+Diese Tests liefen **ohne deinen Key** und ohne kostenpflichtige Anfragen.
+Alles, was nur auf deinem Mac prüfbar ist, erledigt `opendex-diagnose.sh`.
+
+## Diagnose-Skript
+
+```bash
+bash opendex-diagnose.sh
+```
+
+- Das Skript liest nur: Es ändert keine Einstellungen, Berechtigungen oder OpenDex-Dateien.
+- Es liest **keine** Key-Werte aus OpenDex. Aus `secrets.json` gibt es nur die *Namen* der gespeicherten Keys aus.
+  Zusätzlich schwärzt ein Filter alles, was wie ein Key aussieht (`vck_…`, `sk-…`, `Bearer …`).
+- Den Bericht schreibt es als `opendex-report-<datum>.txt` ins aktuelle Verzeichnis. Per `.gitignore` wird er nie committet.
+
+Optional gibt es den entscheidenden Test für den Realtime-Fehler, nur nach deiner Freigabe:
+
+```bash
+bash opendex-diagnose.sh --auth-test
+```
+
+Dabei fragt das Skript den Gateway-Key ab. Die Eingabe ist unsichtbar und wird weder gespeichert noch in Prozesslisten sichtbar. Dann prüft es:
+1. `GET /v1/credits`: Ist der Key gültig, und wie hoch ist das Guthaben? Diese Abfrage ist kostenlos.
+2. Den WebSocket-Handshake zu `openai/gpt-realtime-2`, genau so, wie OpenDex ihn aufbaut. Es wird kein Audio und kein Text gesendet, und es wird keine Antwort angefordert. Nach 6 s schließt das Skript die Verbindung.
+   Laut Gateway-Preisliste wird `gpt-realtime-2` nur pro Token abgerechnet, ohne Minutenpreis. Erwartete Kosten: **0 $**.
+
+## 1. Ursache von „Realtime connection failed — please try again.“
+
+| Befund | Beleg |
+|---|---|
+| Die Meldung entsteht **nur**, wenn der WebSocket schließt, bevor er offen war. | `src/main/agent/realtime/session-host.ts:97-104` |
+| `getToken()` führt **keinen** Netzwerkaufruf aus. Es gibt den rohen Key und die URL zurück. Vor dem Handshake wird also nichts geprüft. | SDK `GatewayRealtimeModel.doCreateClientSecret` |
+| Ein Key ist in OpenDex hinterlegt. Ohne Key käme stattdessen „I need a Vercel AI Gateway key…“. | `gateway-token.ts` |
+| Das Gateway nennt den genauen Grund als HTTP-Status beim Handshake (401/403/…). Die WebSocket-API verschluckt diesen Status, und OpenDex loggt ihn nicht. Daher kommt die generische Meldung. | Test ohne Key: `401 Missing Authorization header` |
+| Endpoint `wss://ai-gateway.vercel.sh/v4/ai/realtime-model` existiert und antwortet. | Test 29.10.2026 |
+| `openai/gpt-realtime-2` ist im Gateway gelistet (`type: realtime`, Tag `websocket-realtime`). Modell-ID und Protokoll von v1.1.14 sind gültig. | `GET /v1/models` |
+| Das Mikrofon ist **nicht** die Ursache dieser Meldung: Der Fehler tritt im Main-Prozess auf, bevor Audio fließt. | Code-Pfad |
+
+**Verbleibende Ursachen, nach Wahrscheinlichkeit:**
+
+1. **Key ungültig, widerrufen, von einem anderen Team oder veraltet** → HTTP 401
+2. **Billing**: keine Zahlungsmethode hinterlegt, Free-Credits gesperrt oder Guthaben 0 → HTTP 402/403
+3. **Netzwerk**: OpenDex öffnet den WebSocket aus Node. Node ignoriert den macOS-System-Proxy.
+   Auch Per-App-Firewalls (Little Snitch, LuLu), VPNs und Uni-Netze (eduroam) können WebSockets blockieren.
+4. Eine selten auftretende, vorübergehende Gateway-Störung
+
+### Fix je nach Ergebnis von `--auth-test`
+
+| Handshake | Bedeutung | Lösung (nimmst du selbst vor) |
+|---|---|---|
+| **101** | Key, Billing und Modell sind ok | Den Key in OpenDex neu eintragen: Settings → Voice mode. Danach OpenDex komplett beenden (Tray → Quit) und neu starten. Hilft das nicht: Per-App-Firewall/Proxy prüfen (Abschnitt 7 im Bericht). |
+| **401** | Key wird abgelehnt | Im Vercel-Dashboard unter AI Gateway → API Keys einen neuen Key erzeugen und in OpenDex eintragen. Den alten Key widerrufen. |
+| **402/403** | Konto-/Billing-Sperre | Den Fehlertext im Bericht lesen. Im Vercel-Dashboard eine Zahlungsmethode hinterlegen oder Credits kaufen. |
+| **400/404** | Modell/Endpoint abgelehnt | Fehlertext prüfen. Kein Wechsel auf Grok (siehe unten). |
+| **000** | Keine Antwort | DNS, Proxy, VPN oder Firewall (Abschnitt 7 im Bericht). |
+
+## 2. Voice-Assistent: was OpenDex v1.1.14 tatsächlich kann
+
+| Wunsch | Status | Details |
+|---|---|---|
+| Weibliche, natürliche Stimme | ✅ mit Einschränkung | Für `gpt-realtime-2` gibt es die Stimmen marin, cedar, alloy, echo, sage und verse. OpenAI ordnet den Stimmen offiziell kein Geschlecht zu. Marin wird meist als weiblich wahrgenommen, bitte selbst anhören. |
+| Deutsch / Englisch / Arabisch | ⚠️ nur im Realtime-Modus | OpenDex hat **keine** Spracheinstellung. Im Realtime-Modus hört und spricht das Modell mehrsprachig. Im Pipeline-Modus sind alle lokalen Whisper-Modelle `.en` (nur Englisch), und das Vosk-STT ist `en-us`. Mehrsprachig geht dort nur mit dem STT-Provider „OpenAI“ (Cloud). |
+| Syrisches Arabisch bevorzugen | ⚠️ nur per Persona | Einen Dialekt-Schalter gibt es nicht. Möglich ist nur eine Anweisung in der Persona (Text unten). Wie gut der Dialekt umgesetzt wird, ist nicht geprüft: selbst testen. |
+| Wake Word | ✅ | Vosk nutzt das kleine Modell `en-us` (Wake Word „dex“, konfigurierbar). Das funktioniert unabhängig von der Gesprächssprache. Ein arabisches oder deutsches Wake Word wird mit diesem Modell nicht zuverlässig erkannt. Das Modell wird beim ersten Start von `ccoreilly.github.io` geladen (Drittanbieter). |
+| Geringe Latenz | ✅ | Realtime (Speech-to-Speech) ist in OpenDex der schnellste Modus. |
+| Gesprächskontext | ⚠️ nur innerhalb einer Session | Nach `idleDisconnectSec` Stille (Standard **10 s**) endet die Session, und die nächste startet **ohne Verlauf**. Wird der Wert erhöht (z. B. 60–120 s, muss unter 300 s bleiben), bleibt der Kontext länger erhalten. Dafür wächst mit längeren Sessions der berechnete Input-Kontext pro Antwort. |
+
+### Persona-Vorschlag (Settings → Assistant → Persona, jederzeit wieder leerbar)
+
+```
+You are Dex, a warm, calm and concise voice assistant with a friendly female persona.
+Always reply in the language the user just spoke:
+- German: natural everyday German.
+- English: natural English.
+- Arabic: Syrian / Levantine colloquial Arabic (Damascus dialect, شامي), not Modern Standard Arabic (فصحى), unless the user explicitly asks for MSA.
+If the user mixes languages, answer in the dominant one. Never switch language on your own.
+```
+
+Die festen Sprechregeln (kurze Antworten, kein Markdown) hängt OpenDex weiterhin automatisch an.
+
+## 3. Computersteuerung
+
+- Der Skill `computer` ist ab Werk **aus**, und die Berechtigung steht auf „ask“, also Nachfrage bei jedem Aufruf.
+- Er braucht **Bedienungshilfen** (Maus/Tastatur über nut-js) und **Bildschirmaufnahme** (Screenshots). Die Freigabe erteilst du unter Systemeinstellungen → Datenschutz & Sicherheit.
+- Im Realtime-Modus werden Desktop-Aufgaben per `run_task` an den Pipeline-Agenten übergeben. Dafür muss zusätzlich der Chat-LLM-Provider (`llm.provider`/`llm.model`) funktionieren.
+- Eine eigene VS-Code- oder Terminal-Integration gibt es nicht, nur generisches „Screenshot + Maus/Tastatur“. Tippen im Terminal heißt Befehle ausführen. Deshalb gilt:
+  **Berechtigung für `computer` auf „ask“ lassen, nie „always“.** Der Realtime-Prompt weist das Modell an, Tools ohne Rückfrage aufzurufen (`system-prompt.ts`). Die Berechtigungsabfrage ist die einzige Bremse.
+
+## 4. Sicherheit
+
+| Punkt | Befund |
+|---|---|
+| Herkunft | Offizielle Builds gibt es nur unter `github.com/wassgha/opendex/releases`. Die Websuche fand eine README-Kopie auf `ithub.global.ssl.fastly.net` (Tippfehler-Domain von „github“): **nicht** von dort laden. Das Skript prüft die Download-Herkunft. |
+| Signatur | Die Release-Konfiguration nutzt Developer-ID-Signatur, Hardened Runtime und Notarisierung. Das Skript prüft dies per `codesign`/`spctl` auf deinem Mac. |
+| Entitlements | `allow-dyld-environment-variables`, `disable-library-validation` und `allow-unsigned-executable-memory` schwächen die Hardened Runtime. Bei Electron mit nativen Modulen ist das üblich, erleichtert aber Code-Injection durch andere lokale Malware. Für dich als Nutzer nicht änderbar. |
+| Key-Speicherung | Die Keys liegen in `~/Library/Application Support/OpenDex/secrets.json`, über den Schlüsselbund verschlüsselt (`safeStorage`). Ohne Schlüsselbund wären sie nur base64-kodiert. Das Skript prüft `enc`. Der Key bleibt im Main-Prozess und erreicht den Renderer nie. |
+| Realtime-Auth | Der Code-Kommentar spricht von einem „kurzlebigen Token“. Tatsächlich sendet die SDK den **dauerhaften Key** als WebSocket-Subprotokoll. Das ist per TLS geschützt, aber kein ephemerer Token. |
+| Telemetrie | Google Analytics ist **standardmäßig an**. Laut Code ist es anonym (Version, OS, genutzte Features/Modelle, keine Prompts, Audio oder Keys). Abschalten unter Settings → Privacy → „Anonymous usage data“. |
+| Hintergrund | Tray-Icon, globale Hotkeys (⌥Space) und ein stündlicher Update-Check gegen GitHub. Updates werden automatisch geladen und beim Beenden installiert. Im Code gibt es weder LaunchAgent noch Login-Item. |
+
+## 5. Weitere Befunde
+
+- **Grok-Realtime ist defekt**: `xai/grok-voice-think-fast-1.0` ist im Gateway nicht mehr gelistet (heute heißt es `spacexai/grok-voice-think-fast-2.0`). Ein Wechsel darauf ist kein Workaround.
+- **Logs sind wenig ergiebig**: OpenDex schreibt nur Updater-Ereignisse nach `~/Library/Logs/OpenDex/main.log`. Realtime-Fehler landen dort nicht. Deshalb gibt es den Handshake-Test im Skript.
