@@ -136,7 +136,8 @@ main() {
     local f where
     for f in "$HOME"/Downloads/OpenDex*.dmg "$HOME"/Downloads/OpenDex*.zip; do
       [ -e "$f" ] || continue
-      where="$(mdls -raw -name kMDItemWhereFroms "$f" 2>/dev/null | tr -d '\n' | tr -s ' ')"
+      # Drop query strings: release-asset URLs carry signed tokens.
+      where="$(mdls -raw -name kMDItemWhereFroms "$f" 2>/dev/null | tr -d '\n' | tr -s ' ' | sed -E 's/\?[^"]*"/"/g')"
       info "Download $f came from: $where"
       echo "$where" | grep -q "github.com/wassgha/opendex" && ok "Origin is the official GitHub repo" ||
         warn "Origin is NOT github.com/wassgha/opendex — verify before trusting"
@@ -196,6 +197,9 @@ JXA
       warn "Secrets are only base64-obfuscated, NOT encrypted (Keychain unavailable)"
     grep -q 'stored secret NAMES = .*AI_GATEWAY_API_KEY' "$TMPDIR_DX/cfg.out" &&
       ok "AI_GATEWAY_API_KEY is stored" || warn "AI_GATEWAY_API_KEY not found in OpenDex's store"
+    grep -q 'tts.engine = "elevenlabs"' "$TMPDIR_DX/cfg.out" &&
+      ! grep -q 'stored secret NAMES = .*ELEVENLABS_API_KEY' "$TMPDIR_DX/cfg.out" &&
+      warn "TTS engine is ElevenLabs but no ELEVENLABS_API_KEY is stored — pipeline mode stays silent"
     grep -q '"xai/grok-voice-think-fast-1.0"' "$TMPDIR_DX/cfg.out" &&
       warn "realtime.model is xai/grok-voice-think-fast-1.0 — no longer listed by the gateway"
     grep -q 'whisperModel = ".*\.en"' "$TMPDIR_DX/cfg.out" &&

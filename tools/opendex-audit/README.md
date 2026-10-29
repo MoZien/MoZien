@@ -5,6 +5,23 @@ der verwendeten Gateway-SDK (`@ai-sdk/gateway@4.0.0-canary.107`) und Tests gegen
 Diese Tests liefen **ohne deinen Key** und ohne kostenpflichtige Anfragen.
 Alles, was nur auf deinem Mac prüfbar ist, erledigt `opendex-diagnose.sh`.
 
+## Ergebnis auf deinem Mac (29.10.2026)
+
+Der Lauf auf dem MacBook Pro: Intel i5-8259U, macOS 15.7.5, OpenDex 1.1.14.
+
+| # | Befund | Schwere | Lösung (nimmst du selbst vor) |
+|---|---|---|---|
+| 1 | **Realtime-Ursache:** Der Handshake liefert `403 customer_verification_required`, also *„AI Gateway requires a valid credit card on file“*. Der Key ist gültig (`/v1/credits` → 200), das Guthaben liegt bei 0. | Blocker | Im Vercel-Dashboard unter AI Gateway eine Kreditkarte hinterlegen. Das schaltet die Free-Credits frei; Auto-Top-up ist standardmäßig aus. Ob `gpt-realtime-2` mit Free-Credits nutzbar ist, ist nicht belegt (der Free-Tier umfasst nur einen Teil der Modelle). Danach `--auth-test` erneut ausführen: 101 = gelöst. Kommt dann ein 403 mit Free-Tier-Hinweis, musst du Credits kaufen und am besten ein Budget setzen. |
+| 2 | `voice.mode = "pipeline"`: Realtime ist derzeit gar nicht aktiv. | Info | Nach Fix 1 unter Settings → Voice mode auf *Realtime* stellen. |
+| 3 | **Keys nur base64, nicht verschlüsselt** (`secrets.enc = false`). OpenDex bekam beim Speichern keinen Zugriff auf den Schlüsselbund. Wahrscheinlich wurde die Schlüsselbund-Abfrage abgelehnt; das ist nicht sicher belegt. | Sicherheit | In der Schlüsselbundverwaltung nach „OpenDex Safe Storage“ suchen. OpenDex neu starten und eine Schlüsselbund-Abfrage mit *Immer erlauben* bestätigen. Dann einen Key in den Settings neu speichern: OpenDex schreibt alle Keys neu und verschlüsselt sie, sobald der Schlüsselbund verfügbar ist. Prüfen mit dem Skript (`secrets.enc = true`). Die Keys optional rotieren. |
+| 4 | `tts.engine = "elevenlabs"`, aber kein `ELEVENLABS_API_KEY`. Im Pipeline-Modus bleiben Antworten stumm, weil es keinen Fallback gibt (`tts-player.ts` loggt den Fehler nur). | Funktion | Settings → Voice (TTS) → *System* wählen oder einen ElevenLabs-Key eintragen. Im Realtime-Modus spielt das keine Rolle. |
+| 5 | STT `whisper-local` mit `base.en` versteht im Pipeline-Modus nur Englisch. | Funktion | Realtime nutzen oder unter Settings → Voice input die STT auf *OpenAI* stellen (Cloud, kostenpflichtig, mehrsprachig). |
+| 6 | Wake Word „Remo“ ist im Wortschatz des Vosk-Modells enthalten (geprüft im Modell selbst). | ✅ | — |
+| 7 | Signatur: *Developer ID Application: Wassim Gharbi (MB77Q72B78)*, notarisiert. Download von den offiziellen GitHub-Releases. | ✅ | — |
+| 8 | Mikrofon erlaubt. Bildschirmaufnahme und Bedienungshilfen sind nicht freigegeben; das passt, weil `computer` aus ist. | ✅ | Erst freigeben, wenn du Computersteuerung bewusst aktivierst. |
+| 9 | Das Terminal hat Festplattenvollzugriff (sonst wäre TCC.db nicht lesbar). | Info | Nicht nötig für OpenDex. Bei Bedarf in den Systemeinstellungen entziehen. |
+| 10 | Die Unified-Log-Einträge (TCC-Requests, `AXTTSResourceManager`) sind normal und gutartig. | ✅ | — |
+
 ## Diagnose-Skript
 
 ```bash
