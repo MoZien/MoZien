@@ -31,7 +31,15 @@ from cardeal.geo import road_km
 from cardeal.web.auth import COOKIE, SESSION_DAYS, Access, Account
 from cardeal.web.jobs import JobManager, UserFacingError
 from cardeal.web.prefs import HuntCriteria, ManualCar, Prefs
-from cardeal.web.service import BODIES, FUELS, GEARBOXES, MAKES, CarService, listing_from_json, valuation_from_json
+from cardeal.web.service import (
+    BODIES,
+    FUELS,
+    GEARBOXES,
+    MAKES,
+    CarService,
+    listing_from_json,
+    valuation_from_json,
+)
 
 log = logging.getLogger(__name__)
 
@@ -85,13 +93,13 @@ def create_app(service: CarService | None = None, access: Access | None = None,
     env = os.environ
     access = access or Access(
         env.get("ACCESS_CODES"), env.get("SECRET_KEY"), env.get("ADMIN_CODE"),
-        ai_daily_limit=int(env.get("AI_DAILY_LIMIT", 40)), chat_daily_limit=int(env.get("CHAT_DAILY_LIMIT", 150)),
+        ai_daily_limit=int(env.get("AI_DAILY_LIMIT", "40")), chat_daily_limit=int(env.get("CHAT_DAILY_LIMIT", "150")),
     )
     if service is None:
         data_dir = Path(env.get("DATA_DIR", "data"))
         data_dir.mkdir(parents=True, exist_ok=True)
-        scraper = ScraperSettings(min_delay_seconds=float(env.get("SCRAPE_MIN_DELAY", 3)),
-                                  max_delay_seconds=float(env.get("SCRAPE_MAX_DELAY", 6)))
+        scraper = ScraperSettings(min_delay_seconds=float(env.get("SCRAPE_MIN_DELAY", "3")),
+                                  max_delay_seconds=float(env.get("SCRAPE_MAX_DELAY", "6")))
         service = CarService(str(data_dir / "cache.sqlite3"), access, env.get("AI_MODEL", "claude-sonnet-5-5"), scraper)
     jobs = jobs or JobManager()
     app_name = env.get("APP_NAME", "AutoHalle")
@@ -218,7 +226,7 @@ def main() -> None:
     import uvicorn
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    uvicorn.run("cardeal.web.app:create_app", factory=True, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)),
+    uvicorn.run("cardeal.web.app:create_app", factory=True, host="0.0.0.0", port=int(os.environ.get("PORT", "8000")),
                 proxy_headers=True, forwarded_allow_ips="*")
 
 

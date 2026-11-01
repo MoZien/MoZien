@@ -1,6 +1,7 @@
 """Access codes: the owner gives each customer a code (ACCESS_CODES=name:code,...). The login
 sets a signed cookie; each code has a daily AI allowance so nobody runs up the API bill.
-Without ACCESS_CODES the app is open to everyone (fine on your own machine)."""
+Without ACCESS_CODES the app is open to everyone; the daily allowance then applies to all visitors
+together, so a public link cannot run up the API bill either."""
 
 from __future__ import annotations
 
@@ -67,7 +68,7 @@ class Access:
 
     def account(self, token: str | None) -> Account | None:
         if self.open:
-            return Account(id="public", name="", admin=True)
+            return Account(id="public", name="")
         if not token or "." not in token:
             return None
         payload, signature = token.rsplit(".", 1)

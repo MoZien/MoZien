@@ -24,7 +24,7 @@ from cardeal.sources.kleinanzeigen import KleinanzeigenSource, listing_from_url
 from cardeal.storage import Store
 from cardeal.valuation import ad_flags, plausible_km
 from cardeal.web.auth import Access, Account
-from cardeal.web.jobs import Job, UserFacingError
+from cardeal.web.jobs import Job, JobCancelled, UserFacingError
 from cardeal.web.prefs import HuntCriteria, ManualCar, Prefs
 
 log = logging.getLogger(__name__)
@@ -192,6 +192,8 @@ class CarService:
             job.partial["current"] = listing.title
             try:
                 result = self._hunt_one(hunter, listing, prefs, account, job)
+            except JobCancelled:
+                break  # stopped by the user: keep what was found
             except SourceBlockedError:
                 job.partial["stopped"] = "blocked"
                 break
@@ -380,12 +382,12 @@ def chat_context(result: dict) -> str:
     listing, valuation = result.get("listing") or {}, result.get("valuation") or {}
     lines = [
         f"Ad: {listing.get('title')} | price {listing.get('price')} € {'VB' if listing.get('negotiable') else ''}",
-        f"Car: {listing.get('make')} {listing.get('model')}, first registration "
-        f"{listing.get('month') or '?'}/{listing.get('year')}, {listing.get('km')} km, {listing.get('power_ps')} PS, "
-        f"{listing.get('fuel')}, {listing.get('gearbox')}, HU until {listing.get('hu_until') or 'unknown'}, "
-        f"location {listing.get('location')}",
-        f"Market price {valuation.get('market_price')} € from {valuation.get('comparables')} comparables "
-        f"({valuation.get('basis')}), confidence {valuation.get('confidence')}",
+        (f"Car: {listing.get('make')} {listing.get('model')}, first registration "
+         f"{listing.get('month') or '?'}/{listing.get('year')}, {listing.get('km')} km, "
+         f"{listing.get('power_ps')} PS, {listing.get('fuel')}, {listing.get('gearbox')}, "
+         f"HU until {listing.get('hu_until') or 'unknown'}, location {listing.get('location')}"),
+        (f"Market price {valuation.get('market_price')} € from {valuation.get('comparables')} comparables "
+         f"({valuation.get('basis')}), confidence {valuation.get('confidence')}"),
         f"Purpose of the user: {'buy to keep' if result.get('purpose') == 'personal' else 'buy to resell'}",
     ]
     if trade := result.get("trade"):

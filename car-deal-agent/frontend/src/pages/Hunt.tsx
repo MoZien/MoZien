@@ -1,0 +1,275 @@
+import { Bookmark, Play, Radar, Square, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { CarCard } from "../components/CarCard";
+import { PurposeSwitch } from "../components/PurposeSwitch";
+import { Badge, Button, Card, CardHeader, EmptyState, Field, Input, Note, NumberInput, Select, Toggle } from "../components/ui";
+import { ApiError, cancelJob, runJob } from "../lib/api";
+import { useApp } from "../lib/app";
+import { useT } from "../lib/i18n";
+import { navigate } from "../lib/router";
+import { createStore, markSeen, prefsStore, saveResult, searchesStore, seenStore, uid, useStore } from "../lib/store";
+import type { HuntCriteria, HuntResult, Job, Result } from "../lib/types";
+import { errorText } from "./Analyze";
+
+export const DEFAULT_CRITERIA: HuntCriteria = {
+  max_price: 3000, min_price: 500, min_year: 2002, max_year: null, min_km: null, max_km: 200000, zip_code: "06108",
+  radius_km: 200, seller: "privat", make: null, query: "", fuel: null, gearbox: null, body_type: null,
+  exclude_places: ["Berlin"], count: 3, max_ads: 15, pages: 2,
+};
+const criteriaStore = createStore<HuntCriteria>("ah.hunt", DEFAULT_CRITERIA);
+const skipStore = createStore<boolean>("ah.huntSkip", true);
+
+export function HuntPage() {
+  const t = useT();
+  const { meta } = useApp();
+  const prefs = useStore(prefsStore);
+  const criteria = useStore(criteriaStore);
+  const skipSeen = useStore(skipStore);
+  const searches = useStore(searchesStore);
+  const seen = useStore(seenStore);
+  const [job, setJob] = useState<Job<HuntResult> | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [found, setFound] = useState<Result[]>([]);
+  const [summary, setSummary] = useState<HuntResult | null>(null);
+  const [error, setError] = useState<{ code: string } | null>(null);
+  const [placesText, setPlacesText] = useState(criteria.exclude_places.join(", "));
+  const abort = useRef<AbortController | null>(null);
+
+  useEffect(() => () => abort.current?.abort(), []);
+  const set = (patch: Partial<HuntCriteria>) => criteriaStore.set((c) => ({ ...c, ...patch }));
+
+  async function start() {
+    abort.current?.abort();
+    const controller = new AbortController();
+    abort.current = controller;
+    setError(null);
+    setFound([]);
+    setSummary(null);
+    const body = {
+      criteria: { ...criteria, exclude_places: placesText.split(",").map((p) => p.trim()).filter(Boolean), skip_ids: skipSeen ? seen.slice(0, 2000) : [] },
+      prefs,
+    };
+    try {
+      const done = await runJob<HuntResult>(
+        "hunt",
+        body,
+        (update) => {
+          setJob(update);
+          setJobId(update.id);
+          const partial = (update.partial.found ?? []) as Result[];
+          setFound(partial);
+        },
+        controller.signal,
+      );
+      if (done.result) {
+        setSummary(done.result);
+        setFound(done.result.found);
+        done.result.found.forEach((result) => saveResult(result));
+      }
+      if (done.partial?.checked_ids) markSeen(done.partial.checked_ids as string[]);
+      if (done.error) setError(done.error);
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") setError({ code: err instanceof ApiError ? err.code : "server" });
+    } finally {
+      setJob(null);
+    }
+  }
+
+  async function stop() {
+    // Stopping keeps what was found so far: the server ends the hunt after the current ad.
+    if (jobId) await cancelJob(jobId);
+  }
+
+  const running = job != null;
+  const progress = job?.progress ?? {};
+  const makes = Object.entries(meta?.makes ?? {});
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="flex items-center gap-2.5 text-xl font-bold sm:text-2xl">
+          <Radar className="size-6 text-accent" /> {t("hunt_title")}
+        </h1>
+        <p className="mt-1 text-sm text-muted">{t("hunt_sub")}</p>
+      </div>
+
+      <Card className="p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <PurposeSwitch />
+          {searches.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted">{t("saved_searches")}:</span>
+              {searches.map((search) => (
+                <span key={search.id} className="inline-flex items-center gap-1 rounded-full border border-line bg-surface-2 ps-3 text-xs">
+                  <button className="cursor-pointer py-1 font-medium" onClick={() => { criteriaStore.set(search.criteria); setPlacesText(search.criteria.exclude_places.join(", ")); }}>
+                    {search.name}
+                  </button>
+                  <button aria-label={t("delete")} className="cursor-pointer px-2 py-1 text-faint hover:text-bad" onClick={() => searchesStore.set((list) => list.filter((s) => s.id !== search.id))}>
+                    <Trash2 className="size-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <Field label={t("budget")}>
+            <NumberInput value={criteria.max_price} onChange={(v) => set({ max_price: v })} suffix="€" allowEmpty />
+          </Field>
+          <Field label={t("min_price")}>
+            <NumberInput value={criteria.min_price} onChange={(v) => set({ min_price: v })} suffix="€" allowEmpty />
+          </Field>
+          <Field label={t("year_from")}>
+            <NumberInput value={criteria.min_year} onChange={(v) => set({ min_year: v })} allowEmpty />
+          </Field>
+          <Field label={t("year_to")}>
+            <NumberInput value={criteria.max_year} onChange={(v) => set({ max_year: v })} allowEmpty placeholder="–" />
+          </Field>
+          <Field label={t("km_max")}>
+            <NumberInput value={criteria.max_km} onChange={(v) => set({ max_km: v })} suffix="km" allowEmpty />
+          </Field>
+          <Field label={t("zip")}>
+            <Input value={criteria.zip_code ?? ""} onChange={(e) => set({ zip_code: e.target.value.replace(/\D/g, "").slice(0, 5) || null })} inputMode="numeric" className="num" />
+          </Field>
+          <Field label={t("radius")}>
+            <Select value={criteria.radius_km ?? 200} onChange={(e) => set({ radius_km: Number(e.target.value) })}>
+              {[10, 20, 50, 100, 150, 200, 300, 500].map((r) => (
+                <option key={r} value={r}>
+                  {r} km
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label={t("seller_type")}>
+            <Select value={criteria.seller} onChange={(e) => set({ seller: e.target.value as HuntCriteria["seller"] })}>
+              <option value="privat">{t("sellers_private")}</option>
+              <option value="gewerblich">{t("sellers_dealer")}</option>
+              <option value="all">{t("sellers_all")}</option>
+            </Select>
+          </Field>
+          <Field label={t("make")}>
+            <Select value={criteria.make ?? ""} onChange={(e) => set({ make: e.target.value || null })}>
+              <option value="">{t("any_make")}</option>
+              {makes.map(([slug, name]) => (
+                <option key={slug} value={slug}>
+                  {name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label={t("model_query")}>
+            <Input value={criteria.query} onChange={(e) => set({ query: e.target.value })} placeholder="Golf, Polo, 3er…" />
+          </Field>
+          <Field label={t("fuel")}>
+            <Select value={criteria.fuel ?? ""} onChange={(e) => set({ fuel: e.target.value || null })}>
+              <option value="">{t("any")}</option>
+              {Object.entries(meta?.fuels ?? {}).map(([slug, name]) => (
+                <option key={slug} value={slug}>
+                  {name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label={t("gearbox")}>
+            <Select value={criteria.gearbox ?? ""} onChange={(e) => set({ gearbox: (e.target.value || null) as HuntCriteria["gearbox"] })}>
+              <option value="">{t("any")}</option>
+              <option value="manuell">Manuell</option>
+              <option value="automatik">Automatik</option>
+            </Select>
+          </Field>
+          <Field label={t("exclude_places")} hint={t("exclude_hint")} className="col-span-2">
+            <Input value={placesText} onChange={(e) => setPlacesText(e.target.value)} />
+          </Field>
+          <Field label={t("how_many")}>
+            <Select value={criteria.count} onChange={(e) => set({ count: Number(e.target.value) })}>
+              {[1, 2, 3, 5, 8, 10].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label={t("max_ads")}>
+            <Select value={criteria.max_ads} onChange={(e) => set({ max_ads: Number(e.target.value) })}>
+              {[5, 10, 15, 20, 30, 40].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <Toggle checked={skipSeen} onChange={(v) => skipStore.set(v)} label={t("skip_seen")} hint={seen.length ? `${seen.length}` : undefined} />
+          <Toggle checked={prefs.ai_in_hunt} onChange={(ai_in_hunt) => prefsStore.set((p) => ({ ...p, ai_in_hunt }))} label={t("s_ai_hunt")} />
+        </div>
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          {running ? (
+            <Button variant="danger" size="lg" icon={<Square className="size-4" />} onClick={stop}>
+              {t("stop")}
+            </Button>
+          ) : (
+            <Button variant="primary" size="lg" icon={<Play className="size-4" />} onClick={start}>
+              {t("start_hunt")}
+            </Button>
+          )}
+          <Button
+            icon={<Bookmark className="size-4" />}
+            onClick={() => {
+              const name = window.prompt(t("search_name"), criteria.query || criteria.make || `≤ ${criteria.max_price ?? ""} €`);
+              if (name) searchesStore.set((list) => [{ id: uid(), name, criteria: { ...criteria, exclude_places: placesText.split(",").map((p) => p.trim()).filter(Boolean) } }, ...list]);
+            }}
+          >
+            {t("save_search")}
+          </Button>
+          {seen.length > 0 && (
+            <Button variant="ghost" onClick={() => seenStore.set([])}>
+              {t("reset_seen")}
+            </Button>
+          )}
+        </div>
+        <p className="mt-3 text-xs text-faint">{t("hunt_time")}</p>
+      </Card>
+
+      {running && (
+        <Card className="p-5">
+          <CardHeader title={t("hunting")} icon={<Radar className="size-4 animate-pulse" />} />
+          <div className="mt-4">
+            <div className="h-2 overflow-hidden rounded-full bg-surface-2">
+              <div className="h-full rounded-full bg-gradient-to-r from-accent to-accent-2 transition-all" style={{ width: `${progress.total ? ((progress.checked ?? 0) / progress.total) * 100 : 5}%` }} />
+            </div>
+            <p className="num mt-2 text-sm text-muted">{t("hunt_progress", { checked: progress.checked ?? 0, total: progress.total ?? "…", found: progress.found ?? 0 })}</p>
+            {job?.partial?.current && (
+              <p className="mt-1 truncate text-xs text-faint" dir="auto">
+                {String(job.partial.current)}
+              </p>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {error && <Note tone="bad">{errorText(t, error)}</Note>}
+
+      {summary && !running && (
+        <Note tone={summary.found.length ? "good" : "neutral"}>
+          {summary.found.length ? t("hunt_done", { found: summary.found.length, checked: summary.checked }) : t("hunt_none", { n: summary.checked })}
+          {summary.stopped === "blocked" && <span className="ms-2 text-bad">{t("err_blocked")}</span>}
+        </Note>
+      )}
+
+      {found.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {found.map((result) => (
+            <CarCard key={result.listing.id} result={result} onClick={() => { saveResult(result); navigate("analyze", result.listing.id); }} footer={<Badge tone="accent">{t("nav_hunt")}</Badge>} />
+          ))}
+        </div>
+      )}
+
+      {!running && !summary && found.length === 0 && (
+        <Card>
+          <EmptyState icon={<Radar className="size-6" />} title={t("hunt_title")} text={t("hunt_sub")} />
+        </Card>
+      )}
+    </div>
+  );
+}

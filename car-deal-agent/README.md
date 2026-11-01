@@ -99,6 +99,51 @@ cardeal --no-ai once             # numbers only, no Claude calls
 
 To keep it running, use a small always-on machine (Raspberry Pi, home server, cheap VPS) with `tmux`, `systemd` or `cron` (`*/20 * * * * cd /path/car-deal-agent && .venv/bin/cardeal once`). GitHub Actions is a poor fit: Kleinanzeigen tends to block data-centre IPs, and the SQLite market data has to persist between runs.
 
+## Web app (AutoHalle)
+
+The same engine as a website: paste a Kleinanzeigen link, value a car by hand, or let it hunt
+through the newest ads. Arabic, German and English (right-to-left for Arabic), dark and light
+theme, installable on the phone's home screen.
+
+- **Two purposes, two evaluations.** *For me* rates the price against the market (bargain …
+  overpriced), suggests a first offer and a ceiling, and adds up the first year (fuel for your
+  yearly kilometres, TÜV, repairs from the ad, inspection, fetching the car); the AI writes a
+  buyer's review with known weak points, an inspection checklist, questions and a German message
+  to the seller. *Trade* shows profit, ROI and the costs of a resale; the AI judges the flip.
+  Both sets of numbers are always computed, so you can switch after the analysis.
+- **Pages:** dashboard, analyse ad, deal hunt (live finds, stop keeps them), manual valuation,
+  saved cars with notes and status, side-by-side comparison, garage, tools (flip profit, trip
+  cost, running costs, financing, TÜV date, ad-text scan, seller messages), settings (all costs
+  and limits), help.
+- **Per car:** score, price position, comparables chart with links, the whole calculation step by
+  step, AI review, chat about the car, share / print / PDF.
+- User data (saved cars, settings) stays in the browser. The server only keeps the market cache.
+
+```bash
+pip install -e ".[web]"
+cd frontend && npm ci && npm run build && cd ..
+cardeal-web                      # http://localhost:8000 (dev UI with hot reload: cd frontend && npm run dev)
+```
+
+Environment variables: `ANTHROPIC_API_KEY`, `AI_MODEL` (default `claude-sonnet-5-5`),
+`ACCESS_CODES` (`name:code,name:code`; empty = open, the daily allowance is then shared by all
+visitors), `ADMIN_CODE` (no daily limit, usage report at `/api/admin/usage`), `SECRET_KEY`,
+`AI_DAILY_LIMIT` (40), `CHAT_DAILY_LIMIT` (150), `APP_NAME`, `DATA_DIR`, `SCRAPE_MIN_DELAY` /
+`SCRAPE_MAX_DELAY`. API docs at `/api/docs`.
+
+### Online with Render
+
+`render.yaml` in the repository root is a Render Blueprint (Docker, Frankfurt, free plan):
+
+1. <https://dashboard.render.com> → **New** → **Blueprint** → connect GitHub and pick this
+   repository and branch.
+2. Enter `ANTHROPIC_API_KEY`, `ACCESS_CODES` (the codes you hand to your users) and `ADMIN_CODE`.
+3. **Deploy Blueprint**. After the first build (a few minutes) the app runs at the
+   `https://….onrender.com` address Render shows; every push to the branch redeploys it.
+
+The free instance sleeps after 15 idle minutes; the first visit afterwards takes about a minute.
+Kleinanzeigen may block data-centre IPs; if the app reports "blocked", run it on a machine at home.
+
 ## Costs
 
 Claude is only called for real candidates (after the price and profit filters), typically a few ads per day per search. With the default `claude-opus-5-5` ($4 / $20 per million input/output tokens) one review costs roughly 3–8 cents. Model and effort can be changed under `ai:` in the config. Refusal fallbacks are enabled, so a rare safety-classifier decline is retried on another model instead of failing.
@@ -132,7 +177,11 @@ src/cardeal/
 ├── notifier.py                Telegram / console messages
 ├── i18n.py                    Arabic, German, English texts
 ├── config.py                  config.yaml + .env
-└── cli.py                     `cardeal` command
+├── personal.py                buying to keep: price rating, offer range, first-year costs
+├── cli.py                     `cardeal` command
+└── web/                       FastAPI app: jobs, access codes, preferences, the service layer
+frontend/                      React + TypeScript + Tailwind single-page app (Vite)
+Dockerfile                     builds the frontend and serves it together with the API
 ```
 
 ## Ideas for next steps

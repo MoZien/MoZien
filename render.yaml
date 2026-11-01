@@ -1,0 +1,33 @@
+# Render Blueprint for the AutoHalle web app (car-deal-agent/). One instance: jobs and the
+# comparables cache live in that process. Free plan: the instance sleeps after 15 idle minutes
+# and the first request after that takes about a minute.
+services:
+  - type: web
+    name: autohalle
+    runtime: docker
+    plan: free
+    region: frankfurt
+    branch: claude/intelligent-fermi-lme4t3
+    dockerfilePath: ./car-deal-agent/Dockerfile
+    dockerContext: ./car-deal-agent
+    numInstances: 1
+    autoDeployTrigger: commit
+    buildFilter:
+      paths:
+        - car-deal-agent/**
+    healthCheckPath: /health
+    envVars:
+      - key: ANTHROPIC_API_KEY   # your Claude API key (asked for when the Blueprint is created)
+        sync: false
+      - key: ACCESS_CODES        # name:code,name:code ... who may use the app (empty = everyone)
+        sync: false
+      - key: ADMIN_CODE          # your own code: no daily limit
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: AI_MODEL
+        value: claude-sonnet-5-5
+      - key: APP_NAME
+        value: AutoHalle
+      - key: AI_DAILY_LIMIT
+        value: "40"
