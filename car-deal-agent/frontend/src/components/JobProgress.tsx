@@ -18,7 +18,7 @@ export function JobProgress({ job, onCancel, extra }: { job: Job | null; onCance
                 className={cx(
                   "grid size-7 shrink-0 place-items-center rounded-full",
                   step.state === "done" && "bg-good/15 text-good",
-                  step.state === "active" && "bg-accent/15 text-accent",
+                  step.state === "active" && "bg-surface-2 text-text",
                   step.state === "failed" && "bg-bad/15 text-bad",
                   (step.state === "pending" || step.state === "skipped") && "bg-surface-2 text-faint",
                 )}

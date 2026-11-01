@@ -22,7 +22,7 @@ export function Num({ children, className }: { children: ReactNode; className?: 
 
 export function Card({ className, children, ...rest }: { className?: string; children: ReactNode } & React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div {...rest} className={cx("rounded-2xl border border-line bg-surface/90 shadow-card backdrop-blur-sm", className)}>
+    <div {...rest} className={cx("rounded-2xl border border-line bg-surface", className)}>
       {children}
     </div>
   );
@@ -32,7 +32,7 @@ export function CardHeader({ title, icon, action, sub }: { title: ReactNode; ico
   return (
     <div className="flex items-start justify-between gap-3 px-5 pt-5">
       <div className="flex min-w-0 items-center gap-2.5">
-        {icon && <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-accent/12 text-accent">{icon}</span>}
+        {icon && <span className="shrink-0 text-muted">{icon}</span>}
         <div className="min-w-0">
           <h3 className="truncate text-[15px] font-semibold">{title}</h3>
           {sub && <p className="text-xs text-muted">{sub}</p>}
@@ -45,11 +45,11 @@ export function CardHeader({ title, icon, action, sub }: { title: ReactNode; ico
 
 type Variant = "primary" | "secondary" | "ghost" | "danger" | "soft";
 const variants: Record<Variant, string> = {
-  primary: "bg-accent text-white shadow-sm shadow-accent/30 hover:brightness-110",
+  primary: "bg-accent text-on-accent hover:opacity-90",
   secondary: "border border-line bg-surface hover:bg-surface-2",
   ghost: "hover:bg-surface-2 text-muted hover:text-text",
-  danger: "bg-bad/10 text-bad hover:bg-bad/20",
-  soft: "bg-accent/12 text-accent hover:bg-accent/20",
+  danger: "bg-bad/10 text-bad hover:bg-bad/15",
+  soft: "bg-surface-2 text-text hover:bg-line/70",
 };
 const sizes = { sm: "h-8 px-3 text-xs gap-1.5", md: "h-10 px-4 text-sm gap-2", lg: "h-12 px-6 text-[15px] gap-2" };
 
@@ -98,7 +98,7 @@ const tones: Record<Tone, string> = {
   warn: "bg-warn/12 text-warn border-warn/25",
   bad: "bg-bad/12 text-bad border-bad/25",
   neutral: "bg-surface-2 text-muted border-line",
-  accent: "bg-accent/12 text-accent border-accent/25",
+  accent: "bg-surface-2 text-text border-line",
 };
 
 export function Badge({ tone = "neutral", children, className }: { tone?: Tone; children: ReactNode; className?: string }) {
@@ -120,7 +120,7 @@ export function Field({ label, hint, children, className }: { label: ReactNode; 
 }
 
 const inputClass =
-  "h-11 w-full rounded-xl border border-line bg-surface-2/60 px-3.5 text-sm outline-none transition placeholder:text-faint focus:border-accent focus:bg-surface focus:ring-4 focus:ring-accent/10";
+  "h-11 w-full rounded-xl border border-line bg-surface px-3.5 text-sm outline-none transition placeholder:text-faint focus:border-muted focus:ring-2 focus:ring-accent/10";
 
 export function Input({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...rest} className={cx(inputClass, className)} />;
@@ -218,7 +218,7 @@ export function Toggle({ checked, onChange, label, hint }: { checked: boolean; o
         {hint && <span className="block text-xs text-faint">{hint}</span>}
       </span>
       <span className={cx("relative h-6 w-11 shrink-0 rounded-full transition", checked ? "bg-accent" : "bg-line")}>
-        <span className={cx("absolute top-0.5 size-5 rounded-full bg-white shadow transition-all", checked ? "start-5.5" : "start-0.5")} />
+        <span className={cx("absolute top-0.5 size-5 rounded-full shadow transition-all", checked ? "start-5.5 bg-on-accent" : "start-0.5 bg-white")} />
       </span>
     </button>
   );
@@ -238,7 +238,7 @@ export function Segmented<V extends string>({
   size?: "sm" | "md";
 }) {
   return (
-    <div role="radiogroup" className={cx("inline-flex rounded-xl border border-line bg-surface-2/70 p-1", className)}>
+    <div role="radiogroup" className={cx("inline-flex rounded-xl bg-surface-2 p-1", className)}>
       {options.map((option) => (
         <button
           key={option.value}
@@ -249,7 +249,7 @@ export function Segmented<V extends string>({
           className={cx(
             "flex flex-1 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-lg font-medium transition",
             size === "sm" ? "h-7 px-2.5 text-xs" : "h-9 px-3.5 text-sm",
-            value === option.value ? "bg-surface text-text shadow-sm" : "text-muted hover:text-text",
+            value === option.value ? "bg-surface text-text shadow-sm ring-1 ring-line" : "text-muted hover:text-text",
           )}
         >
           {option.icon}
@@ -262,7 +262,7 @@ export function Segmented<V extends string>({
 
 export function Tabs<V extends string>({ value, onChange, tabs }: { value: V; onChange: (value: V) => void; tabs: { value: V; label: ReactNode; icon?: ReactNode; badge?: ReactNode }[] }) {
   return (
-    <div role="tablist" className="scrollbar-thin -mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
+    <div role="tablist" className="no-scrollbar flex gap-5 overflow-x-auto border-b border-line">
       {tabs.map((tab) => (
         <button
           key={tab.value}
@@ -270,8 +270,8 @@ export function Tabs<V extends string>({ value, onChange, tabs }: { value: V; on
           aria-selected={value === tab.value}
           onClick={() => onChange(tab.value)}
           className={cx(
-            "flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium transition",
-            value === tab.value ? "bg-accent text-white shadow-sm shadow-accent/30" : "text-muted hover:bg-surface-2 hover:text-text",
+            "-mb-px flex shrink-0 cursor-pointer items-center gap-1.5 border-b-2 pb-2.5 pt-1 text-sm font-medium transition",
+            value === tab.value ? "border-text text-text" : "border-transparent text-muted hover:text-text",
           )}
         >
           {tab.icon}
@@ -296,15 +296,15 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
   }, [open, onClose]);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-6" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
         onClick={(event) => event.stopPropagation()}
-        className={cx("animate-fade-up max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl border border-line bg-surface p-5 shadow-2xl sm:rounded-3xl", wide ? "sm:max-w-3xl" : "sm:max-w-lg")}
+        className={cx("animate-fade-up safe-bottom max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl border border-line bg-surface p-5 shadow-xl sm:rounded-2xl", wide ? "sm:max-w-3xl" : "sm:max-w-lg")}
       >
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold">{title}</h2>
+          <h2 className="text-base font-semibold">{title}</h2>
           <IconButton label="close" onClick={onClose}>
             <X className="size-5" />
           </IconButton>
@@ -315,14 +315,28 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
   );
 }
 
+/** A section that opens on tap: keeps rarely used options out of the way. */
+export function Disclosure({ title, children, defaultOpen = false, className }: { title: ReactNode; children: ReactNode; defaultOpen?: boolean; className?: string }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className={className}>
+      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full cursor-pointer items-center justify-between gap-3 py-2 text-start text-sm font-medium text-muted hover:text-text">
+        {title}
+        <ChevronDown className={cx("size-4 transition", open && "rotate-180")} />
+      </button>
+      {open && <div className="animate-fade-up pt-2">{children}</div>}
+    </div>
+  );
+}
+
 export function Spinner({ className }: { className?: string }) {
-  return <Loader2 className={cx("size-5 animate-spin text-accent", className)} />;
+  return <Loader2 className={cx("size-5 animate-spin text-muted", className)} />;
 }
 
 export function EmptyState({ icon, title, text, action }: { icon: ReactNode; title: ReactNode; text?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center px-6 py-14 text-center">
-      <div className="mb-4 grid size-14 place-items-center rounded-2xl bg-accent/10 text-accent">{icon}</div>
+    <div className="flex flex-col items-center px-6 py-12 text-center">
+      <div className="mb-3 grid size-12 place-items-center rounded-full bg-surface-2 text-muted">{icon}</div>
       <h3 className="text-base font-semibold">{title}</h3>
       {text && <p className="mt-1.5 max-w-sm text-sm text-muted">{text}</p>}
       {action && <div className="mt-5">{action}</div>}
@@ -338,7 +352,7 @@ export function Stat({ label, value, sub, tone, icon }: { label: ReactNode; valu
         {icon}
         <span className="truncate">{label}</span>
       </div>
-      <div className={cx("mt-1 truncate text-xl font-bold tracking-tight", color)}>{value}</div>
+      <div className={cx("mt-1 truncate text-xl font-semibold tracking-tight", color)}>{value}</div>
       {sub && <div className="mt-0.5 truncate text-xs text-faint">{sub}</div>}
     </div>
   );
@@ -388,7 +402,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[60] flex flex-col items-center gap-2 px-4 lg:bottom-6">
         {toasts.map((toast) => (
-          <div key={toast.id} className="animate-fade-up pointer-events-auto flex items-center gap-2 rounded-2xl border border-line bg-surface px-4 py-3 text-sm font-medium shadow-2xl">
+          <div key={toast.id} className="animate-fade-up pointer-events-auto flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-sm font-medium shadow-lg">
             {toast.tone === "good" && <Check className="size-4 text-good" />}
             {toast.tone === "bad" && <X className="size-4 text-bad" />}
             {toast.text}

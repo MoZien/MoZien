@@ -2,46 +2,45 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Colors are tokens: light by default, dark under .dark; the accent can be switched in the settings. */
+/* Colour tokens: light by default, dark under .dark. The primary colour is ink (black on light,
+   white on dark); a colour accent can be picked in the settings. */
 :root {
-  --bg: #f4f6fb;
-  --bg-2: #eef1f8;
+  --bg: #f6f6f4;
   --surface: #ffffff;
-  --surface-2: #f7f8fc;
-  --line: #e3e7f0;
-  --text: #0f1729;
-  --muted: #5b6478;
-  --faint: #8c94a8;
-  --accent: #5b5bf6;
-  --accent-2: #22b8cf;
-  --good: #0f9d6b;
-  --warn: #d48806;
-  --bad: #e5484d;
-  --shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 8px 24px rgb(16 24 40 / 0.06);
+  --surface-2: #f0f0ec;
+  --line: #e3e3de;
+  --text: #17181a;
+  --muted: #5f6268;
+  --faint: #93959a;
+  --accent: #17181a;
+  --on-accent: #ffffff;
+  --good: #127a47;
+  --warn: #a86400;
+  --bad: #c42f2c;
 }
 .dark {
-  --bg: #080c18;
-  --bg-2: #0d1324;
-  --surface: #111a2e;
-  --surface-2: #16203a;
-  --line: #22304f;
-  --text: #e8ecf6;
-  --muted: #9aa5bf;
-  --faint: #6b7792;
-  --good: #2fd39b;
-  --warn: #f5b544;
-  --bad: #ff6b6f;
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 12px 32px rgb(0 0 0 / 0.35);
+  --bg: #0f1012;
+  --surface: #17181b;
+  --surface-2: #202125;
+  --line: #2b2d32;
+  --text: #ececed;
+  --muted: #a1a4aa;
+  --faint: #6f7278;
+  --accent: #ececed;
+  --on-accent: #0f1012;
+  --good: #3ec98a;
+  --warn: #eeb23c;
+  --bad: #f05a5e;
 }
-:root[data-accent="emerald"] { --accent: #10b981; --accent-2: #06b6d4; }
-:root[data-accent="amber"] { --accent: #f59e0b; --accent-2: #ef4444; }
-:root[data-accent="rose"] { --accent: #f43f5e; --accent-2: #a855f7; }
-:root[data-accent="sky"] { --accent: #0ea5e9; --accent-2: #6366f1; }
-:root[data-accent="violet"] { --accent: #8b5cf6; --accent-2: #ec4899; }
+:root[data-accent="blue"] { --accent: #2459d6; --on-accent: #ffffff; }
+.dark[data-accent="blue"] { --accent: #6b9bff; --on-accent: #0f1012; }
+:root[data-accent="green"] { --accent: #17734a; --on-accent: #ffffff; }
+.dark[data-accent="green"] { --accent: #45c98d; --on-accent: #0f1012; }
+:root[data-accent="orange"] { --accent: #c2510c; --on-accent: #ffffff; }
+.dark[data-accent="orange"] { --accent: #fb8a3c; --on-accent: #0f1012; }
 
 @theme {
   --color-bg: var(--bg);
-  --color-bg-2: var(--bg-2);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-line: var(--line);
@@ -49,18 +48,17 @@
   --color-muted: var(--muted);
   --color-faint: var(--faint);
   --color-accent: var(--accent);
-  --color-accent-2: var(--accent-2);
+  --color-on-accent: var(--on-accent);
   --color-good: var(--good);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
-  --font-sans: "Inter", "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
-  --shadow-card: var(--shadow);
-  --animate-fade-up: fade-up 0.35s ease-out both;
+  --font-sans: "IBM Plex Sans", "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+  --animate-fade-up: fade-up 0.25s ease-out both;
   --animate-pulse-soft: pulse-soft 1.6s ease-in-out infinite;
 }
 
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: none; }
 }
 @keyframes pulse-soft {
@@ -69,27 +67,30 @@
 }
 
 html, body { background: var(--bg); color: var(--text); }
-html[dir="rtl"] body { font-family: "IBM Plex Sans Arabic", "Inter", ui-sans-serif, system-ui, sans-serif; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html[dir="rtl"] body { font-family: "IBM Plex Sans Arabic", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; }
 body {
   margin: 0;
   min-height: 100dvh;
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
-  background-image:
-    radial-gradient(60rem 30rem at 110% -10%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 60%),
-    radial-gradient(50rem 30rem at -10% 110%, color-mix(in srgb, var(--accent-2) 10%, transparent), transparent 60%);
-  background-attachment: fixed;
+  -webkit-tap-highlight-color: transparent;
 }
-::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); }
+::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .num { font-variant-numeric: tabular-nums; unicode-bidi: isolate; direction: ltr; display: inline-block; }
 .scrollbar-thin { scrollbar-width: thin; }
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
-.gradient-text {
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+.safe-top { padding-top: env(safe-area-inset-top); }
+
+/* iPhones zoom into any field whose text is smaller than 16px and stay zoomed, which cuts off
+   the page at both sides. On phones every field therefore uses 16px. */
+@media (max-width: 639px) {
+  input, select, textarea { font-size: 16px !important; }
 }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }

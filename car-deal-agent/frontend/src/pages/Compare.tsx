@@ -28,7 +28,7 @@ export function ComparePage() {
   const view = prefs.purpose;
 
   const rows: RowSpec[] = [
-    { label: t("score"), value: (r) => verdictOf(r, view, t)?.score ?? null, show: (r) => <span className={cx("num font-extrabold", scoreText(verdictOf(r, view, t)?.score ?? 0))}>{verdictOf(r, view, t)?.score ?? "–"}</span>, better: "high" },
+    { label: t("score"), value: (r) => verdictOf(r, view, t)?.score ?? null, show: (r) => <span className={cx("num font-semibold", scoreText(verdictOf(r, view, t)?.score ?? 0))}>{verdictOf(r, view, t)?.score ?? "–"}</span>, better: "high" },
     { label: t("asking_price"), value: (r) => r.listing.price, show: (r) => <span className="num">{euro(r.listing.price)}</span>, better: "low" },
     { label: t("market_price"), value: (r) => r.valuation.market_price, show: (r) => <span className="num">{euro(r.valuation.market_price)}</span> },
     { label: t("below_market"), value: (r) => discountOf(r), show: (r) => <span className="num">{discountOf(r) == null ? "–" : pct(discountOf(r))}</span>, better: "high" },
@@ -63,9 +63,7 @@ export function ComparePage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="flex items-center gap-2.5 text-xl font-bold sm:text-2xl">
-          <Columns3 className="size-6 text-accent" /> {t("compare_title")}
-        </h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{t("compare_title")}</h1>
         <div className="flex items-center gap-2">
           <PurposeSwitch compact tiny />
           <Button size="sm" icon={<Plus className="size-4" />} onClick={() => setPicking(true)} disabled={ids.length >= 4}>
@@ -134,7 +132,7 @@ export function ComparePage() {
               <button
                 key={car.id}
                 onClick={() => compareStore.set((list) => (selected ? list.filter((id) => id !== car.id) : [...list, car.id].slice(-4)))}
-                className={cx("flex w-full cursor-pointer items-center gap-3 rounded-xl border p-2.5 text-start transition", selected ? "border-accent bg-accent/8" : "border-line hover:bg-surface-2")}
+                className={cx("flex w-full cursor-pointer items-center gap-3 rounded-xl border p-2.5 text-start transition", selected ? "border-text bg-surface-2" : "border-line hover:bg-surface-2")}
               >
                 <CarPhoto src={car.result.listing.images?.[0] ?? ""} className="size-12 shrink-0 rounded-lg" />
                 <span className="min-w-0 flex-1">

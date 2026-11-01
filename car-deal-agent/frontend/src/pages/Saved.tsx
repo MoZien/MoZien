@@ -2,7 +2,7 @@ import { Columns3, Heart, History, Search, Trash2, TrendingDown } from "lucide-r
 import { useMemo, useState } from "react";
 import { CarCard } from "../components/CarCard";
 import { Sparkline } from "../components/charts";
-import { Badge, Button, Card, EmptyState, IconButton, Modal, Select, Tabs, Textarea, cx } from "../components/ui";
+import { Badge, Button, Card, Disclosure, EmptyState, IconButton, Modal, Select, Tabs, Textarea, cx } from "../components/ui";
 import { euro, relativeDate } from "../lib/format";
 import { type TextKey, useT } from "../lib/i18n";
 import { discountOf } from "../lib/result";
@@ -51,9 +51,9 @@ export function SavedPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-bold sm:text-2xl">{t("nav_saved")}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{t("nav_saved")}</h1>
         {compare.length > 0 && (
-          <Button variant="soft" icon={<Columns3 className="size-4" />} onClick={() => navigate("compare")}>
+          <Button size="sm" icon={<Columns3 className="size-4" />} onClick={() => navigate("compare")}>
             {t("nav_compare")} ({compare.length})
           </Button>
         )}
@@ -62,18 +62,19 @@ export function SavedPage() {
         value={tab}
         onChange={setTab}
         tabs={[
-          { value: "favorites", label: t("favorites"), icon: <Heart className="size-4" />, badge: <span className="num text-xs opacity-80">{saved.filter((c) => c.favorite).length}</span> },
-          { value: "history", label: t("history"), icon: <History className="size-4" />, badge: <span className="num text-xs opacity-80">{saved.length}</span> },
+          { value: "favorites", label: t("favorites"), badge: <span className="num text-xs text-faint">{saved.filter((c) => c.favorite).length}</span> },
+          { value: "history", label: t("history"), badge: <span className="num text-xs text-faint">{saved.length}</span> },
         ]}
       />
-      <Card className="grid gap-3 p-4 sm:grid-cols-[1fr_auto_auto_auto]">
+      <div className="space-y-1">
+      <div className="grid grid-cols-[1fr_auto] gap-2">
         <div className="relative">
           <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-faint" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t("search_saved")}
-            className="h-10 w-full rounded-xl border border-line bg-surface-2/60 ps-9 pe-3 text-sm outline-none focus:border-accent"
+            className="h-10 w-full rounded-xl border border-line bg-surface ps-9 pe-3 text-sm outline-none focus:border-muted"
           />
         </div>
         <Select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label={t("sort")} className="h-10">
@@ -82,6 +83,9 @@ export function SavedPage() {
           <option value="discount">{t("sort_discount")}</option>
           <option value="price">{t("sort_price")}</option>
         </Select>
+      </div>
+      <Disclosure title={t("more_filters")}>
+        <div className="grid grid-cols-2 gap-2">
         <Select value={purpose} onChange={(e) => setPurpose(e.target.value as typeof purpose)} aria-label={t("purpose")} className="h-10">
           <option value="all">{t("purpose")}: {t("all")}</option>
           <option value="personal">{t("purpose_personal_short")}</option>
@@ -95,14 +99,16 @@ export function SavedPage() {
             </option>
           ))}
         </Select>
-      </Card>
+        </div>
+      </Disclosure>
+      </div>
 
       {list.length === 0 ? (
         <Card>
           <EmptyState icon={tab === "favorites" ? <Heart className="size-6" /> : <History className="size-6" />} title={t("empty")} text={t("no_analyses")} />
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {list.map((car) => {
             const prices = car.priceHistory.map((p) => p.price).filter((p): p is number => p != null);
             const dropped = prices.length > 1 && prices[prices.length - 1] < prices[0];
@@ -126,12 +132,12 @@ export function SavedPage() {
                       </span>
                     )}
                     <IconButton label={car.favorite ? t("remove_favorite") : t("add_favorite")} onClick={() => updateSaved(car.id, { favorite: !car.favorite })}>
-                      <Heart className={cx("size-4", car.favorite && "fill-bad text-bad")} />
+                      <Heart className={cx("size-4", car.favorite && "fill-current text-text")} />
                     </IconButton>
                     <IconButton
                       label={t("to_compare")}
                       onClick={() => compareStore.set((ids) => (ids.includes(car.id) ? ids.filter((id) => id !== car.id) : [...ids, car.id].slice(-4)))}
-                      className={compare.includes(car.id) ? "text-accent" : ""}
+                      className={compare.includes(car.id) ? "bg-surface-2 text-text" : ""}
                     >
                       <Columns3 className="size-4" />
                     </IconButton>
@@ -164,7 +170,7 @@ function EditSaved({ car, onDone }: { car: SavedCar; onDone: () => void }) {
           <button
             key={s}
             onClick={() => setStatus(s)}
-            className={cx("cursor-pointer rounded-full border px-3 py-1.5 text-sm font-medium transition", status === s ? "border-accent bg-accent text-white" : "border-line bg-surface-2 hover:border-accent/50")}
+            className={cx("cursor-pointer rounded-full border px-3 py-1.5 text-sm font-medium transition", status === s ? "border-accent bg-accent text-on-accent" : "border-line bg-surface hover:bg-surface-2")}
           >
             {t(`status_${s}` as TextKey)}
           </button>

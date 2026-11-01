@@ -1,5 +1,5 @@
 // App-shell cache: the app opens instantly and offline; API calls always go to the network.
-const CACHE = "autohalle-v1";
+const CACHE = "autohalle-v2";
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(["/", "/icon.svg", "/manifest.webmanifest"])));
   self.skipWaiting();

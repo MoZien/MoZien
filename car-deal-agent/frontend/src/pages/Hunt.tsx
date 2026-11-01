@@ -1,8 +1,8 @@
-import { Bookmark, Play, Radar, Square, Trash2 } from "lucide-react";
+import { Bookmark, Radar, Square, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { CarCard } from "../components/CarCard";
 import { PurposeSwitch } from "../components/PurposeSwitch";
-import { Badge, Button, Card, CardHeader, EmptyState, Field, Input, Note, NumberInput, Select, Toggle } from "../components/ui";
+import { Button, Card, CardHeader, Disclosure, Field, Input, Note, NumberInput, Select, Toggle } from "../components/ui";
 import { ApiError, cancelJob, runJob } from "../lib/api";
 import { useApp } from "../lib/app";
 import { useT } from "../lib/i18n";
@@ -87,13 +87,11 @@ export function HuntPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="flex items-center gap-2.5 text-xl font-bold sm:text-2xl">
-          <Radar className="size-6 text-accent" /> {t("hunt_title")}
-        </h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{t("hunt_title")}</h1>
         <p className="mt-1 text-sm text-muted">{t("hunt_sub")}</p>
       </div>
 
-      <Card className="p-5">
+      <Card className="p-4 sm:p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <PurposeSwitch />
           {searches.length > 0 && (
@@ -112,18 +110,12 @@ export function HuntPage() {
             </div>
           )}
         </div>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
           <Field label={t("budget")}>
             <NumberInput value={criteria.max_price} onChange={(v) => set({ max_price: v })} suffix="€" allowEmpty />
           </Field>
-          <Field label={t("min_price")}>
-            <NumberInput value={criteria.min_price} onChange={(v) => set({ min_price: v })} suffix="€" allowEmpty />
-          </Field>
           <Field label={t("year_from")}>
             <NumberInput value={criteria.min_year} onChange={(v) => set({ min_year: v })} allowEmpty />
-          </Field>
-          <Field label={t("year_to")}>
-            <NumberInput value={criteria.max_year} onChange={(v) => set({ max_year: v })} allowEmpty placeholder="–" />
           </Field>
           <Field label={t("km_max")}>
             <NumberInput value={criteria.max_km} onChange={(v) => set({ max_km: v })} suffix="km" allowEmpty />
@@ -140,46 +132,6 @@ export function HuntPage() {
               ))}
             </Select>
           </Field>
-          <Field label={t("seller_type")}>
-            <Select value={criteria.seller} onChange={(e) => set({ seller: e.target.value as HuntCriteria["seller"] })}>
-              <option value="privat">{t("sellers_private")}</option>
-              <option value="gewerblich">{t("sellers_dealer")}</option>
-              <option value="all">{t("sellers_all")}</option>
-            </Select>
-          </Field>
-          <Field label={t("make")}>
-            <Select value={criteria.make ?? ""} onChange={(e) => set({ make: e.target.value || null })}>
-              <option value="">{t("any_make")}</option>
-              {makes.map(([slug, name]) => (
-                <option key={slug} value={slug}>
-                  {name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label={t("model_query")}>
-            <Input value={criteria.query} onChange={(e) => set({ query: e.target.value })} placeholder="Golf, Polo, 3er…" />
-          </Field>
-          <Field label={t("fuel")}>
-            <Select value={criteria.fuel ?? ""} onChange={(e) => set({ fuel: e.target.value || null })}>
-              <option value="">{t("any")}</option>
-              {Object.entries(meta?.fuels ?? {}).map(([slug, name]) => (
-                <option key={slug} value={slug}>
-                  {name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label={t("gearbox")}>
-            <Select value={criteria.gearbox ?? ""} onChange={(e) => set({ gearbox: (e.target.value || null) as HuntCriteria["gearbox"] })}>
-              <option value="">{t("any")}</option>
-              <option value="manuell">Manuell</option>
-              <option value="automatik">Automatik</option>
-            </Select>
-          </Field>
-          <Field label={t("exclude_places")} hint={t("exclude_hint")} className="col-span-2">
-            <Input value={placesText} onChange={(e) => setPlacesText(e.target.value)} />
-          </Field>
           <Field label={t("how_many")}>
             <Select value={criteria.count} onChange={(e) => set({ count: Number(e.target.value) })}>
               {[1, 2, 3, 5, 8, 10].map((n) => (
@@ -189,27 +141,77 @@ export function HuntPage() {
               ))}
             </Select>
           </Field>
-          <Field label={t("max_ads")}>
-            <Select value={criteria.max_ads} onChange={(e) => set({ max_ads: Number(e.target.value) })}>
-              {[5, 10, 15, 20, 30, 40].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </Select>
-          </Field>
         </div>
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          <Toggle checked={skipSeen} onChange={(v) => skipStore.set(v)} label={t("skip_seen")} hint={seen.length ? `${seen.length}` : undefined} />
-          <Toggle checked={prefs.ai_in_hunt} onChange={(ai_in_hunt) => prefsStore.set((p) => ({ ...p, ai_in_hunt }))} label={t("s_ai_hunt")} />
-        </div>
-        <div className="mt-5 flex flex-wrap items-center gap-2">
+        <Disclosure title={t("more_filters")} className="mt-3 border-t border-line pt-2">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
+            <Field label={t("min_price")}>
+              <NumberInput value={criteria.min_price} onChange={(v) => set({ min_price: v })} suffix="€" allowEmpty />
+            </Field>
+            <Field label={t("year_to")}>
+              <NumberInput value={criteria.max_year} onChange={(v) => set({ max_year: v })} allowEmpty placeholder="–" />
+            </Field>
+            <Field label={t("make")}>
+              <Select value={criteria.make ?? ""} onChange={(e) => set({ make: e.target.value || null })}>
+                <option value="">{t("any_make")}</option>
+                {makes.map(([slug, name]) => (
+                  <option key={slug} value={slug}>
+                    {name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label={t("model_query")}>
+              <Input value={criteria.query} onChange={(e) => set({ query: e.target.value })} placeholder="Golf, Polo, 3er…" />
+            </Field>
+            <Field label={t("fuel")}>
+              <Select value={criteria.fuel ?? ""} onChange={(e) => set({ fuel: e.target.value || null })}>
+                <option value="">{t("any")}</option>
+                {Object.entries(meta?.fuels ?? {}).map(([slug, name]) => (
+                  <option key={slug} value={slug}>
+                    {name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label={t("gearbox")}>
+              <Select value={criteria.gearbox ?? ""} onChange={(e) => set({ gearbox: (e.target.value || null) as HuntCriteria["gearbox"] })}>
+                <option value="">{t("any")}</option>
+                <option value="manuell">Manuell</option>
+                <option value="automatik">Automatik</option>
+              </Select>
+            </Field>
+            <Field label={t("seller_type")}>
+              <Select value={criteria.seller} onChange={(e) => set({ seller: e.target.value as HuntCriteria["seller"] })}>
+                <option value="privat">{t("sellers_private")}</option>
+                <option value="gewerblich">{t("sellers_dealer")}</option>
+                <option value="all">{t("sellers_all")}</option>
+              </Select>
+            </Field>
+            <Field label={t("max_ads")}>
+              <Select value={criteria.max_ads} onChange={(e) => set({ max_ads: Number(e.target.value) })}>
+                {[5, 10, 15, 20, 30, 40].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label={t("exclude_places")} hint={t("exclude_hint")} className="col-span-2 md:col-span-3">
+              <Input value={placesText} onChange={(e) => setPlacesText(e.target.value)} />
+            </Field>
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-1 sm:grid-cols-2">
+            <Toggle checked={skipSeen} onChange={(v) => skipStore.set(v)} label={t("skip_seen")} hint={seen.length ? `${seen.length}` : undefined} />
+            <Toggle checked={prefs.ai_in_hunt} onChange={(ai_in_hunt) => prefsStore.set((p) => ({ ...p, ai_in_hunt }))} label={t("s_ai_hunt")} />
+          </div>
+        </Disclosure>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           {running ? (
-            <Button variant="danger" size="lg" icon={<Square className="size-4" />} onClick={stop}>
+            <Button variant="danger" size="lg" className="flex-1 sm:flex-none" icon={<Square className="size-4" />} onClick={stop}>
               {t("stop")}
             </Button>
           ) : (
-            <Button variant="primary" size="lg" icon={<Play className="size-4" />} onClick={start}>
+            <Button variant="primary" size="lg" className="flex-1 sm:flex-none" onClick={start}>
               {t("start_hunt")}
             </Button>
           )}
@@ -228,7 +230,7 @@ export function HuntPage() {
             </Button>
           )}
         </div>
-        <p className="mt-3 text-xs text-faint">{t("hunt_time")}</p>
+        <p className="mt-3 text-xs leading-relaxed text-faint">{t("hunt_time")}</p>
       </Card>
 
       {running && (
@@ -236,7 +238,7 @@ export function HuntPage() {
           <CardHeader title={t("hunting")} icon={<Radar className="size-4 animate-pulse" />} />
           <div className="mt-4">
             <div className="h-2 overflow-hidden rounded-full bg-surface-2">
-              <div className="h-full rounded-full bg-gradient-to-r from-accent to-accent-2 transition-all" style={{ width: `${progress.total ? ((progress.checked ?? 0) / progress.total) * 100 : 5}%` }} />
+              <div className="h-full rounded-full bg-text transition-all" style={{ width: `${progress.total ? ((progress.checked ?? 0) / progress.total) * 100 : 5}%` }} />
             </div>
             <p className="num mt-2 text-sm text-muted">{t("hunt_progress", { checked: progress.checked ?? 0, total: progress.total ?? "…", found: progress.found ?? 0 })}</p>
             {job?.partial?.current && (
@@ -258,17 +260,11 @@ export function HuntPage() {
       )}
 
       {found.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {found.map((result) => (
-            <CarCard key={result.listing.id} result={result} onClick={() => { saveResult(result); navigate("analyze", result.listing.id); }} footer={<Badge tone="accent">{t("nav_hunt")}</Badge>} />
+            <CarCard key={result.listing.id} result={result} onClick={() => { saveResult(result); navigate("analyze", result.listing.id); }} />
           ))}
         </div>
-      )}
-
-      {!running && !summary && found.length === 0 && (
-        <Card>
-          <EmptyState icon={<Radar className="size-6" />} title={t("hunt_title")} text={t("hunt_sub")} />
-        </Card>
       )}
     </div>
   );

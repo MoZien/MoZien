@@ -1,4 +1,4 @@
-import { ChevronDown, CircleHelp } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { Card, cx } from "../components/ui";
 import { type TextKey, useT } from "../lib/i18n";
@@ -11,10 +11,8 @@ export function HelpPage() {
   const [open, setOpen] = useState<number | null>(1);
   return (
     <div className="space-y-6">
-      <h1 className="flex items-center gap-2.5 text-xl font-bold sm:text-2xl">
-        <CircleHelp className="size-6 text-accent" /> {t("help_title")}
-      </h1>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <h1 className="text-2xl font-semibold tracking-tight">{t("help_title")}</h1>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {STEPS.map((n) => (
           <Card key={n} className="p-5">
             <h3 className="font-semibold">{t(`help_${n}_t` as TextKey)}</h3>

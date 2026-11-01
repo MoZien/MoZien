@@ -58,7 +58,7 @@ export function ChatPanel({ result }: { result: Result }) {
         ))}
         {busy && (
           <div className="flex items-center gap-2 text-sm text-muted">
-            <Bot className="size-4 text-accent" />
+            <Bot className="size-4 text-muted" />
             <span className="animate-pulse-soft">…</span>
           </div>
         )}
@@ -68,7 +68,7 @@ export function ChatPanel({ result }: { result: Result }) {
       {messages.length === 0 && (
         <div className="flex flex-wrap gap-2 px-5 pb-3">
           {quick.map((q) => (
-            <button key={q} onClick={() => send(t(q))} className="cursor-pointer rounded-full border border-line bg-surface-2 px-3 py-1.5 text-xs font-medium hover:border-accent hover:text-accent">
+            <button key={q} onClick={() => send(t(q))} className="cursor-pointer rounded-full border border-line bg-surface-2 px-3 py-1.5 text-xs font-medium hover:bg-line/60">
               {t(q)}
             </button>
           ))}
@@ -85,7 +85,7 @@ export function ChatPanel({ result }: { result: Result }) {
           value={input}
           onChange={(event) => setInput(event.target.value)}
           placeholder={t("chat_placeholder")}
-          className="h-11 min-w-0 flex-1 rounded-xl border border-line bg-surface-2/60 px-3.5 text-sm outline-none focus:border-accent"
+          className="h-11 min-w-0 flex-1 rounded-xl border border-line bg-surface px-3.5 text-sm outline-none focus:border-muted"
         />
         <Button type="submit" variant="primary" icon={<Send className="size-4 rtl:-scale-x-100" />} loading={busy} disabled={!input.trim()} aria-label="send" />
       </form>
@@ -97,10 +97,10 @@ function Bubble({ role, text }: { role: "user" | "assistant"; text: string }) {
   const mine = role === "user";
   return (
     <div className={cx("flex gap-2.5", mine && "flex-row-reverse")}>
-      <span className={cx("grid size-8 shrink-0 place-items-center rounded-full", mine ? "bg-surface-2 text-muted" : "bg-gradient-to-br from-accent to-accent-2 text-white")}>
+      <span className={cx("grid size-8 shrink-0 place-items-center rounded-full", mine ? "bg-surface-2 text-muted" : "bg-text text-bg")}>
         {mine ? <User className="size-4" /> : <Bot className="size-4" />}
       </span>
-      <div className={cx("max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm leading-relaxed", mine ? "bg-accent text-white" : "bg-surface-2")} dir="auto">
+      <div className={cx("max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm leading-relaxed", mine ? "bg-accent text-on-accent" : "bg-surface-2")} dir="auto">
         {text}
       </div>
     </div>

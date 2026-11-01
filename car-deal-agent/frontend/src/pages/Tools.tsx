@@ -1,6 +1,6 @@
-import { BadgeEuro, CalendarClock, Car, FileSearch, Landmark, MessageSquareText, Route as RouteIcon, ShieldAlert } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
-import { Badge, Button, Card, CardHeader, Field, Input, Note, NumberInput, Row, Segmented, Textarea, Toggle, copyText, useToast } from "../components/ui";
+import { BadgeEuro, CalendarClock, Car, ChevronDown, FileSearch, Landmark, MessageSquareText, Route as RouteIcon, ShieldAlert } from "lucide-react";
+import { type ReactNode, createContext, useContext, useEffect, useState } from "react";
+import { Badge, Button, Card, Field, Input, Note, NumberInput, Row, Segmented, Textarea, Toggle, copyText, cx, useToast } from "../components/ui";
 import { ApiError, distance, scanText } from "../lib/api";
 import { euro, monthsUntil, pct } from "../lib/format";
 import { type TextKey, useT } from "../lib/i18n";
@@ -8,11 +8,20 @@ import type { Route } from "../lib/router";
 import { prefsStore, useStore } from "../lib/store";
 import type { TextScan } from "../lib/types";
 
+// One tool open at a time: the page stays a short list of names.
+const OpenTool = createContext<{ open: string | null; toggle: (id: string) => void }>({ open: null, toggle: () => {} });
+
 function Tool({ id, title, icon, children }: { id: string; title: string; icon: ReactNode; children: ReactNode }) {
+  const { open, toggle } = useContext(OpenTool);
+  const isOpen = open === id;
   return (
-    <Card id={`tool-${id}`} className="scroll-mt-24 p-5">
-      <CardHeader title={title} icon={icon} />
-      <div className="mt-4">{children}</div>
+    <Card id={`tool-${id}`} className="scroll-mt-24">
+      <button type="button" aria-expanded={isOpen} onClick={() => toggle(id)} className="flex w-full cursor-pointer items-center gap-3 p-4 text-start sm:px-5">
+        <span className="text-muted">{icon}</span>
+        <span className="flex-1 text-[15px] font-semibold">{title}</span>
+        <ChevronDown className={cx("size-4 text-muted transition", isOpen && "rotate-180")} />
+      </button>
+      {isOpen && <div className="animate-fade-up border-t border-line p-4 sm:p-5">{children}</div>}
     </Card>
   );
 }
@@ -20,22 +29,28 @@ function Tool({ id, title, icon, children }: { id: string; title: string; icon: 
 export function ToolsPage({ route }: { route: Route }) {
   const t = useT();
   const focus = route.query.get("tool");
+  const [open, setOpen] = useState<string | null>(focus);
   useEffect(() => {
-    if (focus) document.getElementById(`tool-${focus}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (focus) {
+      setOpen(focus);
+      document.getElementById(`tool-${focus}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   }, [focus]);
   return (
-    <div className="space-y-5">
-      <h1 className="text-xl font-bold sm:text-2xl">{t("tools_title")}</h1>
-      <div className="grid gap-5 lg:grid-cols-2">
-        <ScanTool />
-        <ProfitTool />
-        <TripTool />
-        <RunningTool />
-        <LoanTool />
-        <TuvTool />
-        <MessagesTool />
+    <OpenTool.Provider value={{ open, toggle: (id) => setOpen((current) => (current === id ? null : id)) }}>
+      <div className="mx-auto max-w-2xl space-y-5">
+        <h1 className="text-2xl font-semibold tracking-tight">{t("tools_title")}</h1>
+        <div className="space-y-3">
+          <ScanTool />
+          <ProfitTool />
+          <TripTool />
+          <RunningTool />
+          <LoanTool />
+          <TuvTool />
+          <MessagesTool />
+        </div>
       </div>
-    </div>
+    </OpenTool.Provider>
   );
 }
 

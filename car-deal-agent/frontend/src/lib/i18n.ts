@@ -5,8 +5,8 @@ import type { Lang } from "./types";
 const dict = {
   // navigation
   nav_dashboard: ["الرئيسية", "Übersicht", "Dashboard"],
-  nav_analyze: ["تحليل إعلان", "Anzeige prüfen", "Analyze ad"],
-  nav_hunt: ["صيد اللقطات", "Schnäppchen-Jagd", "Deal hunt"],
+  nav_analyze: ["فحص سيارة", "Auto prüfen", "Check a car"],
+  nav_hunt: ["بحث عن لقطات", "Deals suchen", "Find deals"],
   nav_valuate: ["تقييم يدوي", "Freie Bewertung", "Value a car"],
   nav_saved: ["المحفوظات", "Gespeichert", "Saved"],
   nav_compare: ["مقارنة", "Vergleich", "Compare"],
@@ -19,15 +19,15 @@ const dict = {
 
   // purpose
   purpose: ["الهدف", "Zweck", "Purpose"],
-  purpose_personal: ["لإلي (شراء شخصي)", "Für mich (behalten)", "For me (to keep)"],
-  purpose_trade: ["تجارة (شراء وبيع)", "Handel (kaufen & verkaufen)", "Trade (buy & resell)"],
+  purpose_personal: ["لإلي", "Für mich", "For me"],
+  purpose_trade: ["للتجارة", "Zum Weiterverkauf", "To resell"],
   purpose_personal_short: ["لإلي", "Für mich", "For me"],
   purpose_trade_short: ["تجارة", "Handel", "Trade"],
-  purpose_personal_hint: ["هل السعر عادل؟ كم أعرض؟ كم تكلفني بالسنة الأولى؟", "Ist der Preis fair? Was bieten? Was kostet sie im ersten Jahr?", "Is the price fair? What to offer? What does year one cost?"],
-  purpose_trade_hint: ["كم بربح إذا اشتريتها وبعتها؟ كم أدفع أكثر شي؟", "Wie viel Gewinn beim Weiterverkauf? Was höchstens zahlen?", "How much profit when reselling? What to pay at most?"],
+  purpose_personal_hint: ["منقلك إذا السعر عادل، قديش تعرض، وقديش بتكلفك بأول سنة.", "Ob der Preis fair ist, was du bieten solltest und was das erste Jahr kostet.", "Whether the price is fair, what to offer and what year one costs."],
+  purpose_trade_hint: ["منحسبلك قديش بتربح إذا اشتريتها وبعتها، بعد كل المصاريف.", "Wie viel Gewinn bleibt, wenn du kaufst und weiterverkaufst – nach allen Kosten.", "How much profit is left when you buy and resell – after all costs."],
 
   // common
-  analyze: ["حلّل", "Prüfen", "Analyze"],
+  analyze: ["افحص السيارة", "Auto prüfen", "Check the car"],
   analyzing: ["جاري التحليل…", "Wird geprüft…", "Analyzing…"],
   cancel: ["إلغاء", "Abbrechen", "Cancel"],
   stop: ["إيقاف", "Stopp", "Stop"],
@@ -119,7 +119,7 @@ const dict = {
   widen_retry: ["جرّب بسنين أوسع (±3)", "Mit ±3 Jahren nochmal", "Retry with ±3 years"],
 
   // result view
-  verdict_deal: ["لقطة 🔥", "Schnäppchen 🔥", "Deal 🔥"],
+  verdict_deal: ["لقطة", "Schnäppchen", "Deal"],
   verdict_check: ["بدها فحص", "Prüfen", "Check it"],
   verdict_skip: ["لا تشتريها", "Finger weg", "Skip"],
   verdict_buy: ["اشتريها", "Kaufen", "Buy"],
@@ -151,10 +151,10 @@ const dict = {
   power_as_kw: ["قوة المحرك بالإعلان غالباً بالـ kW", "Die Leistung im Inserat ist wohl in kW", "The ad's power is probably in kW"],
   tab_overview: ["الخلاصة", "Überblick", "Overview"],
   tab_numbers: ["الأرقام", "Zahlen", "Numbers"],
-  tab_ai: ["رأي الذكاء الاصطناعي", "KI-Urteil", "AI review"],
+  tab_ai: ["تقرير AI", "KI-Bericht", "AI report"],
   tab_comps: ["السيارات المشابهة", "Vergleichsautos", "Comparables"],
   tab_calc: ["الحساب", "Rechnung", "Calculation"],
-  tab_chat: ["اسأل عن السيارة", "Frag zum Auto", "Ask about it"],
+  tab_chat: ["اسأل", "Fragen", "Ask"],
   facts: ["المعلومات", "Daten", "Facts"],
   first_reg: ["أول تسجيل", "Erstzulassung", "First registration"],
   mileage: ["الكيلومترات", "Kilometerstand", "Mileage"],
@@ -384,7 +384,7 @@ const dict = {
   theme_system: ["حسب الجهاز", "Wie das Gerät", "Like the device"],
   theme_dark: ["ليلي", "Dunkel", "Dark"],
   theme_light: ["نهاري", "Hell", "Light"],
-  accent: ["اللون الأساسي", "Akzentfarbe", "Accent color"],
+  accent: ["لون الأزرار", "Farbe der Buttons", "Button colour"],
   start_page: ["صفحة البداية", "Startseite", "Start page"],
   compact: ["عرض مضغوط", "Kompakte Ansicht", "Compact view"],
   show_tips: ["إظهار النصائح", "Tipps anzeigen", "Show tips"],
@@ -481,6 +481,31 @@ const dict = {
   welcome_sub: ["شو بتعمل أكتر شي؟ (فيك تغيّرها بأي وقت)", "Wofür nutzt du die App meistens? (jederzeit änderbar)", "What will you mostly use it for? (change any time)"],
   welcome_zip: ["رمزك البريدي", "Deine PLZ", "Your postal code"],
   welcome_go: ["يلا نبلّش", "Los geht's", "Let's go"],
+  // simplified layout
+  ai_on: ["الذكاء الاصطناعي شغّال", "KI aktiv", "AI on"],
+  purpose_question: ["السيارة لمين؟", "Wofür ist das Auto?", "What is the car for?"],
+  updated: ["انحدّث", "Aktualisiert", "Updated"],
+  tab_summary: ["الخلاصة", "Überblick", "Summary"],
+  tab_market: ["السوق", "Markt", "Market"],
+  removed: ["انشالت", "Entfernt", "Removed"],
+  added_compare: ["انضافت للمقارنة", "Zum Vergleich hinzugefügt", "Added to compare"],
+  the_ad: ["الإعلان", "Anzeige", "Ad"],
+  result_for: ["النتيجة", "Ergebnis", "Result"],
+  no_objections: ["ما في شي ضدها", "Nichts spricht dagegen", "Nothing against it"],
+  money: ["الحساب", "Die Rechnung", "The numbers"],
+  what_to_offer: ["قديش تعرض", "Was du bieten solltest", "What to offer"],
+  first_year_total: ["المجموع بأول سنة", "Summe im ersten Jahr", "Total for year one"],
+  new_check: ["فحص سيارة تانية", "Anderes Auto prüfen", "Check another car"],
+  home_title: ["قيّم أي سيارة من Kleinanzeigen", "Prüfe jedes Auto von Kleinanzeigen", "Check any car from Kleinanzeigen"],
+  home_sub: ["الصق رابط الإعلان، ومنقارن السيارة مع سيارات مشابهة معروضة هلأ ومنقلك إذا سعرها منيح.", "Link einfügen – wir vergleichen das Auto mit ähnlichen Angeboten von heute und sagen dir, ob der Preis passt.", "Paste the link – we compare the car with similar offers right now and tell you whether the price is right."],
+  ad_link: ["رابط الإعلان", "Link zur Anzeige", "Link to the ad"],
+  how_title: ["كيف بيشتغل", "So funktioniert's", "How it works"],
+  how_1: ["افتح الإعلان بتطبيق Kleinanzeigen واضغط مشاركة ← نسخ الرابط.", "Öffne die Anzeige in der Kleinanzeigen-App: Teilen → Link kopieren.", "Open the ad in the Kleinanzeigen app: Share → Copy link."],
+  how_2: ["الصق الرابط هون واختار إذا السيارة إلك أو للتجارة.", "Füge den Link hier ein und wähle, ob das Auto für dich ist oder zum Weiterverkauf.", "Paste it here and choose whether the car is for you or to resell."],
+  how_3: ["خلال ثواني بيطلعلك سعر السوق، والقرار، وقديش تعرض.", "In Sekunden siehst du Marktpreis, Empfehlung und was du bieten solltest.", "In seconds you get the market price, a verdict and what to offer."],
+  more_filters: ["فلاتر إضافية", "Weitere Filter", "More filters"],
+  advanced: ["إعدادات متقدمة", "Erweitert", "Advanced"],
+  accent_ink: ["أسود/أبيض", "Schwarz/Weiß", "Black/white"],
 } as const;
 
 export type TextKey = keyof typeof dict;
@@ -488,7 +513,9 @@ const index: Record<Lang, number> = { ar: 0, de: 1, en: 2 };
 
 export function translate(lang: Lang, key: TextKey, params?: Record<string, string | number>): string {
   let text: string = dict[key]?.[index[lang]] ?? key;
-  if (params) for (const [name, value] of Object.entries(params)) text = text.replaceAll(`{${name}}`, String(value));
+  // In Arabic each inserted value is a bidi isolate, so "2 × 249 km" or "−826 €" keeps its order.
+  const wrap = (value: string | number) => (lang === "ar" ? `\u2068${value}\u2069` : String(value));
+  if (params) for (const [name, value] of Object.entries(params)) text = text.replaceAll(`{${name}}`, wrap(value));
   return text;
 }
 

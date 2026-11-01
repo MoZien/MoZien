@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PurposeCards } from "../components/PurposeSwitch";
+import { PurposePicker } from "../components/PurposeSwitch";
 import { Button, Field, Modal, Segmented } from "../components/ui";
 import { useApp } from "../lib/app";
 import { useT } from "../lib/i18n";
@@ -21,14 +21,12 @@ export function Onboarding() {
     <Modal open={open} onClose={done} title={t("welcome_title", { app: meta?.app_name ?? "AutoHalle" })}>
       <div className="space-y-5">
         <Segmented
+          className="w-full"
           value={prefs.language}
           onChange={(language: Lang) => prefsStore.set((p) => ({ ...p, language }))}
           options={[{ value: "ar", label: "العربية" }, { value: "de", label: "Deutsch" }, { value: "en", label: "English" }]}
         />
-        <div>
-          <p className="mb-3 text-sm text-muted">{t("welcome_sub")}</p>
-          <PurposeCards value={prefs.purpose} onChange={(purpose) => prefsStore.set((p) => ({ ...p, purpose }))} />
-        </div>
+        <PurposePicker value={prefs.purpose} onChange={(purpose) => prefsStore.set((p) => ({ ...p, purpose }))} />
         <Field label={t("welcome_zip")} hint={t("home_zip_hint")}>
           <ZipInput value={prefs.home_zip} onChange={(home_zip) => prefsStore.set((p) => ({ ...p, home_zip }))} />
         </Field>

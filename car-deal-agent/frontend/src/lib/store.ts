@@ -71,7 +71,7 @@ export const DEFAULT_PREFS: Prefs = {
 };
 
 export type Theme = "system" | "dark" | "light";
-export type Accent = "indigo" | "emerald" | "amber" | "rose" | "sky" | "violet";
+export type Accent = "ink" | "blue" | "green" | "orange";
 export interface UiSettings {
   theme: Theme;
   accent: Accent;
@@ -84,7 +84,7 @@ export interface UiSettings {
   onboarded: boolean;
 }
 export const DEFAULT_UI: UiSettings = {
-  theme: "system", accent: "indigo", startPage: "dashboard", compact: false, tips: true, autoSave: true,
+  theme: "system", accent: "ink", startPage: "analyze", compact: false, tips: true, autoSave: true,
   confirmDelete: true, showPhotos: true, onboarded: false,
 };
 

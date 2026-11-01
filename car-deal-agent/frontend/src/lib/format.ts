@@ -15,6 +15,11 @@ export const signedPct = (value: number | null | undefined) =>
 export const registration = (month: number | null | undefined, year: number | null | undefined) =>
   year ? (month ? `${String(month).padStart(2, "0")}/${year}` : String(year)) : "–";
 
+/** Keeps numbers with their unit in reading order inside right-to-left text ("الربح −826 €"). */
+export function isolateNumbers(text: string): string {
+  return text.replace(/[-−+]?\d[\d.,]*(?:\s?(?:€|%|km|PS|kW|l))?/g, (match) => `\u2066${match}\u2069`);
+}
+
 export function place(location: string | null | undefined): string {
   return (location || "").replace(/^\s*\d{5}\s*/, "").replace(/^[^-]+ - /, "") || "–";
 }

@@ -48,9 +48,7 @@ export function GaragePage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2.5 text-xl font-bold sm:text-2xl">
-            <BadgeEuro className="size-6 text-accent" /> {t("garage_title")}
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("garage_title")}</h1>
           <p className="mt-1 text-sm text-muted">{t("garage_sub")}</p>
         </div>
         <div className="flex gap-2">
@@ -87,7 +85,7 @@ export function GaragePage() {
           <EmptyState icon={<BadgeEuro className="size-6" />} title={t("garage_title")} text={t("garage_empty")} action={<Button variant="primary" onClick={() => setEditing(blank())}>{t("garage_add")}</Button>} />
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {cars.map((car) => {
             const sold = car.soldPrice != null;
             const profit = sold ? profitOf(car) : car.askingPrice ? profitOf(car, car.askingPrice) : null;
@@ -166,7 +164,7 @@ function GarageForm({ car, onDone }: { car: GarageCar; onDone: () => void }) {
       <Field label={t("notes")}><Textarea value={draft.notes} onChange={(e) => set({ notes: e.target.value })} /></Field>
       <div className="flex items-center justify-between rounded-xl bg-surface-2 p-3 text-sm">
         <span className="text-muted">{draft.soldPrice != null ? t("realized") : t("expected_profit")}</span>
-        <span className="num font-bold">{euro(profitOf(draft, draft.soldPrice ?? draft.askingPrice))}</span>
+        <span className="num font-semibold">{euro(profitOf(draft, draft.soldPrice ?? draft.askingPrice))}</span>
       </div>
       <Button type="submit" variant="primary" className="w-full">{t("save")}</Button>
     </form>

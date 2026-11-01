@@ -20,11 +20,11 @@ export function LoginPage() {
         <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <Logo />
-            <span className="text-lg font-extrabold">{meta?.app_name ?? "AutoHalle"}</span>
+            <span className="text-[15px] font-semibold">{meta?.app_name ?? "AutoHalle"}</span>
           </div>
           <Segmented size="sm" value={t.lang} onChange={(language: Lang) => prefsStore.set((p) => ({ ...p, language }))} options={[{ value: "ar", label: "ع" }, { value: "de", label: "DE" }, { value: "en", label: "EN" }]} />
         </div>
-        <h1 className="text-xl font-bold">{t("login_title")}</h1>
+        <h1 className="text-xl font-semibold">{t("login_title")}</h1>
         <p className="mt-1 text-sm text-muted">{t("login_sub")}</p>
         <form
           className="mt-5 space-y-4"

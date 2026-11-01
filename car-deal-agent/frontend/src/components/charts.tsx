@@ -38,7 +38,7 @@ export function ScoreRing({ score, size = 112, label }: { score: number; size?: 
       </svg>
       <div className="absolute inset-0 grid place-items-center text-center">
         <div>
-          <div className="num text-[1.9em] font-extrabold leading-none" style={{ color, fontSize: size * 0.3 }}>
+          <div className="num text-[1.9em] font-semibold leading-none" style={{ color, fontSize: size * 0.3 }}>
             {score}
           </div>
           {label && <div className="mt-1 text-[11px] font-medium text-muted">{label}</div>}
@@ -57,10 +57,10 @@ export function PriceRange({ low, high, market, price, labels }: { low: number; 
   const pct = (value: number) => `${at(value)}%`;
   return (
     <div className="pt-7 pb-1" dir="ltr">
-      <div className="relative h-3 rounded-full bg-surface-2">
-        <div className="absolute inset-y-0 rounded-full bg-gradient-to-r from-good/50 via-warn/40 to-bad/50" style={{ left: pct(low), right: `${100 - at(high)}%` }} />
-        <Marker at={at(market)} label={labels.market} value={euro(market)} className="bg-text" top />
-        {price != null && <Marker at={at(price)} label={labels.price} value={euro(price)} className="bg-accent" />}
+      <div className="relative h-2 rounded-full bg-surface-2">
+        <div className="absolute inset-y-0 rounded-full bg-line" style={{ left: pct(low), right: `${100 - at(high)}%` }} />
+        <Marker at={at(market)} label={labels.market} value={euro(market)} className="bg-faint" muted top />
+        {price != null && <Marker at={at(price)} label={labels.price} value={euro(price)} className="bg-text" />}
       </div>
       {/* The range ends sit below the price label so the two never cover each other on a phone. */}
       <div className={cx("flex justify-between text-[11px] text-faint", price != null ? "mt-8" : "mt-1.5")}>
@@ -71,13 +71,13 @@ export function PriceRange({ low, high, market, price, labels }: { low: number; 
   );
 }
 
-function Marker({ at, label, value, className, top }: { at: number; label: string; value: string; className: string; top?: boolean }) {
+function Marker({ at, label, value, className, top, muted }: { at: number; label: string; value: string; className: string; top?: boolean; muted?: boolean }) {
   // Near an end the label is anchored to that side instead of centred, so it stays inside the card.
   const anchor = at < 18 ? "left-0" : at > 82 ? "right-0" : "left-1/2 -translate-x-1/2";
   return (
     <div className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ left: `${at}%` }}>
-      <div className={cx("size-4 rounded-full border-2 border-surface shadow", className)} />
-      <div className={cx("absolute whitespace-nowrap text-[11px] font-semibold", anchor, top ? "bottom-5" : "top-5")}>
+      <div className={cx("size-4 rounded-full border-2 border-surface", className)} />
+      <div className={cx("absolute whitespace-nowrap text-[11px]", muted ? "text-muted" : "font-semibold", anchor, top ? "bottom-5" : "top-5")}>
         {label} <span className="num">{value}</span>
       </div>
     </div>
@@ -127,7 +127,7 @@ export function Scatter({ points, target, marketY, xLabel, yLabel, targetLabel }
         </text>
         {marketY && (
           <g>
-            <line x1={pad.l} x2={width - pad.r} y1={sy(marketY)} y2={sy(marketY)} stroke="var(--accent)" strokeWidth="1.5" strokeDasharray="6 4" />
+            <line x1={pad.l} x2={width - pad.r} y1={sy(marketY)} y2={sy(marketY)} stroke="var(--muted)" strokeWidth="1.25" strokeDasharray="5 4" />
           </g>
         )}
         {points.map((p, i) => (
@@ -136,7 +136,7 @@ export function Scatter({ points, target, marketY, xLabel, yLabel, targetLabel }
             cx={sx(p.x)}
             cy={sy(p.y)}
             r={hover === p ? 7 : 5}
-            fill="var(--accent-2)"
+            fill="var(--faint)"
             fillOpacity={0.75}
             stroke="var(--surface)"
             strokeWidth="1.5"
@@ -148,9 +148,9 @@ export function Scatter({ points, target, marketY, xLabel, yLabel, targetLabel }
         ))}
         {target && (
           <g>
-            <circle cx={sx(target.x)} cy={sy(target.y)} r={11} fill="var(--accent)" fillOpacity={0.18} />
-            <circle cx={sx(target.x)} cy={sy(target.y)} r={6.5} fill="var(--accent)" stroke="var(--surface)" strokeWidth="2" />
-            <text x={sx(target.x)} y={sy(target.y) - 14} textAnchor="middle" fontSize="12" fontWeight="700" fill="var(--accent)">
+            <circle cx={sx(target.x)} cy={sy(target.y)} r={11} fill="var(--text)" fillOpacity={0.12} />
+            <circle cx={sx(target.x)} cy={sy(target.y)} r={6.5} fill="var(--text)" stroke="var(--surface)" strokeWidth="2" />
+            <text x={sx(target.x)} y={sy(target.y) - 14} textAnchor="middle" fontSize="12" fontWeight="600" fill="var(--text)">
               {targetLabel}
             </text>
           </g>
@@ -188,7 +188,7 @@ export function Waterfall({ items }: { items: { label: string; value: number; to
       {steps.map((step, i) => {
         const left = ((Math.min(step.start, step.end) - min) / span) * 100;
         const width = Math.max((Math.abs(step.end - step.start) / span) * 100, 0.8);
-        const color = step.total ? (step.value >= 0 ? "var(--good)" : "var(--bad)") : step.value >= 0 ? "var(--accent-2)" : "var(--bad)";
+        const color = step.total ? (step.value >= 0 ? "var(--good)" : "var(--bad)") : step.value >= 0 ? "var(--muted)" : "var(--bad)";
         return (
           <div key={`${id}${i}`} className="grid grid-cols-[minmax(5.5rem,9rem)_1fr_auto] items-center gap-3 text-sm">
             <span className="truncate text-muted" dir="auto">
