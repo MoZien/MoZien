@@ -48,6 +48,8 @@ _SLUG_FIELDS = {
     "Getriebe": "gearbox_slug", "Fahrzeugtyp": "body_slug",
 }
 _SELLER_RE = re.compile(r"^\s*(Privater|Gewerblicher)\s+(Nutzer|Anbieter)\s*$")
+_AD_IMAGE_RE = re.compile(r"^https://img\.kleinanzeigen\.de/api/v1/prod-ads/images/")
+MAX_PHOTOS = 12
 # "TÜV bis 09/27", "HU 03.2028", "TÜV neu bis Oktober 2027" in title or text, for ads that leave
 # the "HU bis" field empty.
 _HU_IN_TEXT_RE = re.compile(
@@ -212,6 +214,8 @@ def parse_search_results(html: str) -> list[Listing]:
                 listing.month, listing.year = int(m.group(1)), int(m.group(2))
             elif not listing.location and _ZIP_CITY_RE.match(text):
                 listing.location = text
+        if (img := article.find("img", src=_AD_IMAGE_RE)) is not None:
+            listing.images = [(img.get("srcset") or img["src"]).split()[0]]  # srcset: the larger photo
         listings.append(listing)
     return listings
 
@@ -270,6 +274,9 @@ def parse_detail_page(html: str, listing: Listing) -> Listing:
 
     if listing.hu_until is None:
         listing.hu_until = hu_from_text(f"{listing.title}\n{listing.description}")
+    photos = [img["src"] for img in soup.find_all("img", src=_AD_IMAGE_RE)]
+    if photos:
+        listing.images = list(dict.fromkeys(photos))[:MAX_PHOTOS]
     listing.features = [_clean(li.get_text()) for li in soup.select("li.checktag")]
     if seller := soup.find(string=_SELLER_RE):
         listing.seller_type = "private" if seller.strip().startswith("Privat") else "dealer"

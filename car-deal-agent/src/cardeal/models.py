@@ -42,6 +42,7 @@ class Listing:
     fuel_slug: str | None = None
     gearbox_slug: str | None = None
     body_slug: str | None = None
+    images: list[str] = field(default_factory=list)  # photo URLs, main photo first
 
     @property
     def damaged(self) -> bool:
