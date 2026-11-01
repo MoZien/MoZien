@@ -163,7 +163,7 @@ function Shell() {
 
       <div className="min-w-0 flex-1">
         {/* Top bar (mobile) */}
-        <header className="no-print safe-top sticky top-0 z-30 border-b border-line bg-bg/95 lg:hidden">
+        <header className="no-print safe-top sticky top-0 z-30 border-b border-line bg-bg lg:hidden">
           <div className="flex h-13 items-center justify-between gap-3 px-4">
             <a href={href("analyze")} onClick={home} className="flex items-center gap-2">
               <Logo small />
