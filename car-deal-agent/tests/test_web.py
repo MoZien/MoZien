@@ -443,3 +443,31 @@ def test_running_jobs_can_be_found_again(tmp_path):
     assert active == [{"id": job.id, "kind": "hunt", "status": active[0]["status"]}]
     assert active[0]["status"] in ("queued", "running")
     gate.set()
+
+
+def test_autoscout24_link_is_valued_against_kleinanzeigen(tmp_path):
+    from pathlib import Path
+
+    from cardeal.sources.autoscout24 import parse_ad
+
+    class FakeAutoScout24:
+        def __init__(self):
+            self.urls = []
+
+        def fetch(self, url):
+            self.urls.append(url)
+            car = parse_ad((Path(__file__).parent / "fixtures" / "autoscout24_ad.html").read_text(), url)
+            return replace(car, make="Volkswagen", model="Golf", make_slug="volkswagen", year=2014, month=6,
+                           km=100_000, power_ps=122, price=6_000, title="VW Golf 1.4 TSI")
+
+    access = Access(None, "s")
+    fake = FakeAutoScout24()
+    service = CarService(str(tmp_path / "c.sqlite3"), access, source=FakeKleinanzeigen(), ai_client=FakeClaude(),
+                         autoscout24=fake)
+    client = TestClient(create_app(service=service, access=access, jobs=JobManager()))
+    url = "https://www.autoscout24.de/angebote/vw-golf-1-4-tsi-benzin-blau-cat_x-1234abcd"
+    job = wait(client, client.post("/api/jobs/analyze", json={"url": url, "prefs": {"ai_enabled": False}}).json()["job_id"])
+    assert job["status"] == "done", job
+    result = job["result"]
+    assert fake.urls == [url] and result["listing"]["source"] == "autoscout24"
+    assert result["valuation"]["market_price"] > 0 and result["trade"]["verdict"] in ("deal", "check")

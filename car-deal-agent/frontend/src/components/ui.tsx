@@ -32,7 +32,7 @@ export function CardHeader({ title, icon, action, sub }: { title: ReactNode; ico
   return (
     <div className="flex items-start justify-between gap-3 px-5 pt-5">
       <div className="flex min-w-0 items-center gap-2.5">
-        {icon && <span className="shrink-0 text-muted">{icon}</span>}
+        {icon && <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-accent/10 text-accent">{icon}</span>}
         <div className="min-w-0">
           <h3 className="truncate text-[15px] font-semibold">{title}</h3>
           {sub && <p className="text-xs text-muted">{sub}</p>}
@@ -45,11 +45,11 @@ export function CardHeader({ title, icon, action, sub }: { title: ReactNode; ico
 
 type Variant = "primary" | "secondary" | "ghost" | "danger" | "soft";
 const variants: Record<Variant, string> = {
-  primary: "bg-accent text-on-accent hover:opacity-90",
+  primary: "bg-accent text-on-accent shadow-lg shadow-accent/25 hover:brightness-105",
   secondary: "border border-line bg-surface hover:bg-surface-2",
   ghost: "hover:bg-surface-2 text-muted hover:text-text",
   danger: "bg-bad/10 text-bad hover:bg-bad/15",
-  soft: "bg-surface-2 text-text hover:bg-line/70",
+  soft: "bg-accent/10 text-accent hover:bg-accent/15",
 };
 const sizes = { sm: "h-8 px-3 text-xs gap-1.5", md: "h-10 px-4 text-sm gap-2", lg: "h-12 px-6 text-[15px] gap-2" };
 
@@ -98,7 +98,7 @@ const tones: Record<Tone, string> = {
   warn: "bg-warn/12 text-warn border-warn/25",
   bad: "bg-bad/12 text-bad border-bad/25",
   neutral: "bg-surface-2 text-muted border-line",
-  accent: "bg-surface-2 text-text border-line",
+  accent: "bg-accent/10 text-accent border-accent/25",
 };
 
 export function Badge({ tone = "neutral", children, className }: { tone?: Tone; children: ReactNode; className?: string }) {
@@ -120,7 +120,7 @@ export function Field({ label, hint, children, className }: { label: ReactNode; 
 }
 
 const inputClass =
-  "h-11 w-full rounded-xl border border-line bg-surface px-3.5 text-sm outline-none transition placeholder:text-faint focus:border-muted focus:ring-2 focus:ring-accent/10";
+  "h-11 w-full rounded-xl border border-line bg-surface px-3.5 text-sm outline-none transition placeholder:text-faint focus:border-accent focus:ring-4 focus:ring-accent/15";
 
 export function Input({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...rest} className={cx(inputClass, className)} />;
@@ -249,7 +249,7 @@ export function Segmented<V extends string>({
           className={cx(
             "flex flex-1 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-lg font-medium transition",
             size === "sm" ? "h-7 px-2.5 text-xs" : "h-9 px-3.5 text-sm",
-            value === option.value ? "bg-surface text-text shadow-sm ring-1 ring-line" : "text-muted hover:text-text",
+            value === option.value ? "bg-surface font-semibold text-text shadow-sm ring-1 ring-line" : "text-muted hover:text-text",
           )}
         >
           {option.icon}
@@ -271,7 +271,7 @@ export function Tabs<V extends string>({ value, onChange, tabs }: { value: V; on
           onClick={() => onChange(tab.value)}
           className={cx(
             "-mb-px flex shrink-0 cursor-pointer items-center gap-1.5 border-b-2 pb-2.5 pt-1 text-sm font-medium transition",
-            value === tab.value ? "border-text text-text" : "border-transparent text-muted hover:text-text",
+            value === tab.value ? "border-accent font-semibold text-accent" : "border-transparent text-muted hover:text-text",
           )}
         >
           {tab.icon}
@@ -336,7 +336,7 @@ export function Spinner({ className }: { className?: string }) {
 export function EmptyState({ icon, title, text, action }: { icon: ReactNode; title: ReactNode; text?: ReactNode; action?: ReactNode }) {
   return (
     <div className="flex flex-col items-center px-6 py-12 text-center">
-      <div className="mb-3 grid size-12 place-items-center rounded-full bg-surface-2 text-muted">{icon}</div>
+      <div className="mb-3 grid size-14 place-items-center rounded-2xl bg-accent/10 text-accent">{icon}</div>
       <h3 className="text-base font-semibold">{title}</h3>
       {text && <p className="mt-1.5 max-w-sm text-sm text-muted">{text}</p>}
       {action && <div className="mt-5">{action}</div>}

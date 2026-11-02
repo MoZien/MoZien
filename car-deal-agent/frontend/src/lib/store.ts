@@ -138,7 +138,7 @@ export const DEFAULT_PREFS: Prefs = {
 };
 
 export type Theme = "system" | "dark" | "light";
-export type Accent = "ink" | "blue" | "green" | "orange";
+export type Accent = "orange" | "blue" | "green" | "mono";
 export interface UiSettings {
   theme: Theme;
   accent: Accent;
@@ -151,7 +151,7 @@ export interface UiSettings {
   onboarded: boolean;
 }
 export const DEFAULT_UI: UiSettings = {
-  theme: "system", accent: "ink", startPage: "analyze", compact: false, tips: true, autoSave: true,
+  theme: "system", accent: "orange", startPage: "analyze", compact: false, tips: true, autoSave: true,
   confirmDelete: true, showPhotos: true, onboarded: false,
 };
 

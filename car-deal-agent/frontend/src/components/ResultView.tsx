@@ -3,8 +3,14 @@ import {
   BadgeEuro,
   CheckCircle2,
   Columns3,
+  BadgeCheck,
   Expand,
   ExternalLink,
+  Flame,
+  Handshake,
+  MinusCircle,
+  SearchCheck,
+  XCircle,
   Heart,
   Loader2,
   MapPin,
@@ -14,7 +20,7 @@ import {
   Share2,
   ShieldAlert,
 } from "lucide-react";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { decimal, euro, isolateNumbers, km, number, pct, place, registration, signedPct } from "../lib/format";
 import { type TextKey, useT } from "../lib/i18n";
@@ -231,7 +237,7 @@ function Header({ result }: { result: Result }) {
             <div className="no-scrollbar flex gap-1.5 overflow-x-auto p-2">
               {images.slice(0, 12).map((src, i) => (
                 <button key={src} onClick={() => setPhoto(i)} className={cx("size-12 shrink-0 cursor-pointer overflow-hidden rounded-md border-2", i === photo ? "border-text" : "border-transparent opacity-70")}>
-                  <img src={photoSize(src, 2)} alt="" referrerPolicy="no-referrer" loading="lazy" className="size-full object-cover" />
+                  <img src={photoSize(src, 2)} alt="" referrerPolicy="no-referrer" className="size-full object-cover" />
                 </button>
               ))}
             </div>
@@ -308,18 +314,27 @@ function VerdictCard({ result, view, onView }: { result: Result; view: Purpose; 
   const discount = discountOf(result);
   const ai = result.analysis && result.analysis_kind === view ? result.analysis : null;
   const reason = ai?.verdict_reason ?? verdict.reasons[0];
+  const style = VERDICT_STYLE[verdict.key] ?? VERDICT_STYLE.low_profit;
+  const celebrate = verdict.key === "deal" || verdict.key === "buy";
   return (
-    <Card className="p-4 sm:p-5">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-[13px] font-medium text-muted">{t("result_for")}</span>
-        <PurposeSwitch tiny value={view} onChange={onView} />
+    <Card className={cx("relative overflow-hidden p-0", style.border)}>
+      {celebrate && <Confetti key={view} />}
+      <div className={cx("p-4 sm:p-5", style.band)}>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[13px] font-medium text-muted">{t("result_for")}</span>
+          <PurposeSwitch tiny value={view} onChange={onView} />
+        </div>
+        <div className="mt-3 flex items-center gap-3">
+          <span className={cx("grid size-12 shrink-0 place-items-center rounded-2xl", style.icon)}>{style.symbol}</span>
+          <div className="min-w-0">
+            <div className={cx("font-bold leading-tight tracking-tight", verdict.label.length > 16 ? "text-[22px]" : "text-[26px]", toneText[verdict.tone])}>{verdict.label}</div>
+            <ScoreBar score={verdict.score} tone={verdict.tone} />
+          </div>
+        </div>
       </div>
-      <div className="mt-3 flex items-baseline gap-3">
-        <span className={cx("font-semibold leading-tight tracking-tight", verdict.label.length > 16 ? "text-2xl" : "text-[28px]", toneText[verdict.tone])}>{verdict.label}</span>
-        <span className="num text-sm text-muted">{verdict.score}/100</span>
-      </div>
+      <div className="px-4 pb-4 sm:px-5 sm:pb-5">
       {reason && (
-        <p className="mt-1.5 text-[15px] leading-relaxed text-muted">{isolateNumbers(reason)}</p>
+        <p className="pt-3 text-[15px] leading-relaxed text-muted">{isolateNumbers(reason)}</p>
       )}
       <div className="mt-4 grid grid-cols-3 gap-3 border-t border-line pt-4">
         <Metric label={t("market_price")} value={euro(valuation.market_price)} sub={<><Num>{valuation.comparables}</Num> {t("comparables")}</>} />
@@ -337,7 +352,64 @@ function VerdictCard({ result, view, onView }: { result: Result; view: Purpose; 
       {valuation.range && valuation.market_price && (
         <PriceRange low={valuation.range[0]} high={valuation.range[1]} market={valuation.market_price} price={trade?.priced === false ? null : listing.price} labels={{ market: t("market_price"), price: t("this_car") }} />
       )}
+      </div>
     </Card>
+  );
+}
+
+const VERDICT_STYLE: Record<string, { band: string; border: string; icon: string; symbol: ReactNode }> = {
+  deal: { band: "bg-good/10", border: "border-good/40", icon: "bg-good text-white", symbol: <Flame className="size-6" /> },
+  buy: { band: "bg-good/10", border: "border-good/40", icon: "bg-good text-white", symbol: <BadgeCheck className="size-6" /> },
+  check: { band: "bg-warn/10", border: "border-warn/40", icon: "bg-warn text-white", symbol: <SearchCheck className="size-6" /> },
+  negotiate: { band: "bg-warn/10", border: "border-warn/40", icon: "bg-warn text-white", symbol: <Handshake className="size-6" /> },
+  low_profit: { band: "bg-surface-2", border: "border-line", icon: "bg-slate-500 text-white", symbol: <MinusCircle className="size-6" /> },
+  skip: { band: "bg-bad/10", border: "border-bad/40", icon: "bg-bad text-white", symbol: <XCircle className="size-6" /> },
+  avoid: { band: "bg-bad/10", border: "border-bad/40", icon: "bg-bad text-white", symbol: <XCircle className="size-6" /> },
+};
+
+/** The score as a short coloured bar with its number. */
+function ScoreBar({ score, tone }: { score: number; tone: Tone }) {
+  const fill = { good: "bg-good", warn: "bg-warn", bad: "bg-bad", neutral: "bg-slate-400", accent: "bg-accent" }[tone];
+  return (
+    <div className="mt-1.5 flex items-center gap-2" dir="ltr">
+      <div className="h-1.5 w-28 overflow-hidden rounded-full bg-line">
+        <div className={cx("h-full rounded-full transition-all duration-700", fill)} style={{ width: `${Math.max(4, score)}%` }} />
+      </div>
+      <span className="num text-xs font-semibold text-muted">{score}/100</span>
+    </div>
+  );
+}
+
+/** A short burst of confetti for a good find. */
+function Confetti() {
+  const pieces = useMemo(
+    () =>
+      Array.from({ length: 36 }, (_, i) => ({
+        left: Math.random() * 100,
+        delay: Math.random() * 0.25,
+        duration: 1.1 + Math.random() * 0.9,
+        rotate: Math.random() * 360,
+        color: ["#ff5a1f", "#12a150", "#2f6bff", "#f5b23d", "#9f7aff"][i % 5],
+        drift: (Math.random() - 0.5) * 80,
+      })),
+    [],
+  );
+  const [show, setShow] = useState(true);
+  useEffect(() => {
+    const timer = setTimeout(() => setShow(false), 2400);
+    return () => clearTimeout(timer);
+  }, []);
+  if (!show) return null;
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-72 overflow-hidden" aria-hidden="true">
+      {pieces.map((piece, i) => (
+        <span
+          key={i}
+          className="confetti absolute top-0 block h-2.5 w-1.5 rounded-sm"
+          style={{ left: `${piece.left}%`, background: piece.color, animationDelay: `${piece.delay}s`, animationDuration: `${piece.duration}s`, transform: `rotate(${piece.rotate}deg)`, ["--drift" as string]: `${piece.drift}px` }}
+        />
+      ))}
+    </div>
   );
 }
 

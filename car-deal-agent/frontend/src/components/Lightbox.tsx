@@ -6,7 +6,10 @@ import { cx } from "./ui";
 /** Kleinanzeigen serves each photo in several sizes, chosen by the "rule" parameter:
  *  2 = 200 px, 35 = 300 px, 59 = 960 px, 57 = 1600 px. */
 export function photoSize(url: string, rule: 2 | 35 | 59 | 57): string {
-  return /rule=\$_\d+\.AUTO/.test(url) ? url.replace(/rule=\$_\d+\.AUTO/, `rule=$_${rule}.AUTO`) : url;
+  if (/rule=\$_\d+\.AUTO/.test(url)) return url.replace(/rule=\$_\d+\.AUTO/, `rule=$_${rule}.AUTO`);
+  // AutoScout24 puts the size in the path: …/1280x960.webp
+  const autoscout = { 2: "250x188", 35: "250x188", 59: "720x540", 57: "1280x960" }[rule];
+  return /\/\d+x\d+\.webp$/.test(url) ? url.replace(/\/\d+x\d+\.webp$/, `/${autoscout}.webp`) : url;
 }
 
 const MAX_ZOOM = 4;

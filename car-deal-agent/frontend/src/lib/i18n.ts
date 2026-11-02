@@ -98,9 +98,9 @@ const dict = {
   takes_time: ["التطبيق بيقرأ Kleinanzeigen ببطء ولطف حتى ما ينحظر، فالتحليل بياخد بين نص دقيقة ودقيقتين.", "Die App liest Kleinanzeigen bewusst langsam, damit sie nicht gesperrt wird: eine Analyse dauert 30 Sekunden bis 2 Minuten.", "The app reads Kleinanzeigen slowly on purpose so it isn't blocked: an analysis takes 30 seconds to 2 minutes."],
 
   // errors
-  err_bad_url: ["هاد مش رابط إعلان من Kleinanzeigen.", "Das ist kein Kleinanzeigen-Anzeigenlink.", "That is not a Kleinanzeigen ad link."],
+  err_bad_url: ["هاد مش رابط إعلان من Kleinanzeigen أو AutoScout24.", "Das ist kein Anzeigenlink von Kleinanzeigen oder AutoScout24.", "That is not an ad link from Kleinanzeigen or AutoScout24."],
   err_gone: ["الإعلان ما عاد موجود (انباع أو انحذف).", "Die Anzeige gibt es nicht mehr (verkauft oder gelöscht).", "The ad no longer exists (sold or deleted)."],
-  err_blocked: ["Kleinanzeigen عم يرفض الطلبات هلق. جرّب بعد شوي.", "Kleinanzeigen blockt gerade Anfragen. Versuch es gleich nochmal.", "Kleinanzeigen is blocking requests right now. Try again shortly."],
+  err_blocked: ["الموقع عم يرفض الطلبات هلق. جرّب بعد شوي.", "Die Seite blockt gerade Anfragen. Versuch es gleich nochmal.", "The site is blocking requests right now. Try again shortly."],
   err_not_car: ["ما قدرت أقرأ الماركة والموديل وسنة الصنع. متأكد إنه إعلان سيارة؟", "Marke, Modell und Erstzulassung nicht lesbar. Ist das eine Autoanzeige?", "Couldn't read make, model and first registration. Is this a car ad?"],
   err_bad_km: ["الكيلومترات بالإعلان ({km} km) مش منطقية. اسأل البائع عن العداد الصحيح.", "Der Kilometerstand ({km} km) kann nicht stimmen. Frag den Verkäufer nach dem echten Stand.", "The mileage ({km} km) can't be right. Ask the seller for the real reading."],
   err_network: ["مشكلة بالشبكة مع Kleinanzeigen. جرّب كمان مرة.", "Netzwerkproblem mit Kleinanzeigen. Bitte nochmal versuchen.", "Network problem with Kleinanzeigen. Please try again."],
@@ -551,6 +551,18 @@ const dict = {
   verdict_trade_check: ["مربحة – بس افحصها أول", "Lohnt sich – vorher prüfen", "Worth it – check first"],
   verdict_trade_check_short: ["مربحة – افحصها", "Lohnt sich – prüfen", "Worth it – check"],
   verdict_low_profit: ["ربح قليل", "Zu wenig Gewinn", "Too little profit"],
+  hello: ["أهلاً {name} 👋", "Hallo {name} 👋", "Hi {name} 👋"],
+  hello_plain: ["أهلاً فيك 👋", "Hallo 👋", "Hi there 👋"],
+  hero_question: ["هالسيارة بتستاهل؟", "Lohnt sich das Auto?", "Is this car worth it?"],
+  hero_line: ["الصق رابط الإعلان وبثواني بتعرف السعر الحقيقي وشو لازم تعمل.", "Link einfügen – in Sekunden kennst du den echten Preis und weißt, was zu tun ist.", "Paste the link – in seconds you know the real price and what to do."],
+  url_hint: ["رابط الإعلان من Kleinanzeigen أو AutoScout24", "Link von Kleinanzeigen oder AutoScout24", "Link from Kleinanzeigen or AutoScout24"],
+  works_with: ["بيشتغل مع", "Funktioniert mit", "Works with"],
+  stat_checked: ["مفحوصة", "geprüft", "checked"],
+  stat_good: ["لقطات", "gute Deals", "good deals"],
+  stat_best: ["أحسن تخفيض", "bester Rabatt", "best discount"],
+  quick_title: ["ابدأ بسرعة", "Schnellstart", "Quick start"],
+  hunt_running: ["البحث عن لقطات شغّال", "Deal-Suche läuft", "Deal hunt running"],
+  hunt_running_sub: ["لقى لحد هلأ {n} – اضغط لتشوف", "Bisher {n} gefunden – antippen zum Ansehen", "{n} found so far – tap to see"],
 } as const;
 
 export type TextKey = keyof typeof dict;

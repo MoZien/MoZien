@@ -20,6 +20,7 @@ from cardeal.geo import road_km, zip_of
 from cardeal.models import Comparable, Listing, Valuation
 from cardeal.personal import decide_personal, estimate_personal, trade_score
 from cardeal.pipeline import NOT_A_CANDIDATE, DealHunter
+from cardeal.sources.autoscout24 import AutoScout24Source, is_autoscout24
 from cardeal.sources.base import SourceBlockedError
 from cardeal.sources.kleinanzeigen import KleinanzeigenSource, listing_from_url
 from cardeal.storage import Store
@@ -123,9 +124,10 @@ def valuation_from_json(data: dict) -> Valuation:
 
 class CarService:
     def __init__(self, store_path: str, access: Access, ai_model: str = "claude-sonnet-5-5",
-                 scraper: ScraperSettings | None = None, source=None, ai_client=None):
+                 scraper: ScraperSettings | None = None, source=None, ai_client=None, autoscout24=None):
         self.store = Store(store_path)
         self.source = source or KleinanzeigenSource(scraper or ScraperSettings())
+        self.autoscout24 = autoscout24 or AutoScout24Source(scraper or ScraperSettings())
         self.access = access
         self.ai_model = ai_model
         self._ai_client = ai_client
@@ -164,13 +166,17 @@ class CarService:
         return DealHunter(config, TrackedSource(self.source, job), self.store)
 
     def analyze_url(self, job: Job, url: str, prefs: Prefs, account: Account) -> dict:
-        try:
-            listing = listing_from_url(url)
-        except ValueError:
-            raise UserFacingError("bad_url") from None
         hunter = self._hunter(prefs, job)
-        job.step("ad", "active")
-        listing = self._fetch_ad(hunter, listing)
+        if is_autoscout24(url):
+            job.step("ad", "active")
+            listing = self._fetch_autoscout24(url)
+        else:
+            try:
+                listing = listing_from_url(url)
+            except ValueError:
+                raise UserFacingError("bad_url") from None
+            job.step("ad", "active")
+            listing = self._fetch_ad(hunter, listing)
         job.partial["listing"] = self.listing_json(listing, prefs)
         job.step("ad", "done")
         if not hunter._comparable_searches(listing):
@@ -276,6 +282,20 @@ class CarService:
             raise UserFacingError("network", message=str(exc)[:200]) from None
         except requests.RequestException as exc:
             raise UserFacingError("network", message=str(exc)[:200]) from None
+
+    def _fetch_autoscout24(self, url: str) -> Listing:
+        try:
+            return self.autoscout24.fetch(url)
+        except SourceBlockedError:
+            raise UserFacingError("blocked", site="AutoScout24") from None
+        except requests.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code in (404, 410):
+                raise UserFacingError("gone") from None
+            raise UserFacingError("network", message=str(exc)[:200]) from None
+        except requests.RequestException as exc:
+            raise UserFacingError("network", message=str(exc)[:200]) from None
+        except ValueError:
+            raise UserFacingError("not_car") from None
 
     def _value(self, hunter: DealHunter, listing: Listing) -> Valuation:
         try:

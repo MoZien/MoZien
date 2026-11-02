@@ -2,7 +2,7 @@
 // first); when it sleeps (Render's free plan answers with its own wake-up page) or is slow, the
 // app opens from this cache at once and waits for the server itself. API calls always go to the
 // network.
-const CACHE = "autohalle-v4";
+const CACHE = "autohalle-v5";
 
 // Only our own index page may become the shell, never a hosting provider's wake-up page.
 const isAppShell = (response) => response.ok && response.headers.get("x-autohalle") === "1";

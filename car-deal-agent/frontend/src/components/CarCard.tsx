@@ -7,7 +7,9 @@ import { uiStore, useStore } from "../lib/store";
 import type { Purpose, Result } from "../lib/types";
 import { Card, type Tone, cx } from "./ui";
 
-export const toneText: Record<Tone, string> = { good: "text-good", warn: "text-warn", bad: "text-bad", neutral: "text-muted", accent: "text-text" };
+export const toneText: Record<Tone, string> = { good: "text-good", warn: "text-warn", bad: "text-bad", neutral: "text-muted", accent: "text-accent" };
+/** Solid chips on photos, by verdict tone. */
+export const toneChip: Record<Tone, string> = { good: "bg-good text-white", warn: "bg-warn text-white", bad: "bg-bad text-white", neutral: "bg-slate-600 text-white", accent: "bg-accent text-white" };
 
 export function CarPhoto({ src, className, alt = "" }: { src: string; className?: string; alt?: string }) {
   const ui = useStore(uiStore);
@@ -50,6 +52,7 @@ export function CarCard({ result, purpose, onClick, favorite, footer, compact }:
       <button onClick={onClick} className="block w-full cursor-pointer text-start">
         <div className="relative">
           <CarPhoto src={photoOf(result)} className={cx("w-full", compact ? "h-32" : "h-40")} />
+          {verdict && <span className={cx("absolute start-3 top-3 rounded-full px-2.5 py-1 text-xs font-semibold shadow", toneChip[verdict.tone])}>{verdict.label}</span>}
           {favorite && <Heart className="absolute end-3 top-3 size-5 fill-white text-white drop-shadow" />}
         </div>
         <div className="space-y-1.5 p-4">
@@ -58,14 +61,13 @@ export function CarCard({ result, purpose, onClick, favorite, footer, compact }:
           </h3>
           <Facts result={result} />
           <div className="flex items-baseline justify-between gap-2 pt-1">
-            <span className="num text-lg font-semibold">{euro(listing.price)}</span>
-            {verdict && <span className={cx("text-sm font-semibold", toneText[verdict.tone])}>{verdict.label}</span>}
+            <span className="num text-lg font-bold">{euro(listing.price)}</span>
+            {discount != null && <span className={cx("num rounded-full px-2 py-0.5 text-xs font-semibold", discount >= 0.05 ? "bg-good/12 text-good" : discount <= -0.05 ? "bg-bad/12 text-bad" : "bg-surface-2 text-muted")}>{discount >= 0 ? "−" : "+"}{pct(Math.abs(discount))}</span>}
           </div>
           <div className="flex items-center justify-between gap-2 text-xs text-muted">
             <span>
               {t("market_price")} <span className="num">{euro(valuation.market_price)}</span>
             </span>
-            {discount != null && <span className="num">{discount >= 0 ? "−" : "+"}{pct(Math.abs(discount))}</span>}
           </div>
           {view === "trade" && result.trade?.priced && (
             <div className={cx("text-sm", result.trade.profit >= 0 ? "text-good" : "text-bad")}>

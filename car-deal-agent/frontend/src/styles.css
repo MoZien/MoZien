@@ -2,42 +2,50 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Colour tokens: light by default, dark under .dark. The primary colour is ink (black on light,
-   white on dark); a colour accent can be picked in the settings. */
+/* Colour tokens. AutoHalle orange is the brand: it marks what to do next (buttons, the active
+   tab, the start card). Navy carries the text; green, amber and red say how good a car is. Dark
+   mode under .dark; another button colour can be picked in the settings. */
 :root {
-  --bg: #f6f6f4;
+  --bg: #f3f4f7;
   --surface: #ffffff;
-  --surface-2: #f0f0ec;
-  --line: #e3e3de;
-  --text: #17181a;
-  --muted: #5f6268;
-  --faint: #93959a;
-  --accent: #17181a;
+  --surface-2: #eef0f4;
+  --line: #e2e5ec;
+  --text: #0f172a;
+  --muted: #5a6478;
+  --faint: #8e97a8;
+  --accent: #ff5a1f;
   --on-accent: #ffffff;
-  --good: #127a47;
-  --warn: #a86400;
-  --bad: #c42f2c;
+  --ink: #0f172a;
+  --on-ink: #ffffff;
+  --good: #12a150;
+  --warn: #d98a00;
+  --bad: #e5383b;
+  --info: #2f6bff;
+  --violet: #7c4dff;
 }
 .dark {
-  --bg: #0f1012;
-  --surface: #17181b;
-  --surface-2: #202125;
-  --line: #2b2d32;
-  --text: #ececed;
-  --muted: #a1a4aa;
-  --faint: #6f7278;
-  --accent: #ececed;
-  --on-accent: #0f1012;
-  --good: #3ec98a;
-  --warn: #eeb23c;
-  --bad: #f05a5e;
+  --bg: #0a0e15;
+  --surface: #121823;
+  --surface-2: #1a2230;
+  --line: #253041;
+  --text: #edf1f7;
+  --muted: #9aa6b8;
+  --faint: #6b778a;
+  --accent: #ff6a33;
+  --on-accent: #ffffff;
+  --ink: #edf1f7;
+  --on-ink: #0a0e15;
+  --good: #2fd17c;
+  --warn: #f5b23d;
+  --bad: #ff5c5f;
+  --info: #5b8cff;
+  --violet: #9f7aff;
 }
-:root[data-accent="blue"] { --accent: #2459d6; --on-accent: #ffffff; }
-.dark[data-accent="blue"] { --accent: #6b9bff; --on-accent: #0f1012; }
-:root[data-accent="green"] { --accent: #17734a; --on-accent: #ffffff; }
-.dark[data-accent="green"] { --accent: #45c98d; --on-accent: #0f1012; }
-:root[data-accent="orange"] { --accent: #c2510c; --on-accent: #ffffff; }
-.dark[data-accent="orange"] { --accent: #fb8a3c; --on-accent: #0f1012; }
+:root[data-accent="blue"] { --accent: #2f6bff; }
+.dark[data-accent="blue"] { --accent: #5b8cff; }
+:root[data-accent="green"] { --accent: #12a150; }
+.dark[data-accent="green"] { --accent: #2fd17c; --on-accent: #0a0e15; }
+:root[data-accent="mono"] { --accent: var(--ink); --on-accent: var(--on-ink); }
 
 @theme {
   --color-bg: var(--bg);
@@ -49,6 +57,10 @@
   --color-faint: var(--faint);
   --color-accent: var(--accent);
   --color-on-accent: var(--on-accent);
+  --color-ink: var(--ink);
+  --color-on-ink: var(--on-ink);
+  --color-info: var(--info);
+  --color-violet: var(--violet);
   --color-good: var(--good);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
@@ -109,6 +121,23 @@ body.intro main > div > *, body.intro .login-card { animation: enter-up 0.6s cub
 body.intro main > div > *:nth-child(2) { animation-delay: 0.1s; }
 body.intro main > div > *:nth-child(3) { animation-delay: 0.2s; }
 body.intro main > div > *:nth-child(n + 4) { animation-delay: 0.28s; }
+
+/* Progress road (JobProgress): moving centre line and a slightly bouncing car. */
+.road-lines { background: repeating-linear-gradient(90deg, var(--faint) 0 10px, transparent 10px 20px); animation: road 0.9s linear infinite; }
+@keyframes road { to { background-position: -20px 0; } }
+.drive { animation: drive-bounce 0.6s ease-in-out infinite alternate; }
+@keyframes drive-bounce { from { transform: translateY(0); } to { transform: translateY(-2px); } }
+
+/* Radar beam while the deal hunt runs. */
+.radar-beam { background: conic-gradient(from 0deg, color-mix(in srgb, var(--accent) 45%, transparent), transparent 70deg); animation: radar-spin 1.6s linear infinite; }
+@keyframes radar-spin { to { transform: rotate(360deg); } }
+
+/* Confetti for a good find (ResultView). */
+@keyframes confetti-fall {
+  0% { opacity: 1; transform: translate(0, -12px) rotate(0deg); }
+  100% { opacity: 0; transform: translate(var(--drift, 0), 280px) rotate(540deg); }
+}
+.confetti { animation: confetti-fall 1.6s cubic-bezier(0.2, 0.6, 0.4, 1) both; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }

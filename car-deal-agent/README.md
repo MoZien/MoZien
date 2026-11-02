@@ -162,6 +162,10 @@ request wakes it (about a minute); outgoing SMTP is blocked there, which the App
 The **Starter** plan (about 7 $ a month) keeps the server awake.
 Kleinanzeigen may block data-centre IPs; if the app reports "blocked", run it on a machine at home.
 
+**Other platforms.** A link from AutoScout24 (any country site) is read from the ad page's
+embedded data and valued against the same private Kleinanzeigen market. mobile.de blocks
+automated requests (HTTP 403), so its ads can be valued with "Value a car" instead.
+
 ## Costs
 
 Claude is only called for real candidates (after the price and profit filters), typically a few ads per day per search. With the default `claude-opus-5-5` ($4 / $20 per million input/output tokens) one review costs roughly 3–8 cents. Model and effort can be changed under `ai:` in the config. Refusal fallbacks are enabled, so a rare safety-classifier decline is retried on another model instead of failing.

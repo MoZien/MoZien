@@ -1,8 +1,8 @@
-import { Bookmark, Radar, Square, Trash2 } from "lucide-react";
+import { Bookmark, Square, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { CarCard } from "../components/CarCard";
 import { PurposeSwitch } from "../components/PurposeSwitch";
-import { Button, Card, CardHeader, Disclosure, Field, Input, Note, NumberInput, Select, Toggle } from "../components/ui";
+import { Button, Card, Disclosure, Field, Input, Note, NumberInput, Select, Toggle } from "../components/ui";
 import { useApp } from "../lib/app";
 import { useT } from "../lib/i18n";
 import { navigate } from "../lib/router";
@@ -194,18 +194,28 @@ export function HuntPage() {
       </Card>
 
       {running && (
-        <Card className="p-5">
-          <CardHeader title={t("hunting")} icon={<Radar className="size-4 animate-pulse" />} />
-          <div className="mt-4">
-            <div className="h-2 overflow-hidden rounded-full bg-surface-2">
-              <div className="h-full rounded-full bg-text transition-all" style={{ width: `${progress.total ? ((progress.checked ?? 0) / progress.total) * 100 : 5}%` }} />
+        <Card className="overflow-hidden p-5">
+          <div className="flex items-center gap-4">
+            {/* radar: a sweeping beam and pulsing rings while ads are checked */}
+            <div className="relative size-20 shrink-0" aria-hidden="true">
+              <span className="absolute inset-0 rounded-full border-2 border-accent/25" />
+              <span className="absolute inset-3 rounded-full border-2 border-accent/30" />
+              <span className="absolute inset-0 animate-ping rounded-full bg-accent/10" />
+              <span className="radar-beam absolute inset-0 rounded-full" />
+              <span className="absolute left-1/2 top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent" />
             </div>
-            <p className="num mt-2 text-sm text-muted">{t("hunt_progress", { checked: progress.checked ?? 0, total: progress.total ?? "…", found: progress.found ?? 0 })}</p>
-            {job?.partial?.current && (
-              <p className="mt-1 truncate text-xs text-faint" dir="auto">
-                {String(job.partial.current)}
-              </p>
-            )}
+            <div className="min-w-0 flex-1">
+              <div className="text-[15px] font-semibold">{t("hunting")}</div>
+              <p className="num mt-1 text-sm text-muted">{t("hunt_progress", { checked: progress.checked ?? 0, total: progress.total ?? "…", found: progress.found ?? 0 })}</p>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-2">
+                <div className="h-full rounded-full bg-accent transition-all duration-700" style={{ width: `${progress.total ? Math.max(4, ((progress.checked ?? 0) / progress.total) * 100) : 4}%` }} />
+              </div>
+              {job?.partial?.current && (
+                <p className="mt-1.5 truncate text-xs text-faint rtl:text-right" dir="auto">
+                  {String(job.partial.current)}
+                </p>
+              )}
+            </div>
           </div>
         </Card>
       )}

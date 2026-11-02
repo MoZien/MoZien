@@ -23,10 +23,10 @@ import {
 import type { Lang, Prefs } from "../lib/types";
 
 const ACCENTS: { value: Accent; color: string }[] = [
-  { value: "ink", color: "#17181a" },
-  { value: "blue", color: "#2459d6" },
-  { value: "green", color: "#17734a" },
-  { value: "orange", color: "#c2510c" },
+  { value: "orange", color: "#ff5a1f" },
+  { value: "blue", color: "#2f6bff" },
+  { value: "green", color: "#12a150" },
+  { value: "mono", color: "#0f172a" },
 ];
 
 /** A group of settings that opens on tap. */

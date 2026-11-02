@@ -1,7 +1,5 @@
 import {
   BadgeEuro,
-  ChevronLeft,
-  ChevronRight,
   CircleHelp,
   Columns3,
   Gauge,
@@ -36,6 +34,8 @@ interface NavItem {
   page: string;
   label: TextKey;
   icon: (className: string) => ReactNode;
+  /** colour of the tile in the "More" sheet (full class names, so Tailwind keeps them) */
+  tint?: string;
 }
 
 // What people use every time, and the rest behind "More".
@@ -45,12 +45,12 @@ const MAIN: NavItem[] = [
   { page: "saved", label: "nav_saved", icon: (c) => <Heart className={c} /> },
 ];
 const MORE: NavItem[] = [
-  { page: "valuate", label: "nav_valuate", icon: (c) => <Gauge className={c} /> },
-  { page: "compare", label: "nav_compare", icon: (c) => <Columns3 className={c} /> },
-  { page: "garage", label: "nav_garage", icon: (c) => <BadgeEuro className={c} /> },
-  { page: "tools", label: "nav_tools", icon: (c) => <Wrench className={c} /> },
-  { page: "settings", label: "nav_settings", icon: (c) => <SettingsIcon className={c} /> },
-  { page: "help", label: "nav_help", icon: (c) => <CircleHelp className={c} /> },
+  { page: "valuate", label: "nav_valuate", icon: (c) => <Gauge className={c} />, tint: "bg-info/12 text-info" },
+  { page: "compare", label: "nav_compare", icon: (c) => <Columns3 className={c} />, tint: "bg-violet/12 text-violet" },
+  { page: "garage", label: "nav_garage", icon: (c) => <BadgeEuro className={c} />, tint: "bg-good/12 text-good" },
+  { page: "tools", label: "nav_tools", icon: (c) => <Wrench className={c} />, tint: "bg-warn/15 text-warn" },
+  { page: "settings", label: "nav_settings", icon: (c) => <SettingsIcon className={c} />, tint: "bg-surface-2 text-muted" },
+  { page: "help", label: "nav_help", icon: (c) => <CircleHelp className={c} />, tint: "bg-accent/12 text-accent" },
 ];
 const PAGES = new Set([...MAIN, ...MORE].map((item) => item.page));
 
@@ -63,7 +63,7 @@ function useApplyUi() {
     const apply = () => root.classList.toggle("dark", ui.theme === "dark" || (ui.theme === "system" && media.matches));
     apply();
     media.addEventListener("change", apply);
-    if (ui.accent === "blue" || ui.accent === "green" || ui.accent === "orange") root.dataset.accent = ui.accent;
+    if (ui.accent === "blue" || ui.accent === "green" || ui.accent === "mono") root.dataset.accent = ui.accent;
     else delete root.dataset.accent;
     return () => media.removeEventListener("change", apply);
   }, [ui.theme, ui.accent]);
@@ -127,7 +127,6 @@ function Shell() {
   const start = PAGES.has(ui.startPage) ? ui.startPage : "analyze";
   const page = PAGES.has(route.page) ? route.page : start;
   const appName = meta?.app_name ?? "AutoHalle";
-  const Chevron = t.lang === "ar" ? ChevronLeft : ChevronRight;
 
   useEffect(() => {
     const item = [...MAIN, ...MORE].find((n) => n.page === page);
@@ -170,7 +169,7 @@ function Shell() {
       onClick={item.page === "analyze" ? home : undefined}
       className={cx(
         "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition",
-        page === item.page ? "bg-surface-2 font-semibold text-text" : "text-muted hover:bg-surface-2 hover:text-text",
+        page === item.page ? "bg-accent/10 font-semibold text-accent" : "text-muted hover:bg-surface-2 hover:text-text",
       )}
     >
       {item.icon("size-4")}
@@ -220,8 +219,8 @@ function Shell() {
       <nav className="no-print safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface lg:hidden">
         <div className="mx-auto grid max-w-md grid-cols-4">
           {MAIN.map((item) => (
-            <a key={item.page} href={href(item.page)} onClick={item.page === "analyze" ? home : undefined} className={cx("flex min-w-0 flex-col items-center gap-1 pb-2 pt-2.5 text-[11px]", page === item.page ? "font-semibold text-text" : "text-muted")}>
-              <span className="relative">
+            <a key={item.page} href={href(item.page)} onClick={item.page === "analyze" ? home : undefined} className={cx("flex min-w-0 flex-col items-center gap-0.5 pb-2 pt-2 text-[11px] transition", page === item.page ? "font-semibold text-accent" : "text-muted")}>
+              <span className={cx("relative grid h-7 w-12 place-items-center rounded-full transition", page === item.page && "bg-accent/12")}>
                 {item.icon("size-5")}
                 {item.page === "hunt" && hunting && (
                   <span className="absolute -end-1.5 -top-1">
@@ -232,20 +231,26 @@ function Shell() {
               <span className="max-w-full truncate px-1">{t(item.label)}</span>
             </a>
           ))}
-          <button onClick={() => setMoreOpen(true)} className={cx("flex min-w-0 cursor-pointer flex-col items-center gap-1 pb-2 pt-2.5 text-[11px]", MORE.some((n) => n.page === page) ? "font-semibold text-text" : "text-muted")}>
-            <Menu className="size-5" />
+          <button onClick={() => setMoreOpen(true)} className={cx("flex min-w-0 cursor-pointer flex-col items-center gap-0.5 pb-2 pt-2 text-[11px] transition", MORE.some((n) => n.page === page) ? "font-semibold text-accent" : "text-muted")}>
+            <span className={cx("grid h-7 w-12 place-items-center rounded-full transition", MORE.some((n) => n.page === page) && "bg-accent/12")}>
+              <Menu className="size-5" />
+            </span>
             <span className="max-w-full truncate px-1">{t("nav_more")}</span>
           </button>
         </div>
       </nav>
 
       <Modal open={moreOpen} onClose={() => setMoreOpen(false)} title={t("nav_more")}>
-        <div className="-mx-2 divide-y divide-line">
+        <div className="grid grid-cols-3 gap-2.5">
           {MORE.map((item) => (
-            <a key={item.page} href={href(item.page)} onClick={() => setMoreOpen(false)} className="flex items-center gap-3 px-2 py-3.5 text-[15px] hover:bg-surface-2">
-              <span className="text-muted">{item.icon("size-5")}</span>
-              <span className="flex-1">{t(item.label)}</span>
-              <Chevron className="size-4 text-faint" />
+            <a
+              key={item.page}
+              href={href(item.page)}
+              onClick={() => setMoreOpen(false)}
+              className={cx("flex flex-col items-center gap-2 rounded-2xl border p-3.5 text-center text-[13px] font-medium transition active:scale-95", page === item.page ? "border-accent/40 bg-accent/5" : "border-line hover:bg-surface-2")}
+            >
+              <span className={cx("grid size-11 place-items-center rounded-xl", item.tint)}>{item.icon("size-5")}</span>
+              {t(item.label)}
             </a>
           ))}
         </div>
@@ -290,7 +295,7 @@ function AiStatus() {
 
 export function Logo({ small }: { small?: boolean }) {
   return (
-    <span className={cx("grid place-items-center rounded-lg bg-text text-bg", small ? "size-7" : "size-8")}>
+    <span className={cx("grid place-items-center rounded-lg bg-accent text-on-accent shadow-md shadow-accent/30", small ? "size-8" : "size-9")}>
       <svg viewBox="0 0 512 512" className={small ? "size-5" : "size-6"} fill="none" stroke="currentColor" strokeWidth="32" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M126 292 L156 212 Q165 190 190 190 H322 Q347 190 356 212 L386 292" />
         <path d="M112 292 H400 Q414 292 414 306 V344 Q414 358 400 358 H112 Q98 358 98 344 V306 Q98 292 112 292 Z" />
