@@ -172,6 +172,16 @@ def test_source_search_resolves_location_paginates_and_throttles():
     assert len(pauses) == 2 and all(4 <= p <= 9 for p in pauses)
 
 
+@pytest.mark.parametrize("enough, requests", [(True, 1), (False, 2)])
+def test_second_result_page_only_when_the_first_is_not_enough(enough, requests):
+    page = (FIXTURES / "search_page.html").read_text(encoding="utf-8")
+    session = FakeSession([FakeResponse(page), FakeResponse(page.replace("seite:2", ""))])
+    source = KleinanzeigenSource(session=session, sleep=lambda s: None)
+    seen = []
+    source.search(SearchCriteria(name="x", make="bmw", pages=2), enough=lambda found: seen.append(len(found)) or enough)
+    assert len(session.urls) == requests and seen == [3]
+
+
 def test_source_raises_when_blocked():
     pauses = []
     session = FakeSession([FakeResponse(status_code=403), FakeResponse(status_code=403)])

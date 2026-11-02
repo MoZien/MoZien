@@ -3,6 +3,19 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { AppProvider } from "./lib/app";
 import { setAccountScope } from "./lib/store";
+// Fonts are served by the app itself, not loaded from Google (no visitor data to third parties).
+import "@fontsource/ibm-plex-sans/latin-400.css";
+import "@fontsource/ibm-plex-sans/latin-500.css";
+import "@fontsource/ibm-plex-sans/latin-600.css";
+import "@fontsource/ibm-plex-sans/latin-700.css";
+import "@fontsource/ibm-plex-sans/latin-ext-400.css";
+import "@fontsource/ibm-plex-sans/latin-ext-500.css";
+import "@fontsource/ibm-plex-sans/latin-ext-600.css";
+import "@fontsource/ibm-plex-sans/latin-ext-700.css";
+import "@fontsource/ibm-plex-sans-arabic/arabic-400.css";
+import "@fontsource/ibm-plex-sans-arabic/arabic-500.css";
+import "@fontsource/ibm-plex-sans-arabic/arabic-600.css";
+import "@fontsource/ibm-plex-sans-arabic/arabic-700.css";
 import "./styles.css";
 
 // Show the data of the account last signed in here at once; the server confirms it a moment later.

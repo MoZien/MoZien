@@ -36,7 +36,7 @@ class FakeSource:
         self.ceilings = []
         self.detail_calls = []
 
-    def search(self, criteria, price_ceiling=None):
+    def search(self, criteria, price_ceiling=None, enough=None):
         self.searches.append(criteria)
         self.ceilings.append(price_ceiling)
         return [replace(listing) for listing in self.listings]
@@ -173,7 +173,7 @@ class FakeMarketplace(FakeSource):
         self.comps = comps
         self.details = details
 
-    def search(self, criteria, price_ceiling=None):
+    def search(self, criteria, price_ceiling=None, enough=None):
         self.searches.append(criteria)
         if criteria.is_broad:
             return [replace(listing) for listing in self.listings]
@@ -305,7 +305,7 @@ class TieredMarketplace(FakeSource):
         super().__init__([])
         self.ad_details = ad_details
 
-    def search(self, criteria, price_ceiling=None):
+    def search(self, criteria, price_ceiling=None, enough=None):
         self.searches.append(criteria)
         n = 2 if criteria.body_type else 15
         return [ad(f"golf-{criteria.body_type}-{i}", 9_000 + (i % 3) * 100, year=2014, km=100_000) for i in range(n)]
@@ -344,6 +344,26 @@ def test_exact_comparables_widen_step_by_step():
 
     h.analyze_url("https://www.kleinanzeigen.de/s-anzeige/vw-golf/3202186399-216-143")
     assert len(source.searches) == 2  # both searches cached for the next ad
+
+
+def test_hunt_checks_the_broad_market_first():
+    """A hunted car far above the broad market (same model, fuel, PS, years) is settled after one
+    search; a cheap one still gets the exact comparison (same gearbox and body)."""
+    def run(price):
+        source = TieredMarketplace(GOLF_DETAILS)
+        h = DealHunter(AppConfig(searches=[BROAD]), source, Store(":memory:"), None, None, clock=lambda: NOW)
+        car = Listing(id="kleinanzeigen:1", source="kleinanzeigen", url="u", title="VW Golf",
+                      **{**GOLF_DETAILS, "price": price}, details_loaded=True)
+        valuation = h._exact_valuation(car, settled=lambda broad: price > broad.market_price * 1.05)
+        return valuation, source.searches
+
+    valuation, searches = run(12_000)
+    assert len(searches) == 1 and (searches[0].gearbox, searches[0].body_type) == (None, None)
+    assert valuation.market_price == 9_100 and valuation.comparables == 15
+
+    valuation, searches = run(6_000)
+    assert [(s.gearbox, s.body_type) for s in searches] == [(None, None), ("manuell", "limousine"), ("manuell", None)]
+    assert valuation.basis == "Golf · Benzin · Manuell · 116–128 PS · 2012–2016"  # the exact price
 
 
 def test_damaged_car_is_never_a_deal():
@@ -408,7 +428,7 @@ def test_bad_zip_range_is_reported():
 
 def test_no_price_rather_than_other_engines():
     class FewMatches(TieredMarketplace):
-        def search(self, criteria, price_ceiling=None):
+        def search(self, criteria, price_ceiling=None, enough=None):
             self.searches.append(criteria)
             return [ad(f"g{i}", 9_000, year=2014, km=100_000) for i in range(3)]  # too few in every step
 
@@ -455,7 +475,7 @@ def test_comparables_without_a_fair_price_are_not_counted():
 class PowerMarketplace(TieredMarketplace):
     """Hardly any car with the ad's PS value, plenty with the same value read as kW."""
 
-    def search(self, criteria, price_ceiling=None):
+    def search(self, criteria, price_ceiling=None, enough=None):
         self.searches.append(criteria)
         n = 20 if criteria.min_power and criteria.min_power > 120 else 2
         return [ad(f"p{criteria.min_power}-{criteria.gearbox}-{i}", 4_000 + (i % 3) * 100, year=2010, km=180_000 + i)
@@ -492,7 +512,7 @@ def test_ps_field_holding_kw_said_in_the_ad_text():
 
 def test_a_narrow_search_only_counts_with_enough_cars():
     class FewExact(TieredMarketplace):
-        def search(self, criteria, price_ceiling=None):
+        def search(self, criteria, price_ceiling=None, enough=None):
             self.searches.append(criteria)
             if criteria.body_type:  # same body: 6 cars, too few to trust their median
                 return [ad(f"body-{i}", 7_000, year=2014, km=100_000 + i) for i in range(6)]
@@ -523,7 +543,7 @@ def test_market_price_follows_the_price_level_around_home():
     far_zips = ["80331 München", "80333 München", "80335 München", "80336 München", "80337 München"]
 
     class TwoRegions(TieredMarketplace):
-        def search(self, criteria, price_ceiling=None):
+        def search(self, criteria, price_ceiling=None, enough=None):
             self.searches.append(criteria)
             cars = []
             for i in range(60):  # every third car around Leipzig, 10 % cheaper; all different cars

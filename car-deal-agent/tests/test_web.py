@@ -39,7 +39,7 @@ class FakeKleinanzeigen:
         self.searches = []
         self.detail_calls = []
 
-    def search(self, criteria, price_ceiling=None):
+    def search(self, criteria, price_ceiling=None, enough=None):
         self.searches.append(criteria)
         if criteria.name == "hunt":
             return [replace(listing) for listing in self.hunt_results]

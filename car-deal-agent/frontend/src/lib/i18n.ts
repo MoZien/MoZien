@@ -338,7 +338,7 @@ const dict = {
   search_name: ["اسم البحث", "Name der Suche", "Search name"],
   skip_seen: ["تجاهل الإعلانات اللي شفتها", "Schon gesehene überspringen", "Skip ads I've seen"],
   reset_seen: ["امسح سجل الإعلانات المشاهدة", "Gesehene zurücksetzen", "Reset seen ads"],
-  hunt_time: ["كل إعلان بياخد حوالي 30–60 ثانية. فيك تسكّر الصفحة وترجع، أو توقف بأي وقت.", "Jede Anzeige dauert etwa 30–60 Sekunden. Du kannst jederzeit stoppen.", "Each ad takes about 30–60 seconds. You can stop at any time."],
+  hunt_time: ["كل إعلان بياخد عادةً 10–40 ثانية. فيك تسكّر الصفحة وترجع، أو توقف بأي وقت.", "Jede Anzeige dauert meist 10–40 Sekunden. Du kannst die App schließen oder jederzeit stoppen.", "Each ad usually takes 10–40 seconds. You can close the app or stop at any time."],
   // valuate
   valuate_title: ["تقييم سيارة بدون إعلان", "Auto ohne Anzeige bewerten", "Value a car without an ad"],
   valuate_sub: ["دخّل معلومات السيارة وبنحسب سعر السوق من سيارات مشابهة حقيقية.", "Gib die Daten ein – der Marktpreis kommt aus echten Vergleichsautos.", "Enter the car's data – the market price comes from real comparable cars."],

@@ -349,7 +349,10 @@ class KleinanzeigenSource:
                 log.warning("No Kleinanzeigen location found for ZIP %s, searching nationwide", zip_code)
         return self._location_ids[zip_code]
 
-    def search(self, criteria: SearchCriteria, price_ceiling: int | None = None) -> list[Listing]:
+    def search(self, criteria: SearchCriteria, price_ceiling: int | None = None,
+               enough: Callable[[list[Listing]], bool] | None = None) -> list[Listing]:
+        """Up to criteria.pages result pages; stops early when there is no next page or when
+        `enough` says the ads found so far will do (every page costs a polite pause)."""
         location_id = self.resolve_location(criteria.zip_code) if criteria.zip_code else None
         found: dict[str, Listing] = {}
         for page in range(1, criteria.pages + 1):
@@ -360,6 +363,8 @@ class KleinanzeigenSource:
                 found.setdefault(listing.id, listing)
             log.info("%s page %d: %d listings", criteria.name, page, len(results))
             if not results or f"seite:{page + 1}" not in html:
+                break
+            if enough is not None and page < criteria.pages and enough(list(found.values())):
                 break
         return list(found.values())
 

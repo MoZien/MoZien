@@ -300,10 +300,14 @@ class DealHunter:
         parts.append(f"{criteria.min_year}–{criteria.max_year}")
         return " · ".join(str(p) for p in parts if p)
 
-    def _exact_valuation(self, listing: Listing) -> Valuation:
+    def _exact_valuation(self, listing: Listing, settled: Callable[[Valuation], bool] | None = None) -> Valuation:
         """Market price from cars as similar as possible to this one (needs the ad page loaded):
         the narrowest search with at least SOLID_COMPARABLES cars, else the one with the most.
-        Comparables per search are fetched at most once per `comparables_refresh_hours`."""
+        Comparables per search are fetched at most once per `comparables_refresh_hours`.
+
+        With `settled` (the deal hunt) the broadest search goes first: when it already answers
+        the question (`settled` says so, e.g. "far too expensive"), or has too few cars for a
+        narrower search to do better, its price is taken and the narrower searches are saved."""
         now = self.clock()
         searches = self._comparable_searches(listing)
         if not searches:
@@ -313,13 +317,14 @@ class DealHunter:
         if not plausible_km(listing, now.date()):
             return Valuation(None, 0, None, "none", "implausible mileage")  # 114 km meant as 114,000
 
-        valuation = self._value_against(listing, searches, now)
+        valuation = self._value_against(listing, searches, now, settled)
         power, read_as_kw = engine_power(listing)
         if valuation.market_price is None and listing.power_ps and not read_as_kw:
             # Hardly any car with this power: sellers often type the kW from the registration
             # papers into the PS field (103 for a 140 PS Insignia 1.8). Take that reading only if
             # it finds plenty of cars, and say so: confidence low, a reason in the message.
-            as_kw = self._value_against(listing, self._comparable_searches(listing, round(power * KW_TO_PS)), now)
+            as_kw = self._value_against(listing, self._comparable_searches(listing, round(power * KW_TO_PS)), now,
+                                        settled)
             if as_kw.market_price is not None and as_kw.comparables >= SOLID_COMPARABLES:
                 as_kw.confidence, as_kw.power_as_kw = "low", True
                 valuation = as_kw
@@ -340,26 +345,23 @@ class DealHunter:
         valuation.local_factor, valuation.local_ads = level
         valuation.market_price = int(round(valuation.market_price * level[0] / 10) * 10)
 
-    def _value_against(self, listing: Listing, searches: list[SearchCriteria], now: datetime) -> Valuation:
+    def _value_against(self, listing: Listing, searches: list[SearchCriteria], now: datetime,
+                       settled: Callable[[Valuation], bool] | None = None) -> Valuation:
         """Values `listing` against each search in turn (narrowest first), fetching its comparables
-        if they are older than comparables_refresh_hours."""
-        v = self.config.valuation
+        if they are older than comparables_refresh_hours. With `settled` the broadest search goes
+        first (see _exact_valuation); the narrower ones are its subsets, so they can't find more."""
         best = Valuation(None, 0, None, "none", "not enough comparables")
+        if settled is not None and len(searches) > 1:
+            broad = self._value_one(listing, searches[-1], now)
+            if broad.market_price is None or broad.comparables < SOLID_COMPARABLES:
+                return broad
+            local = replace(broad)
+            self._apply_local_level(local, now)  # judged at the price level it will end up with
+            if settled(local):
+                return broad
+            searches, best = searches[:-1], broad
         for criteria in searches:
-            url = build_search_url(criteria)
-            fetched_at = self.store.comparables_fetched_at(url)
-            if fetched_at is None or now - fetched_at > timedelta(hours=v.comparables_refresh_hours):
-                # Only real prices of running cars; the ad text that tells is only on the results page.
-                found = [comp for comp in self.source.search(criteria) if not no_fair_price(comp)]
-                segment = f"{criteria.make}:{criteria.model or criteria.query}"
-                for comp in found:
-                    self.store.upsert(comp, segment, now)
-                self.store.add_to_set(url, [comp.id for comp in found])
-                self.store.mark_comparables_fetched(url, now)
-            comps = self.store.comparable_set(url, now - timedelta(days=v.lookback_days))
-            valuation = estimate_market_price(listing, comps, v, today=now.date())
-            valuation.basis = self._describe(criteria, listing)
-            valuation.comparables_url = url
+            valuation = self._value_one(listing, criteria, now)
             if valuation.market_price is not None and valuation.comparables >= SOLID_COMPARABLES:
                 return valuation
             if (valuation.market_price is not None, valuation.comparables) > (
@@ -367,6 +369,35 @@ class DealHunter:
             ) or not best.comparables_url:
                 best = valuation
         return best
+
+    def _value_one(self, listing: Listing, criteria: SearchCriteria, now: datetime) -> Valuation:
+        """The valuation against one search. Its comparables are fetched when older than
+        comparables_refresh_hours; the second result page only when the first doesn't give
+        SOLID_COMPARABLES usable cars."""
+        v = self.config.valuation
+        url = build_search_url(criteria)
+        since = now - timedelta(days=v.lookback_days)
+        fetched_at = self.store.comparables_fetched_at(url)
+        if fetched_at is None or now - fetched_at > timedelta(hours=v.comparables_refresh_hours):
+            known = {comp.id: comp for comp in self.store.comparable_set(url, since)}
+
+            def enough(found: list[Listing]) -> bool:
+                usable = {**known, **{comp.id: comp for comp in found if not no_fair_price(comp)}}
+                estimate = estimate_market_price(listing, list(usable.values()), v, today=now.date())
+                return estimate.market_price is not None and estimate.comparables >= SOLID_COMPARABLES
+
+            # Only real prices of running cars; the ad text that tells is only on the results page.
+            found = [comp for comp in self.source.search(criteria, enough=enough) if not no_fair_price(comp)]
+            segment = f"{criteria.make}:{criteria.model or criteria.query}"
+            for comp in found:
+                self.store.upsert(comp, segment, now)
+            self.store.add_to_set(url, [comp.id for comp in found])
+            self.store.mark_comparables_fetched(url, now)
+        comps = self.store.comparable_set(url, since)
+        valuation = estimate_market_price(listing, comps, v, today=now.date())
+        valuation.basis = self._describe(criteria, listing)
+        valuation.comparables_url = url
+        return valuation
 
     def _worth_a_closer_look(self, listing: Listing, valuation: Valuation) -> bool:
         """Cheap checks before spending requests and AI credit: far enough below market and

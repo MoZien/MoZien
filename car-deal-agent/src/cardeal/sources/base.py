@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Protocol
 
 from cardeal.models import Listing, SearchCriteria
@@ -14,9 +15,10 @@ class SourceBlockedError(RuntimeError):
 class ListingSource(Protocol):
     name: str
 
-    def search(self, criteria: SearchCriteria, price_ceiling: int | None = None) -> list[Listing]:
+    def search(self, criteria: SearchCriteria, price_ceiling: int | None = None,
+               enough: Callable[[list[Listing]], bool] | None = None) -> list[Listing]:
         """Return listings for the criteria. `price_ceiling` overrides the budget so
-        the search also collects pricier cars as market data."""
+        the search also collects pricier cars as market data; `enough` may end the paging early."""
         ...
 
     def fetch_details(self, listing: Listing) -> Listing:

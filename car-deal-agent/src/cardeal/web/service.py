@@ -36,6 +36,9 @@ log = logging.getLogger(__name__)
 # their length in seconds.
 HUNT_BREAKS = 2
 HUNT_BREAK_SECONDS = 60.0
+# A hunted car more than this above the broad market price (same model, fuel, PS and years) is
+# no deal even if its gearbox or body were worth a bit more: no narrower searches for it.
+HUNT_ROUGH_SLACK = 1.05
 
 MAKES = {
     "abarth": "Abarth", "alfa_romeo": "Alfa Romeo", "audi": "Audi", "bmw": "BMW", "byd": "BYD",
@@ -91,10 +94,10 @@ class TrackedSource:
     def __init__(self, source, job: Job | None):
         self.source, self.job = source, job
 
-    def search(self, criteria, price_ceiling=None):
+    def search(self, criteria, price_ceiling=None, enough=None):
         if self.job is not None:
             self.job.check_cancel()
-        found = self.source.search(criteria, price_ceiling=price_ceiling)
+        found = self.source.search(criteria, price_ceiling=price_ceiling, enough=enough)
         if self.job is not None:
             self.job.bump("searches")
         return found
@@ -279,7 +282,11 @@ class CarService:
         listing = hunter.source.fetch_details(listing)
         if ad_flags(listing) & NOT_A_CANDIDATE or not plausible_km(listing):
             return None
-        valuation = hunter._exact_valuation(listing)
+        # The broad market price first: a car clearly above it can't be a deal, so the narrower
+        # (gearbox, body) searches are only spent on cars that may be one.
+        price = listing.price
+        valuation = hunter._exact_valuation(
+            listing, settled=lambda broad: price is not None and price > broad.market_price * HUNT_ROUGH_SLACK)
         if valuation.market_price is None:
             return None
         # Cheap numbers first: the AI review is only paid for cars that pass them.
