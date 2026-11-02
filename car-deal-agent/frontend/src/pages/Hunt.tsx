@@ -7,7 +7,7 @@ import { useApp } from "../lib/app";
 import { useT } from "../lib/i18n";
 import { navigate } from "../lib/router";
 import { huntStore, startHunt, stopHunt } from "../lib/hunt";
-import { createStore, prefsStore, saveResult, searchesStore, seenStore, uid, useStore } from "../lib/store";
+import { createScopedStore, prefsStore, saveResult, searchesStore, seenStore, uid, useStore } from "../lib/store";
 import type { HuntCriteria } from "../lib/types";
 import { errorText } from "./Analyze";
 
@@ -16,8 +16,8 @@ export const DEFAULT_CRITERIA: HuntCriteria = {
   radius_km: 200, seller: "privat", make: null, query: "", fuel: null, gearbox: null, body_type: null,
   exclude_places: ["Berlin"], count: 3, max_ads: 15, pages: 2,
 };
-const criteriaStore = createStore<HuntCriteria>("ah.hunt", DEFAULT_CRITERIA);
-const skipStore = createStore<boolean>("ah.huntSkip", true);
+const criteriaStore = createScopedStore<HuntCriteria>("ah.hunt", DEFAULT_CRITERIA);
+const skipStore = createScopedStore<boolean>("ah.huntSkip", true);
 
 export function HuntPage() {
   const t = useT();

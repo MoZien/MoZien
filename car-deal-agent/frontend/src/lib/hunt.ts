@@ -1,5 +1,5 @@
 import { ApiError, api } from "./api";
-import { createStore, markSeen, saveResult } from "./store";
+import { createScopedStore, markSeen, saveResult } from "./store";
 import type { HuntResult, Job, Result } from "./types";
 
 // The deal hunt runs on the server; this follows it from anywhere in the app. Leaving the hunt
@@ -20,7 +20,7 @@ const EMPTY: HuntState = { jobId: null, job: null, found: [], summary: null, err
 // Found cars keep only what the cards need on the way; the full result is saved per car.
 const slim = (result: Result): Result => ({ ...result, valuation: { ...result.valuation, used: result.valuation.used.slice(0, 40) } });
 
-export const huntStore = createStore<HuntState>("ah.huntRun", EMPTY);
+export const huntStore = createScopedStore<HuntState>("ah.huntRun", EMPTY);
 
 let following = false;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

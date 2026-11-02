@@ -1,6 +1,6 @@
 import { type ReactNode, createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { ApiError, getMeta, setUnauthorizedHandler } from "./api";
-import { DEFAULT_PREFS, prefsStore } from "./store";
+import { DEFAULT_PREFS, prefsStore, setAccountScope } from "./store";
 import type { Meta } from "./types";
 
 interface AppState {
@@ -72,6 +72,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setUpdateReady(true);
       }
       firstAnswer.current = false;
+      // Saved cars, garage and searches of the account that is signed in now.
+      setAccountScope(data.account?.id ?? null, Boolean(data.account?.admin) || !data.auth_required);
       setMeta(data);
       setMetaError(null);
       setWaking(false);

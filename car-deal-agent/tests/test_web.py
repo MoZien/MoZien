@@ -360,7 +360,7 @@ def test_email_login(tmp_path):
     ok = client.post("/api/auth/email/verify", json={"email": "KHA@example.com", "code": code})
     assert ok.json() == {"name": "kha@example.com", "email": "kha@example.com", "admin": False}
     account = client.get("/api/meta").json()["account"]
-    assert account["email"] == "kha@example.com" and account["admin"] is False
+    assert account["email"] == "kha@example.com" and account["admin"] is False and len(account["id"]) == 12
     assert client.post("/api/jobs/analyze", json={"url": AD}).status_code == 200
     assert client.post("/api/admin/ai-check", json={}).status_code == 403
     # a code works once

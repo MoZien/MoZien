@@ -2,7 +2,16 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { AppProvider } from "./lib/app";
+import { setAccountScope } from "./lib/store";
 import "./styles.css";
+
+// Show the data of the account last signed in here at once; the server confirms it a moment later.
+try {
+  const known = JSON.parse(localStorage.getItem("ah.meta") || "null");
+  setAccountScope(known?.account?.id ?? null, Boolean(known?.account?.admin) || known?.auth_required === false);
+} catch {
+  /* no stored account */
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

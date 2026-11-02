@@ -167,7 +167,7 @@ def create_app(service: CarService | None = None, access: Access | None = None,
         return {
             "app_name": app_name, "version": __version__, "ai_available": service.ai_available,
             "ai_model": service.ai_model, "auth_required": not access.open, "login": access.methods,
-            "account": {"name": current.name, "email": current.email, "admin": current.admin,
+            "account": {"id": current.id, "name": current.name, "email": current.email, "admin": current.admin,
                         "usage": access.usage(current)} if current else None,
             "makes": MAKES, "fuels": FUELS, "bodies": BODIES, "gearboxes": GEARBOXES,
             "defaults": Prefs().model_dump(), "hunt_defaults": HuntCriteria().model_dump(),

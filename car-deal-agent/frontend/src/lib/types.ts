@@ -256,7 +256,7 @@ export interface Meta {
   ai_model: string;
   auth_required: boolean;
   login?: ("email" | "code")[];
-  account: { name: string; email?: string; admin: boolean; usage: Record<string, { used: number; limit: number }> } | null;
+  account: { id?: string; name: string; email?: string; admin: boolean; usage: Record<string, { used: number; limit: number }> } | null;
   makes: Record<string, string>;
   fuels: Record<string, string>;
   bodies: Record<string, string>;

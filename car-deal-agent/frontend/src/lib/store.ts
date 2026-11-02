@@ -52,6 +52,73 @@ export function createStore<T>(key: string, initial: T, onFull?: (value: T) => T
   };
 }
 
+// --- per account ---------------------------------------------------------------------------------
+// Saved cars, garage, searches and the like belong to the signed-in account: each account keeps
+// them under its own keys ("ah.saved@<account>"), so another account on the same phone starts
+// empty. Language, theme and the cost settings stay with the device.
+
+let scope = "anon";
+const scoped: { reload: () => void }[] = [];
+const scopedBases: string[] = [];
+const LEGACY_OWNER = "ah.legacyOwner";
+
+export function createScopedStore<T>(base: string, initial: T, onFull?: (value: T) => T): Store<T> {
+  const key = () => `${base}@${scope}`;
+  let value = read(key(), initial);
+  const listeners = new Set<Listener>();
+  const store: Store<T> & { reload: () => void } = {
+    get: () => value,
+    set(next) {
+      value = typeof next === "function" ? (next as (current: T) => T)(value) : next;
+      if (!write(key(), value) && onFull) {
+        value = onFull(value);
+        write(key(), value);
+      }
+      listeners.forEach((listener) => listener());
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    reload() {
+      value = read(key(), initial);
+      listeners.forEach((listener) => listener());
+    },
+  };
+  scoped.push(store);
+  scopedBases.push(base);
+  return store;
+}
+
+/** Switches all per-account data to `account` (after sign-in, sign-out or at start). Data saved
+ *  before accounts were separated goes to the first owner (admin) account that signs in here. */
+export function setAccountScope(account: string | null, admin = false) {
+  const next = account || "anon";
+  if (admin && next !== "anon") adoptLegacyData(next);
+  if (next === scope) return;
+  scope = next;
+  scoped.forEach((store) => store.reload());
+}
+
+export function accountScope() {
+  return scope;
+}
+
+function adoptLegacyData(owner: string) {
+  try {
+    if (localStorage.getItem(LEGACY_OWNER)) return;
+    for (const base of scopedBases) {
+      const legacy = localStorage.getItem(base);
+      if (legacy !== null && localStorage.getItem(`${base}@${owner}`) === null) localStorage.setItem(`${base}@${owner}`, legacy);
+      localStorage.removeItem(base);
+    }
+    localStorage.setItem(LEGACY_OWNER, owner);
+    if (owner === scope) scoped.forEach((store) => store.reload());
+  } catch {
+    /* storage blocked: nothing to move */
+  }
+}
+
 export function useStore<T>(store: Store<T>): T {
   return useSyncExternalStore(store.subscribe, store.get, store.get);
 }
@@ -137,11 +204,11 @@ function trimSaved(cars: SavedCar[]): SavedCar[] {
 
 export const prefsStore = createStore<Prefs>("ah.prefs", DEFAULT_PREFS);
 export const uiStore = createStore<UiSettings>("ah.ui", DEFAULT_UI);
-export const savedStore = createStore<SavedCar[]>("ah.saved", [], trimSaved);
-export const garageStore = createStore<GarageCar[]>("ah.garage", []);
-export const searchesStore = createStore<SavedSearch[]>("ah.searches", []);
-export const seenStore = createStore<string[]>("ah.seen", []);
-export const compareStore = createStore<string[]>("ah.compare", []);
+export const savedStore = createScopedStore<SavedCar[]>("ah.saved", [], trimSaved);
+export const garageStore = createScopedStore<GarageCar[]>("ah.garage", []);
+export const searchesStore = createScopedStore<SavedSearch[]>("ah.searches", []);
+export const seenStore = createScopedStore<string[]>("ah.seen", []);
+export const compareStore = createScopedStore<string[]>("ah.compare", []);
 
 export function uid(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
