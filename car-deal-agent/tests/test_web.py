@@ -9,6 +9,7 @@ from helpers import issue, make_analysis
 
 from cardeal.analyzer import ListingAnalysis, PersonalAnalysis, TextScan, WeakPoint
 from cardeal.models import Listing
+from cardeal.sources.base import SourceBlockedError
 from cardeal.web.app import create_app
 from cardeal.web.auth import Access
 from cardeal.web.jobs import JobManager
@@ -204,6 +205,38 @@ def test_hunt_finds_cheap_cars_skips_seen_ones_and_stops(tmp_path):
     assert job["status"] == "done", job
     assert [r["listing"]["id"] for r in job["result"]["found"]] == ["kleinanzeigen:h1", "kleinanzeigen:h2"]
     assert job["result"]["checked"] == 2 and "kleinanzeigen:h0" not in source.detail_calls
+
+
+class ThrottlingKleinanzeigen(FakeKleinanzeigen):
+    """Says "too many requests" for the first `blocked` detail pages, then answers again."""
+
+    def __init__(self, blocked, **kwargs):
+        super().__init__(**kwargs)
+        self.blocked = blocked
+
+    def fetch_details(self, listing):
+        if self.blocked > 0:
+            self.blocked -= 1
+            self.detail_calls.append(listing.id)
+            raise SourceBlockedError("429")
+        return super().fetch_details(listing)
+
+
+@pytest.mark.parametrize("blocked, found, stopped", [(1, 2, None), (5, 0, "blocked")])
+def test_hunt_takes_a_break_when_the_site_slows_it_down(tmp_path, monkeypatch, blocked, found, stopped):
+    from cardeal.web import service as service_module
+    monkeypatch.setattr(service_module, "HUNT_BREAK_SECONDS", 0.01)
+    cheap = [Listing(id=f"kleinanzeigen:h{i}", source="kleinanzeigen", url=f"https://k/h{i}", title="VW Golf",
+                     price=2_500 + i, year=2014, km=100_000, location="06108 Halle") for i in range(3)]
+    source = ThrottlingKleinanzeigen(blocked, details={c.id: {**GOLF, "price": c.price} for c in cheap},
+                                     hunt_results=cheap)
+    client, _ = make_client(source=source, tmp_path=tmp_path)
+    body = {"criteria": {"count": 2, "max_ads": 3, "max_price": 3_000, "min_year": 2010},
+            "prefs": {"purpose": "trade", "ai_in_hunt": False}}
+    job = wait(client, client.post("/api/jobs/hunt", json=body).json()["job_id"])
+    assert job["status"] == "done", job
+    assert len(job["result"]["found"]) == found and job["result"]["stopped"] == stopped
+    assert "paused" not in job["partial"]
 
 
 def test_evaluate_again_with_other_settings(tmp_path):
@@ -471,3 +504,31 @@ def test_autoscout24_link_is_valued_against_kleinanzeigen(tmp_path):
     result = job["result"]
     assert fake.urls == [url] and result["listing"]["source"] == "autoscout24"
     assert result["valuation"]["market_price"] > 0 and result["trade"]["verdict"] in ("deal", "check")
+
+
+def test_autohero_link_is_valued_against_kleinanzeigen(tmp_path):
+    from pathlib import Path
+
+    from cardeal.sources.autohero import parse_ad
+
+    class FakeAutohero:
+        def __init__(self):
+            self.urls = []
+
+        def fetch(self, url):
+            self.urls.append(url)
+            car = parse_ad((Path(__file__).parent / "fixtures" / "autohero_ad.html").read_text(encoding="utf-8"), url)
+            return replace(car, make="Volkswagen", model="Golf", make_slug="volkswagen", year=2014, month=6,
+                           km=100_000, power_ps=122, price=7_000, title="VW Golf 1.4 TSI")
+
+    access = Access(None, "s")
+    fake = FakeAutohero()
+    service = CarService(str(tmp_path / "c.sqlite3"), access, source=FakeKleinanzeigen(), ai_client=FakeClaude(),
+                         autohero=fake)
+    client = TestClient(create_app(service=service, access=access, jobs=JobManager()))
+    url = "https://www.autohero.com/de/opel-corsa/id/6bfa0fd1-f9f3-4614-9978-ed104bc29700/"
+    job = wait(client, client.post("/api/jobs/analyze", json={"url": url, "prefs": {"ai_enabled": False}}).json()["job_id"])
+    assert job["status"] == "done", job
+    result = job["result"]
+    assert fake.urls == [url] and result["listing"]["source"] == "autohero"
+    assert result["valuation"]["market_price"] > 0

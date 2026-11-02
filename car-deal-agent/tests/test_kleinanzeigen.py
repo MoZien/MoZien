@@ -173,9 +173,33 @@ def test_source_search_resolves_location_paginates_and_throttles():
 
 
 def test_source_raises_when_blocked():
-    source = KleinanzeigenSource(session=FakeSession([FakeResponse(status_code=403)]), sleep=lambda s: None)
+    pauses = []
+    session = FakeSession([FakeResponse(status_code=403), FakeResponse(status_code=403)])
+    source = KleinanzeigenSource(session=session, sleep=pauses.append)
     with pytest.raises(SourceBlockedError):
         source.search(SearchCriteria(name="x", make="bmw"))
+    assert len(session.urls) == 2 and pauses == [15.0]  # one more try after a pause, then it gives up
+
+
+def test_source_waits_out_too_many_requests():
+    page = (FIXTURES / "search_page.html").read_text(encoding="utf-8").replace("seite:2", "")
+    limited = FakeResponse(status_code=429)
+    limited.headers = {"Retry-After": "120"}
+    session = FakeSession([limited, FakeResponse(status_code=429), FakeResponse(page)])
+    pauses = []
+    source = KleinanzeigenSource(session=session, sleep=pauses.append)
+
+    listings = source.search(SearchCriteria(name="x", make="bmw"))
+
+    assert listings and pauses == [60.0, 30.0]  # Retry-After capped at a minute, then the own backoff
+
+
+def test_source_gives_up_when_rate_limit_stays():
+    session = FakeSession([FakeResponse(status_code=429)] * 3)
+    source = KleinanzeigenSource(session=session, sleep=lambda s: None)
+    with pytest.raises(SourceBlockedError):
+        source.search(SearchCriteria(name="x", make="bmw"))
+    assert len(session.urls) == 3
 
 
 def test_build_search_url_for_exact_comparables():

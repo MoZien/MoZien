@@ -143,7 +143,7 @@ function Shell() {
       case "valuate":
         return <ValuatePage />;
       case "saved":
-        return <SavedPage />;
+        return <SavedPage route={route} />;
       case "compare":
         return <ComparePage />;
       case "garage":

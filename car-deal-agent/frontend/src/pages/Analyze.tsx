@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, ArrowRight, BadgeEuro, ClipboardPaste, Columns3, FileSearch, Flame, Gauge, Heart, Home, Loader2, Radar, ScanSearch, TrendingDown } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, BadgeEuro, ChevronRight, ClipboardPaste, Columns3, FileSearch, Flame, Gauge, Heart, Home, Loader2, Radar, ScanSearch, TrendingDown } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CarPhoto } from "../components/CarCard";
 import { JobProgress } from "../components/JobProgress";
@@ -14,8 +14,8 @@ import { type Route, href, navigate } from "../lib/router";
 import { type SavedCar, prefsStore, saveResult, savedStore, uiStore, useStore } from "../lib/store";
 import type { Job, Result } from "../lib/types";
 
-// Ads from Kleinanzeigen and AutoScout24 (any of its country sites).
-const AD_URL = /https?:\/\/(?:www\.)?(?:kleinanzeigen\.de\/s-anzeige\/|autoscout24\.[a-z.]{2,6}\/angebote\/)[^\s"'<>]+/i;
+// Ads from Kleinanzeigen, AutoScout24 (any of its country sites) and Autohero.
+const AD_URL = /https?:\/\/(?:www\.)?(?:kleinanzeigen\.de\/s-anzeige\/|autoscout24\.[a-z.]{2,6}\/angebote\/|autohero\.com\/[a-z]{2}\/[^/\s]+\/id\/)[^\s"'<>]+/i;
 
 export function extractAdUrl(text: string): string | null {
   return AD_URL.exec(text)?.[0].replace(/[.,;:!?)\]]+$/, "") ?? null;
@@ -146,11 +146,16 @@ export function AnalyzePage({ route }: { route: Route }) {
   const { meta } = useApp();
   const hunt = useStore(huntStore);
   const stats = useMemo(() => {
-    const discounts = saved.map((car) => discountOf(car.result)).filter((d): d is number => d != null && d > 0);
+    let best: SavedCar | null = null;
+    for (const car of saved) {
+      const discount = discountOf(car.result);
+      if (discount != null && discount > 0 && (best == null || discount > (discountOf(best.result) ?? 0))) best = car;
+    }
     return {
       checked: saved.length,
       good: saved.filter((car) => isGood(car.result, car.result.purpose)).length,
-      best: discounts.length ? Math.max(...discounts) : null,
+      best: best ? discountOf(best.result) : null,
+      bestId: best?.id ?? null,
     };
   }, [saved]);
   const Forward = t.lang === "ar" ? ArrowLeft : ArrowRight;
@@ -235,7 +240,7 @@ export function AnalyzePage({ route }: { route: Route }) {
             </button>
           </form>
           <p className="mt-3 text-center text-xs opacity-85">
-            {t("works_with")} <b>Kleinanzeigen</b> · <b>AutoScout24</b>
+            {t("works_with")} <b>Kleinanzeigen</b> · <b>AutoScout24</b> · <b>Autohero</b>
           </p>
         </div>
       </section>
@@ -294,9 +299,15 @@ export function AnalyzePage({ route }: { route: Route }) {
 
           {stats.checked > 0 && (
             <section className="grid grid-cols-3 gap-2.5">
-              <StatTile tint="bg-info/12 text-info" icon={<ScanSearch className="size-4" />} value={String(stats.checked)} label={t("stat_checked")} />
-              <StatTile tint="bg-good/12 text-good" icon={<Flame className="size-4" />} value={String(stats.good)} label={t("stat_good")} />
-              <StatTile tint="bg-accent/12 text-accent" icon={<TrendingDown className="size-4" />} value={stats.best == null ? "–" : pct(stats.best)} label={t("stat_best")} />
+              <StatTile href={href("saved", null, { tab: "history" })} tint="bg-info/12 text-info" icon={<ScanSearch className="size-4" />} value={String(stats.checked)} label={t("stat_checked")} />
+              <StatTile href={href("saved", null, { tab: "history", only: "good" })} tint="bg-good/12 text-good" icon={<Flame className="size-4" />} value={String(stats.good)} label={t("stat_good")} />
+              <StatTile
+                href={stats.bestId ? href("analyze", stats.bestId) : href("saved", null, { tab: "history", sort: "discount" })}
+                tint="bg-accent/12 text-accent"
+                icon={<TrendingDown className="size-4" />}
+                value={stats.best == null ? "–" : pct(stats.best)}
+                label={t("stat_best")}
+              />
             </section>
           )}
 
@@ -355,13 +366,17 @@ function HeroArt() {
   );
 }
 
-function StatTile({ icon, value, label, tint }: { icon: ReactNode; value: string; label: string; tint: string }) {
+/** A number on the start page; tapping it opens the cars behind it. */
+function StatTile({ href: to, icon, value, label, tint }: { href: string; icon: ReactNode; value: string; label: string; tint: string }) {
   return (
-    <div className="rounded-2xl border border-line bg-surface p-3">
-      <span className={cx("grid size-8 place-items-center rounded-lg", tint)}>{icon}</span>
-      <div className="num mt-2 text-xl font-bold leading-none">{value}</div>
-      <div className="mt-1 truncate text-xs text-muted">{label}</div>
-    </div>
+    <a href={to} className="group block rounded-2xl border border-line bg-surface p-3 transition hover:-translate-y-0.5 hover:shadow-md active:scale-[0.97]">
+      <span className="flex items-start justify-between">
+        <span className={cx("grid size-8 place-items-center rounded-lg", tint)}>{icon}</span>
+        <ChevronRight className="size-4 text-faint transition group-hover:text-muted rtl:rotate-180" />
+      </span>
+      <span className="num mt-2 block text-xl font-bold leading-none">{value}</span>
+      <span className="mt-1 block truncate text-xs text-muted">{label}</span>
+    </a>
   );
 }
 

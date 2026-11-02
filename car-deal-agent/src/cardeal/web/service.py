@@ -20,6 +20,7 @@ from cardeal.geo import road_km, zip_of
 from cardeal.models import Comparable, Listing, Valuation
 from cardeal.personal import decide_personal, estimate_personal, trade_score
 from cardeal.pipeline import NOT_A_CANDIDATE, DealHunter
+from cardeal.sources.autohero import AutoheroSource, is_autohero
 from cardeal.sources.autoscout24 import AutoScout24Source, is_autoscout24
 from cardeal.sources.base import SourceBlockedError
 from cardeal.sources.kleinanzeigen import KleinanzeigenSource, listing_from_url
@@ -30,6 +31,11 @@ from cardeal.web.jobs import Job, JobCancelled, UserFacingError
 from cardeal.web.prefs import HuntCriteria, ManualCar, Prefs
 
 log = logging.getLogger(__name__)
+
+# When Kleinanzeigen says "too many requests" during a hunt: breaks per ad before giving up, and
+# their length in seconds.
+HUNT_BREAKS = 2
+HUNT_BREAK_SECONDS = 60.0
 
 MAKES = {
     "abarth": "Abarth", "alfa_romeo": "Alfa Romeo", "audi": "Audi", "bmw": "BMW", "byd": "BYD",
@@ -124,10 +130,12 @@ def valuation_from_json(data: dict) -> Valuation:
 
 class CarService:
     def __init__(self, store_path: str, access: Access, ai_model: str = "claude-sonnet-5-5",
-                 scraper: ScraperSettings | None = None, source=None, ai_client=None, autoscout24=None):
+                 scraper: ScraperSettings | None = None, source=None, ai_client=None, autoscout24=None,
+                 autohero=None):
         self.store = Store(store_path)
         self.source = source or KleinanzeigenSource(scraper or ScraperSettings())
         self.autoscout24 = autoscout24 or AutoScout24Source(scraper or ScraperSettings())
+        self.autohero = autohero or AutoheroSource(scraper or ScraperSettings())
         self.access = access
         self.ai_model = ai_model
         self._ai_client = ai_client
@@ -169,7 +177,10 @@ class CarService:
         hunter = self._hunter(prefs, job)
         if is_autoscout24(url):
             job.step("ad", "active")
-            listing = self._fetch_autoscout24(url)
+            listing = self._fetch_other(self.autoscout24, url, "AutoScout24")
+        elif is_autohero(url):
+            job.step("ad", "active")
+            listing = self._fetch_other(self.autohero, url, "Autohero")
         else:
             try:
                 listing = listing_from_url(url)
@@ -225,7 +236,7 @@ class CarService:
                 break
             job.partial["current"] = listing.title
             try:
-                result = self._hunt_one(hunter, listing, prefs, account, job)
+                result = self._hunt_one_patiently(hunter, listing, prefs, account, job)
             except JobCancelled:
                 break  # stopped by the user: keep what was found
             except SourceBlockedError:
@@ -245,6 +256,24 @@ class CarService:
         job.step("check", "done")
         return {"found": job.partial["found"], "checked": job.progress["checked"], "ads": len(listings),
                 "candidates": len(candidates), "stopped": job.partial.get("stopped")}
+
+    def _hunt_one_patiently(self, hunter: DealHunter, listing: Listing, prefs: Prefs, account: Account, job: Job) -> dict | None:
+        """Kleinanzeigen slows down busy visitors: after a "too many requests" take a longer break
+        (the user can still stop meanwhile) and try the same ad again; give up only when it stays."""
+        for attempt in range(HUNT_BREAKS + 1):
+            try:
+                return self._hunt_one(hunter, listing, prefs, account, job)
+            except SourceBlockedError:
+                if attempt == HUNT_BREAKS:
+                    raise
+                log.warning("hunt: Kleinanzeigen is slowing us down, break %d", attempt + 1)
+                job.partial["paused"] = True
+                try:
+                    if job.cancel_event.wait(HUNT_BREAK_SECONDS):
+                        raise JobCancelled() from None
+                finally:
+                    job.partial.pop("paused", None)
+        return None
 
     def _hunt_one(self, hunter: DealHunter, listing: Listing, prefs: Prefs, account: Account, job: Job) -> dict | None:
         listing = hunter.source.fetch_details(listing)
@@ -283,11 +312,12 @@ class CarService:
         except requests.RequestException as exc:
             raise UserFacingError("network", message=str(exc)[:200]) from None
 
-    def _fetch_autoscout24(self, url: str) -> Listing:
+    def _fetch_other(self, source, url: str, site: str) -> Listing:
+        """An ad from another platform than Kleinanzeigen (AutoScout24, Autohero)."""
         try:
-            return self.autoscout24.fetch(url)
+            return source.fetch(url)
         except SourceBlockedError:
-            raise UserFacingError("blocked", site="AutoScout24") from None
+            raise UserFacingError("blocked", site=site) from None
         except requests.HTTPError as exc:
             if exc.response is not None and exc.response.status_code in (404, 410):
                 raise UserFacingError("gone") from None

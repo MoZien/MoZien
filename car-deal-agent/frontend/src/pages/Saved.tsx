@@ -1,33 +1,58 @@
-import { Columns3, Heart, History, Search, Trash2, TrendingDown } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Columns3, Flame, Heart, History, Search, Trash2, TrendingDown, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { CarCard } from "../components/CarCard";
 import { Sparkline } from "../components/charts";
 import { Badge, Button, Card, Disclosure, EmptyState, IconButton, Modal, Select, Tabs, Textarea, cx } from "../components/ui";
 import { euro, relativeDate } from "../lib/format";
 import { type TextKey, useT } from "../lib/i18n";
-import { discountOf } from "../lib/result";
-import { navigate } from "../lib/router";
+import { discountOf, isGood } from "../lib/result";
+import { type Route, navigate } from "../lib/router";
 import { type SavedCar, type SavedStatus, compareStore, savedStore, uiStore, updateSaved, useStore } from "../lib/store";
 
 const STATUSES: SavedStatus[] = ["watching", "contacted", "viewing", "bought", "passed"];
 
-export function SavedPage() {
+type Tab = "favorites" | "history";
+type Sort = "date" | "score" | "discount" | "price";
+
+export function SavedPage({ route }: { route: Route }) {
   const t = useT();
   const saved = useStore(savedStore);
   const compare = useStore(compareStore);
   const ui = useStore(uiStore);
-  const [tab, setTab] = useState<"favorites" | "history">(saved.some((c) => c.favorite) ? "favorites" : "history");
+  // Links from the start page open a given tab, sort or "only good deals" (#/saved?tab=history&only=good).
+  const asked = (): { tab: Tab; sort: Sort; onlyGood: boolean } => {
+    const tab = route.query.get("tab");
+    const sort = route.query.get("sort");
+    return {
+      tab: tab === "history" || tab === "favorites" ? tab : saved.some((c) => c.favorite) ? "favorites" : "history",
+      sort: sort === "score" || sort === "discount" || sort === "price" ? sort : "date",
+      onlyGood: route.query.get("only") === "good",
+    };
+  };
+  const [tab, setTab] = useState<Tab>(() => asked().tab);
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<"date" | "score" | "discount" | "price">("date");
+  const [sort, setSort] = useState<Sort>(() => asked().sort);
+  const [onlyGood, setOnlyGood] = useState(() => asked().onlyGood);
   const [purpose, setPurpose] = useState<"all" | "personal" | "trade">("all");
   const [status, setStatus] = useState<"all" | SavedStatus>("all");
   const [editing, setEditing] = useState<SavedCar | null>(null);
+
+  const routeKey = route.query.toString();
+  useEffect(() => {
+    if (!routeKey) return;
+    const next = asked();
+    setTab(next.tab);
+    setSort(next.sort);
+    setOnlyGood(next.onlyGood);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeKey]);
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
     const items = saved.filter(
       (car) =>
         (tab === "history" || car.favorite) &&
+        (!onlyGood || isGood(car.result, car.result.purpose)) &&
         (purpose === "all" || car.result.purpose === purpose) &&
         (status === "all" || car.status === status) &&
         (!q || `${car.result.listing.title} ${car.result.listing.location} ${car.notes}`.toLowerCase().includes(q)),
@@ -40,7 +65,7 @@ export function SavedPage() {
       price: (a: SavedCar, b: SavedCar) => (a.result.listing.price ?? 1e9) - (b.result.listing.price ?? 1e9),
     };
     return items.sort(sorters[sort]);
-  }, [saved, tab, query, sort, purpose, status]);
+  }, [saved, tab, query, sort, onlyGood, purpose, status]);
 
   function remove(car: SavedCar) {
     if (ui.confirmDelete && !window.confirm(t("confirm_delete"))) return;
@@ -99,15 +124,35 @@ export function SavedPage() {
         </Select>
           </div>
         </Disclosure>
+        {(onlyGood || sort !== "date") && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {onlyGood && (
+              <button onClick={() => setOnlyGood(false)} className="flex cursor-pointer items-center gap-1.5 rounded-full bg-good/12 px-3 py-1.5 text-[13px] font-semibold text-good">
+                <Flame className="size-3.5" /> {t("only_good")} <X className="size-3.5" aria-label={t("remove_filter")} />
+              </button>
+            )}
+            {sort !== "date" && (
+              <button onClick={() => setSort("date")} className="flex cursor-pointer items-center gap-1.5 rounded-full bg-accent/12 px-3 py-1.5 text-[13px] font-semibold text-accent">
+                <TrendingDown className="size-3.5" /> {t(`sort_${sort}` as TextKey)} <X className="size-3.5" aria-label={t("remove_filter")} />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {list.length === 0 ? (
         <Card>
           <EmptyState
-            icon={tab === "favorites" ? <Heart className="size-6" /> : <History className="size-6" />}
+            icon={onlyGood ? <Flame className="size-6" /> : tab === "favorites" ? <Heart className="size-6" /> : <History className="size-6" />}
             title={t("empty")}
-            text={t(tab === "favorites" ? "no_favorites" : "no_analyses")}
-            action={<Button onClick={() => navigate("analyze")}>{t("nav_analyze")}</Button>}
+            text={t(onlyGood ? "no_good_deals" : tab === "favorites" ? "no_favorites" : "no_analyses")}
+            action={
+              onlyGood ? (
+                <Button onClick={() => navigate("hunt")}>{t("qa_hunt")}</Button>
+              ) : (
+                <Button onClick={() => navigate("analyze")}>{t("nav_analyze")}</Button>
+              )
+            }
           />
         </Card>
       ) : (

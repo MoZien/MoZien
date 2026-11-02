@@ -1,4 +1,4 @@
-import { Bookmark, Square, Trash2 } from "lucide-react";
+import { AlertTriangle, Bookmark, CheckCircle2, Coffee, RotateCcw, Square, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { CarCard } from "../components/CarCard";
 import { PurposeSwitch } from "../components/PurposeSwitch";
@@ -210,7 +210,12 @@ export function HuntPage() {
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-2">
                 <div className="h-full rounded-full bg-accent transition-all duration-700" style={{ width: `${progress.total ? Math.max(4, ((progress.checked ?? 0) / progress.total) * 100) : 4}%` }} />
               </div>
-              {job?.partial?.current && (
+              {Boolean(job?.partial?.paused) && (
+                <p className="mt-2 flex items-start gap-1.5 text-xs font-medium leading-relaxed text-warn">
+                  <Coffee className="mt-px size-3.5 shrink-0" /> {t("hunt_paused")}
+                </p>
+              )}
+              {job?.partial?.current && !job?.partial?.paused && (
                 <p className="mt-1.5 truncate text-xs text-faint rtl:text-right" dir="auto">
                   {String(job.partial.current)}
                 </p>
@@ -220,12 +225,32 @@ export function HuntPage() {
         </Card>
       )}
 
-      {error && <Note tone="bad">{errorText(t, error)}</Note>}
+      {error && (
+        <Note tone={error.code === "blocked" ? "warn" : "bad"} icon={<AlertTriangle className="size-4" />}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>{errorText(t, error)}</span>
+            {error.code === "blocked" && (
+              <Button size="sm" icon={<RotateCcw className="size-3.5" />} onClick={start}>
+                {t("retry")}
+              </Button>
+            )}
+          </div>
+        </Note>
+      )}
 
-      {summary && !running && (
-        <Note tone={summary.found.length ? "good" : "neutral"}>
+      {summary && !running && summary.stopped === "blocked" && (
+        <Note tone="warn" icon={<AlertTriangle className="size-4" />}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>{t("hunt_blocked", { checked: summary.checked })}</span>
+            <Button size="sm" icon={<RotateCcw className="size-3.5" />} onClick={start}>
+              {t("retry")}
+            </Button>
+          </div>
+        </Note>
+      )}
+      {summary && !running && summary.stopped !== "blocked" && (
+        <Note tone={summary.found.length ? "good" : "neutral"} icon={summary.found.length ? <CheckCircle2 className="size-4" /> : undefined}>
           {summary.found.length ? t("hunt_done", { found: summary.found.length, checked: summary.checked }) : t("hunt_none", { n: summary.checked })}
-          {summary.stopped === "blocked" && <span className="ms-2 text-bad">{t("err_blocked")}</span>}
         </Note>
       )}
 

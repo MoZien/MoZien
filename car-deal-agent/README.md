@@ -162,9 +162,16 @@ request wakes it (about a minute); outgoing SMTP is blocked there, which the App
 The **Starter** plan (about 7 $ a month) keeps the server awake.
 Kleinanzeigen may block data-centre IPs; if the app reports "blocked", run it on a machine at home.
 
-**Other platforms.** A link from AutoScout24 (any country site) is read from the ad page's
-embedded data and valued against the same private Kleinanzeigen market. mobile.de blocks
-automated requests (HTTP 403), so its ads can be valued with "Value a car" instead.
+When Kleinanzeigen answers "too many requests" the app waits (its Retry-After, else 15 s, 30 s)
+and tries again; during a hunt it also takes up to two one-minute breaks per ad before it stops
+and says so.
+
+**Other platforms.** Links from AutoScout24 (any country site, read from the page's embedded
+data) and Autohero (a dealer with fixed prices, read from the page's schema.org Vehicle data) are
+valued against the same private Kleinanzeigen market. Checked and not possible: mobile.de,
+AutoUncle, auto.de and eBay block automated requests (HTTP 403); pkw.de loads its ads only in the
+browser; Carvago has no car data in the page; heycar left Germany; willhaben is Austrian. Their
+ads can be valued with "Value a car" instead.
 
 ## Costs
 

@@ -317,6 +317,11 @@ class KleinanzeigenSource:
         for attempt in range(3):
             response = self.session.get(url, timeout=self.settings.timeout_seconds)
             if response.status_code in (403, 429):
+                # "Too many requests" usually passes after a short break; keep slowing down and only
+                # give up when it stays. A 403 is a block: one more try after a pause.
+                if attempt < (2 if response.status_code == 429 else 1):
+                    self._sleep(self._block_pause(response, attempt))
+                    continue
                 raise SourceBlockedError(f"Kleinanzeigen answered {response.status_code} for {url}")
             if response.status_code >= 500 and attempt < 2:
                 self._sleep(10 * (attempt + 1))
@@ -324,6 +329,14 @@ class KleinanzeigenSource:
             response.raise_for_status()
             return response.text
         raise RuntimeError("unreachable")
+
+    @staticmethod
+    def _block_pause(response, attempt: int) -> float:
+        """Seconds to wait after a 403/429: the site's Retry-After (at most a minute), else 15 s, 30 s."""
+        retry_after = (getattr(response, "headers", None) or {}).get("Retry-After", "")
+        if str(retry_after).strip().isdigit():
+            return float(min(int(retry_after), 60))
+        return 15.0 * (attempt + 1)
 
     def resolve_location(self, zip_code: str) -> str | None:
         """Turns a ZIP code into Kleinanzeigen's internal location id."""

@@ -3,13 +3,17 @@ import { type PointerEvent as ReactPointerEvent, useCallback, useEffect, useRef,
 import { createPortal } from "react-dom";
 import { cx } from "./ui";
 
-/** Kleinanzeigen serves each photo in several sizes, chosen by the "rule" parameter:
+/** Kleinanzeigen serves each photo in several sizes, chosen by the "rule" parameter (the other
+ *  platforms have the same sizes in the path):
  *  2 = 200 px, 35 = 300 px, 59 = 960 px, 57 = 1600 px. */
 export function photoSize(url: string, rule: 2 | 35 | 59 | 57): string {
   if (/rule=\$_\d+\.AUTO/.test(url)) return url.replace(/rule=\$_\d+\.AUTO/, `rule=$_${rule}.AUTO`);
   // AutoScout24 puts the size in the path: …/1280x960.webp
   const autoscout = { 2: "250x188", 35: "250x188", 59: "720x540", 57: "1280x960" }[rule];
-  return /\/\d+x\d+\.webp$/.test(url) ? url.replace(/\/\d+x\d+\.webp$/, `/${autoscout}.webp`) : url;
+  if (/\/\d+x\d+\.webp$/.test(url)) return url.replace(/\/\d+x\d+\.webp$/, `/${autoscout}.webp`);
+  // Autohero: …/exterior/1/1116x744-<photo>.jpg
+  const autohero = { 2: "306x204", 35: "373x249", 59: "864x576", 57: "1116x744" }[rule];
+  return /autohero\.com\/img\//.test(url) ? url.replace(/\/\d+x\d+-([0-9a-f]+\.jpg)$/, `/${autohero}-$1`) : url;
 }
 
 const MAX_ZOOM = 4;
