@@ -20,8 +20,13 @@ services:
     envVars:
       - key: ANTHROPIC_API_KEY   # your Claude API key (asked for when the Blueprint is created)
         sync: false
-      # Sign-in with a code by email. Free plan: Render blocks SMTP, so use Brevo (BREVO_API_KEY +
-      # MAIL_FROM). Paid plan: a Gmail app password works (GMAIL_USER + GMAIL_APP_PASSWORD).
+      # Sign-in with a code by email, sent free from your Gmail by a Google Apps Script
+      # (car-deal-agent/deploy/gmail-sender.gs). Alternatives: Brevo (BREVO_API_KEY + MAIL_FROM)
+      # or a Gmail app password over SMTP (GMAIL_USER + GMAIL_APP_PASSWORD, paid plans only).
+      - key: GMAIL_SCRIPT_URL    # the script's web app address (…/exec)
+        sync: false
+      - key: GMAIL_SCRIPT_SECRET # the same secret word as in the script
+        sync: false
       - key: BREVO_API_KEY
         sync: false
       - key: MAIL_FROM           # e.g. AutoHalle <your.name@gmail.com>

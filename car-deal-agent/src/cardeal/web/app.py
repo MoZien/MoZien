@@ -3,8 +3,9 @@
 Environment:
   ANTHROPIC_API_KEY   Claude API key; without it the app runs without AI reviews
   AI_MODEL            default claude-sonnet-5-5
-  GMAIL_USER + GMAIL_APP_PASSWORD, or BREVO_API_KEY + MAIL_FROM: sign-in with a code sent by email
-                      (see cardeal/web/mail.py; Render's free plan blocks SMTP, use Brevo there)
+  GMAIL_SCRIPT_URL + GMAIL_SCRIPT_SECRET (free, from your Gmail via deploy/gmail-sender.gs), or
+  BREVO_API_KEY + MAIL_FROM, or GMAIL_USER + GMAIL_APP_PASSWORD: sign-in with a code sent by email
+                      (see cardeal/web/mail.py; Render's free plan blocks SMTP)
   ALLOWED_EMAILS      who may sign in by email: name@x.de,@company.de (empty: anyone)
   ADMIN_EMAILS        the owner's address(es): no daily limit, usage report, AI check
   ACCESS_CODES        name:code,name:code ... codes as a second way in (without email and codes: open)

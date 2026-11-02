@@ -1,8 +1,11 @@
-"""Sends the login code by email: through Gmail (or any SMTP server) or through Brevo's HTTPS API.
+"""Sends the login code by email.
 
-Render's free instances block outgoing SMTP, so there only Brevo works; on a paid instance a Gmail
-app password is enough. Environment:
-  GMAIL_USER, GMAIL_APP_PASSWORD   send from this Gmail account (smtp.gmail.com, port 465)
+Free and from your own Gmail: a small Google Apps Script (deploy/gmail-sender.gs) sends the mails;
+the app calls it over HTTPS, which also works on Render's free plan (that blocks SMTP).
+Environment, the first that is set wins:
+  GMAIL_SCRIPT_URL, GMAIL_SCRIPT_SECRET   the Apps Script web app and the secret written in it
+  BREVO_API_KEY + MAIL_FROM        send through brevo.com
+  GMAIL_USER, GMAIL_APP_PASSWORD   send from this Gmail account over SMTP (paid Render plans)
   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD   any other SMTP server (port 465 or 587)
   BREVO_API_KEY                    send through brevo.com instead (works on Render's free plan)
   MAIL_FROM                        sender, e.g. "AutoHalle <name@gmail.com>" (default: the Gmail/SMTP user)
@@ -54,6 +57,25 @@ class SmtpMailer:
             raise MailError(f"SMTP {self.host}:{self.port}: {exc}") from exc
 
 
+class AppsScriptMailer:
+    """Your Gmail sends the mail: deploy/gmail-sender.gs runs as you and checks the shared secret."""
+
+    def __init__(self, url: str, secret: str, name: str):
+        self.url, self.secret, self.name = url, secret, name
+
+    def send(self, to: str, subject: str, text: str, html_body: str) -> None:
+        payload = {"secret": self.secret, "to": to, "subject": subject, "text": text, "html": html_body,
+                   "name": self.name}
+        try:
+            # Google answers with a redirect to the script's output; requests follows it.
+            response = requests.post(self.url, json=payload, timeout=30)
+            answer = response.json()
+        except (requests.RequestException, ValueError) as exc:
+            raise MailError(f"Apps Script: {exc}") from exc
+        if not answer.get("ok"):
+            raise MailError(f"Apps Script: {answer.get('error', answer)}")
+
+
 class BrevoMailer:
     URL = "https://api.brevo.com/v3/smtp/email"
 
@@ -79,6 +101,12 @@ def mailer_from_env(env, app_name: str = "AutoHalle") -> Mailer | None:
         name, address = parseaddr(env.get("MAIL_FROM") or "")
         return formataddr((name or app_name, address or default_address))
 
+    if env.get("GMAIL_SCRIPT_URL"):
+        if not env.get("GMAIL_SCRIPT_SECRET"):
+            log.warning("GMAIL_SCRIPT_URL set but no GMAIL_SCRIPT_SECRET: email login disabled")
+            return None
+        name = parseaddr(env.get("MAIL_FROM") or "")[0] or app_name
+        return AppsScriptMailer(env["GMAIL_SCRIPT_URL"].strip(), env["GMAIL_SCRIPT_SECRET"].strip(), name)
     if env.get("BREVO_API_KEY"):
         address = parseaddr(env.get("MAIL_FROM") or "")[1] or env.get("GMAIL_USER") or ""
         if not address:

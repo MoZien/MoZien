@@ -406,3 +406,25 @@ def test_mailer_from_env():
     brevo = mailer_from_env({"BREVO_API_KEY": "xkeysib", "MAIL_FROM": "Auto Halle <me@gmail.com>"})
     assert isinstance(brevo, BrevoMailer) and brevo.email == "me@gmail.com" and brevo.name == "Auto Halle"
     assert mailer_from_env({}) is None and mailer_from_env({"BREVO_API_KEY": "x"}) is None
+
+
+def test_gmail_through_apps_script(monkeypatch):
+    from cardeal.web import mail
+    calls = []
+
+    def fake_post(url, json, timeout):
+        calls.append((url, json))
+        ok = json["secret"] == "s3cret"
+        return SimpleNamespace(json=lambda: {"ok": True, "remaining": 99} if ok else {"ok": False, "error": "wrong secret"})
+
+    monkeypatch.setattr(mail.requests, "post", fake_post)
+    sender = mail.mailer_from_env({"GMAIL_SCRIPT_URL": "https://script.google.com/macros/s/x/exec",
+                                   "GMAIL_SCRIPT_SECRET": " s3cret ", "BREVO_API_KEY": "ignored"})
+    assert isinstance(sender, mail.AppsScriptMailer)
+    sender.send("kha@example.com", "123456 ist dein Code", "text", "<p>html</p>")
+    url, payload = calls[-1]
+    assert url.endswith("/exec") and payload["to"] == "kha@example.com" and payload["name"] == "AutoHalle"
+    sender.secret = "wrong"
+    with pytest.raises(mail.MailError, match="wrong secret"):
+        sender.send("kha@example.com", "s", "t", "h")
+    assert mail.mailer_from_env({"GMAIL_SCRIPT_URL": "https://x"}) is None  # without the secret

@@ -126,10 +126,12 @@ cardeal-web                      # http://localhost:8000 (dev UI with hot reload
 ```
 
 **Sign-in.** Users type their email address and get a six-digit code (and a one-tap link) by
-email; the session lasts 30 days. Sending works through Gmail (`GMAIL_USER` + `GMAIL_APP_PASSWORD`,
-an [app password](https://myaccount.google.com/apppasswords) of an account with 2-step verification)
-or through [Brevo](https://www.brevo.com)'s HTTPS API (`BREVO_API_KEY` + `MAIL_FROM`, free up to 300
-mails a day). `ALLOWED_EMAILS` limits who may sign up (`name@x.de,@company.de`; empty = anyone),
+email; the session lasts 30 days. The free way: your own Gmail sends the codes through a small
+Google Apps Script, [`deploy/gmail-sender.gs`](deploy/gmail-sender.gs) (setup steps at the top of
+the file; about 100 mails a day, works on Render's free plan) – set `GMAIL_SCRIPT_URL` and
+`GMAIL_SCRIPT_SECRET`. Alternatives: [Brevo](https://www.brevo.com)'s API (`BREVO_API_KEY` +
+`MAIL_FROM`) or a Gmail [app password](https://myaccount.google.com/apppasswords) over SMTP
+(`GMAIL_USER` + `GMAIL_APP_PASSWORD`, not on Render's free plan, which blocks SMTP). `ALLOWED_EMAILS` limits who may sign up (`name@x.de,@company.de`; empty = anyone),
 `ADMIN_EMAILS` names the owner (no daily limit, "Test the AI" in the settings). Access codes
 (`ACCESS_CODES`, `ADMIN_CODE`) still work as a second way in. Without mail and codes the app is open.
 
@@ -156,8 +158,8 @@ their place shown. A user can have at most 3 analyses waiting.
 
 On the free plan the instance sleeps after 15 idle minutes. The app still opens at once on the
 phone (the service worker keeps the app itself) and shows "server is starting" while the first
-request wakes it (about a minute); outgoing SMTP is blocked there, so use Brevo for the mails. The
-**Starter** plan (about 7 $ a month) keeps the server awake and allows Gmail.
+request wakes it (about a minute); outgoing SMTP is blocked there, which the Apps Script avoids.
+The **Starter** plan (about 7 $ a month) keeps the server awake.
 Kleinanzeigen may block data-centre IPs; if the app reports "blocked", run it on a machine at home.
 
 ## Costs
