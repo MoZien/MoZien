@@ -114,7 +114,13 @@ def decide(
     today: date | None = None,
     lang: str = "en",
 ) -> tuple[str, list[str]]:
-    """Combines the numbers and the AI review into 'deal', 'check' or 'skip' with reasons."""
+    """Combines the numbers and the AI review into a verdict with reasons:
+    'deal'       profit and ROI clear your minimums and nothing speaks against it
+    'check'      the numbers work, but something needs a look first (worth it – check first)
+    'low_profit' a profit, but below your minimums
+    'skip'       a loss, or a likely scam
+    The AI review adds its view as a reason; on its own it never turns good numbers bad, except
+    for a high scam risk (and an AI 'skip' asks for a look first)."""
     today = today or date.today()
     reasons: list[str] = []
 
@@ -123,24 +129,30 @@ def decide(
         verdict, discount = "check", 0.0
         reasons.append(t(lang, "reason_no_price"))
     else:
+        discount = valuation.discount(listing.price) or 0.0
+        if flip.profit < 0:
+            return "skip", [t(lang, "reason_loss", loss=-flip.profit)]
         if flip.profit < settings.min_profit:
             reasons.append(t(lang, "reason_profit_low", profit=flip.profit, minimum=settings.min_profit))
         if flip.roi < settings.min_roi:
             reasons.append(t(lang, "reason_roi_low", roi=percent(flip.roi), minimum=percent(settings.min_roi)))
-        if reasons:
-            return "skip", reasons
-        verdict, discount = "deal", valuation.discount(listing.price) or 0.0
+        verdict = "low_profit" if reasons else "deal"
+
+    def look_first() -> None:
+        nonlocal verdict
+        if verdict == "deal":
+            verdict = "check"
 
     if "broken" in ad_flags(listing):
         # Valued like a running car it looks cheap; what the repair costs is unknown.
-        verdict = "check"
+        look_first()
         reasons.append(t(lang, "reason_broken"))
     if listing.damaged:
         # Compared with undamaged cars, a damaged one always looks cheap; the damage decides.
-        verdict = "check"
+        look_first()
         reasons.append(t(lang, "reason_damaged"))
     if valuation.confidence == "low":
-        verdict = "check"
+        look_first()
         if valuation.power_as_kw:
             reasons.append(t(lang, "reason_power_kw", ps=listing.power_ps))
         elif valuation.comparables < 8 or valuation.spread is None:
@@ -148,16 +160,14 @@ def decide(
         else:
             reasons.append(t(lang, "reason_wide_spread", spread=percent(valuation.spread / 2)))
     if discount >= settings.suspicious_discount:
-        verdict = "check"
+        look_first()
         reasons.append(t(lang, "reason_suspicious", discount=percent(discount)))
 
     if analysis is not None:
         if analysis.scam_risk == "high":
             return "skip", reasons + [t(lang, "reason_scam")]
-        ai_reason = t(lang, "reason_ai", reason=analysis.verdict_reason)
         if analysis.verdict == "skip":
-            return "skip", reasons + [ai_reason]
-        if analysis.verdict == "check" or analysis.scam_risk == "medium":
-            verdict = "check"
-        reasons.append(ai_reason)
+            look_first()
+        cautious = analysis.verdict in ("check", "skip") or analysis.scam_risk == "medium"
+        reasons.append(t(lang, "reason_ai_caution" if cautious else "reason_ai", reason=analysis.verdict_reason))
     return verdict, reasons

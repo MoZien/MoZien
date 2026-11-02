@@ -137,21 +137,22 @@ def test_second_run_does_not_repeat_but_price_drop_does():
     assert [r.listing.id for r in notifier.sent] == ["kleinanzeigen:cheap", "kleinanzeigen:almost"]
 
 
-def test_failed_ai_review_downgrades_to_check():
+def test_failed_ai_review_keeps_the_verdict_of_the_numbers():
     h, _, notifier = hunter(market_listings() + [ad("cheap", 6_500)], FakeAnalyzer(error=AnalysisError("x")))
     reports = h.run_once()
-    assert reports[0].verdict == "check"
+    assert reports[0].verdict == "deal"
     assert reports[0].analysis is None
     assert len(notifier.sent) == 1
 
 
-def test_ai_skip_is_saved_but_not_sent():
+def test_ai_skip_asks_for_a_look_first():
     analyzer = FakeAnalyzer(make_analysis(verdict="skip", verdict_reason="Motorschaden"))
     h, _, notifier = hunter(market_listings() + [ad("cheap", 6_500)], analyzer)
     reports = h.run_once()
-    assert reports[0].verdict == "skip"
-    assert notifier.sent == []
-    assert h.store.recent_reports(verdicts=("skip",))[0]["analysis"]["verdict_reason"] == "Motorschaden"
+    assert reports[0].verdict == "check"
+    assert reports[0].reasons[-1].endswith(": Motorschaden")  # "the AI advises caution", in the bot's language
+    assert len(notifier.sent) == 1
+    assert h.store.recent_reports()[0]["analysis"]["verdict_reason"] == "Motorschaden"
 
 
 def test_without_market_data_nothing_is_reported():

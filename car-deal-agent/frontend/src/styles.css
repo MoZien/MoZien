@@ -98,6 +98,18 @@ body {
 /* Fields show focus with their own border and ring; the global outline on top looked doubled. */
 input:focus-visible, select:focus-visible, textarea:focus-visible { outline: none; }
 
+/* After the start animation the app slides in: bars from the edges, then the content. */
+@keyframes enter-down { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
+@keyframes enter-up { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes enter-side { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+body.intro header { animation: enter-down 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+body.intro aside { animation: enter-side 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+body.intro nav.fixed { animation: enter-up 0.55s 0.08s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+body.intro main > div > *, body.intro .login-card { animation: enter-up 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+body.intro main > div > *:nth-child(2) { animation-delay: 0.1s; }
+body.intro main > div > *:nth-child(3) { animation-delay: 0.2s; }
+body.intro main > div > *:nth-child(n + 4) { animation-delay: 0.28s; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }

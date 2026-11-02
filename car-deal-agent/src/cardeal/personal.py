@@ -198,14 +198,15 @@ def decide_personal(
         at_most("negotiate")
         reasons.append(t(lang, "reason_over_budget", budget=euro(settings.max_budget)))
     if analysis is not None:
+        # The AI's view is a reason to read, not a veto: only a likely scam or its "avoid" (at most
+        # "check first") change what the numbers say.
         if analysis.scam_risk == "high":
             verdict = "avoid"
             reasons.append(t(lang, "reason_scam"))
-        elif analysis.verdict in ("check", "avoid", "negotiate"):
-            at_most(analysis.verdict)
-        if analysis.scam_risk == "medium":
+        elif analysis.verdict == "avoid":
             at_most("check")
-        reasons.append(t(lang, "reason_ai", reason=analysis.verdict_reason))
+        cautious = analysis.verdict in ("check", "avoid", "negotiate") or analysis.scam_risk == "medium"
+        reasons.append(t(lang, "reason_ai_caution" if cautious else "reason_ai", reason=analysis.verdict_reason))
 
     score = personal_score(valuation, estimate, flags, listing, analysis)
     if verdict == "avoid":
@@ -254,7 +255,9 @@ def trade_score(flip: FlipEstimate, valuation: Valuation, verdict: str, deal: De
         if analysis.scam_risk == "high":
             score = min(score, 10)
     if verdict == "skip":
-        score = min(score, 40)
+        score = min(score, 25)
+    elif verdict == "low_profit":
+        score = min(score, 55)
     elif verdict == "check":
-        score = min(score, 75)
+        score = min(score, 80)
     return int(min(max(round(score), 0), 100))

@@ -116,7 +116,7 @@ export function LoginPage() {
 
   return (
     <div className="safe-top grid min-h-dvh place-items-center p-4">
-      <Card className="animate-fade-up w-full max-w-sm p-6">
+      <Card className="login-card animate-fade-up w-full max-w-sm p-6">
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <Logo />

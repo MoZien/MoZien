@@ -154,7 +154,7 @@ export interface Trade {
   consumption: number;
   resale_factor: number;
   total_costs: number;
-  verdict: "deal" | "check" | "skip";
+  verdict: "deal" | "check" | "low_profit" | "skip";
   reasons: string[];
   score: number;
 }

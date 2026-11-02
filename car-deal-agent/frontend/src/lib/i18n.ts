@@ -120,7 +120,7 @@ const dict = {
 
   // result view
   verdict_deal: ["لقطة", "Schnäppchen", "Deal"],
-  verdict_check: ["بدها فحص", "Prüfen", "Check it"],
+  verdict_check: ["افحصها أول", "Erst prüfen", "Check first"],
   verdict_skip: ["لا تشتريها", "Finger weg", "Skip"],
   verdict_buy: ["اشتريها", "Kaufen", "Buy"],
   verdict_negotiate: ["فاوض أول", "Erst verhandeln", "Negotiate first"],
@@ -548,6 +548,9 @@ const dict = {
   sort_filter: ["ترتيب وفلترة", "Sortieren & filtern", "Sort & filter"],
   no_favorites: ["ما في مفضلة لسا. اضغط ♡ «حفظ» عند أي سيارة.", "Noch keine Favoriten. Tippe bei einem Auto auf ♡ «Speichern».", "No favourites yet. Tap ♡ «Save» on any car."],
   photos_open: ["كبّر الصور", "Fotos groß ansehen", "View photos full size"],
+  verdict_trade_check: ["مربحة – بس افحصها أول", "Lohnt sich – vorher prüfen", "Worth it – check first"],
+  verdict_trade_check_short: ["مربحة – افحصها", "Lohnt sich – prüfen", "Worth it – check"],
+  verdict_low_profit: ["ربح قليل", "Zu wenig Gewinn", "Too little profit"],
 } as const;
 
 export type TextKey = keyof typeof dict;

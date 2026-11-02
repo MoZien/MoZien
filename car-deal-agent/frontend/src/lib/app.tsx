@@ -48,12 +48,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
   });
   const retry = useRef<ReturnType<typeof setTimeout> | null>(null);
   const attempts = useRef(0);
+  const firstAnswer = useRef(true);
 
   const refresh = useCallback(async () => {
     if (retry.current) clearTimeout(retry.current);
     const slow = setTimeout(() => setWaking(true), 2500);
     try {
       const data = await getMeta();
+      // An older copy of the app (kept on the phone) talking to a newer server: right after the
+      // start, load the new one at once (once per version); later, offer it.
+      if (data.version !== __APP_VERSION__) {
+        let tried = false;
+        try {
+          tried = sessionStorage.getItem("ah.reloadedFor") === data.version;
+          if (firstAnswer.current && !tried) sessionStorage.setItem("ah.reloadedFor", data.version);
+        } catch {
+          tried = true;
+        }
+        if (firstAnswer.current && !tried) {
+          window.location.reload();
+          return;
+        }
+        setUpdateReady(true);
+      }
+      firstAnswer.current = false;
       setMeta(data);
       setMetaError(null);
       setWaking(false);

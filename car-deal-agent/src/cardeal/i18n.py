@@ -47,7 +47,8 @@ TEXTS: dict[str, dict[str, str]] = {
         "seller_message": "رسالة للبائع (انسخها):",
         "no_issues": "ما في أعطال مذكورة بالإعلان",
         "verdict_deal": "🔥 لقطة",
-        "verdict_check": "🔍 بدها فحص",
+        "verdict_check": "🔍 مربحة – بس افحصها أول",
+        "verdict_low_profit": "➖ ربح قليل",
         "verdict_skip": "⛔ لا تشتري",
         "negotiable": "قابل للتفاوض",
         "market": "السوق",
@@ -66,6 +67,8 @@ TEXTS: dict[str, dict[str, str]] = {
         "reason_suspicious": "أرخص من السوق بـ {discount}: لازم تعرف السبب (عطل؟ احتيال؟)",
         "reason_scam": "خطر احتيال عالي",
         "reason_ai": "الذكاء الاصطناعي: {reason}",
+        "reason_ai_caution": "الذكاء الاصطناعي بينصح بالحذر: {reason}",
+        "reason_loss": "رح تخسر حوالي {loss} € بعد كل المصاريف",
         "chat_started": "✅ البوت شغّال وعم يراقب السوق. ابعتلي رابط أي إعلان سيارة من Kleinanzeigen وبقلّك إذا بتستاهل.",
         "chat_started_links": "✅ البوت شغّال. ابعتلي رابط أي إعلان سيارة من Kleinanzeigen وبقلّك إذا بتستاهل.",
         "chat_help": "ابعتلي رابط إعلان سيارة من Kleinanzeigen (بالتطبيق: مشاركة ← نسخ الرابط) "
@@ -138,7 +141,8 @@ TEXTS: dict[str, dict[str, str]] = {
         "seller_message": "Nachricht an den Verkäufer (kopieren):",
         "no_issues": "Keine Mängel in der Anzeige erwähnt",
         "verdict_deal": "🔥 Schnäppchen",
-        "verdict_check": "🔍 Prüfen",
+        "verdict_check": "🔍 Lohnt sich – vorher prüfen",
+        "verdict_low_profit": "➖ Zu wenig Gewinn",
         "verdict_skip": "⛔ Finger weg",
         "negotiable": "VB",
         "market": "Markt",
@@ -157,6 +161,8 @@ TEXTS: dict[str, dict[str, str]] = {
         "reason_suspicious": "{discount} unter Markt: Grund klären (Schaden? Betrug?)",
         "reason_scam": "hohes Betrugsrisiko",
         "reason_ai": "KI: {reason}",
+        "reason_ai_caution": "KI rät zur Vorsicht: {reason}",
+        "reason_loss": "Nach allen Kosten etwa {loss} € Verlust",
         "chat_started": "✅ Der Bot läuft und beobachtet den Markt. Schick mir einen Link zu einer "
                         "Kleinanzeigen-Autoanzeige und ich sag dir, ob sie sich lohnt.",
         "chat_started_links": "✅ Der Bot läuft. Schick mir einen Link zu einer Kleinanzeigen-Autoanzeige "
@@ -232,7 +238,8 @@ TEXTS: dict[str, dict[str, str]] = {
         "seller_message": "Message to the seller (copy):",
         "no_issues": "No defects mentioned in the ad",
         "verdict_deal": "🔥 Deal",
-        "verdict_check": "🔍 Check it",
+        "verdict_check": "🔍 Worth it – check first",
+        "verdict_low_profit": "➖ Too little profit",
         "verdict_skip": "⛔ Skip",
         "negotiable": "negotiable",
         "market": "market",
@@ -251,6 +258,8 @@ TEXTS: dict[str, dict[str, str]] = {
         "reason_suspicious": "{discount} below market: find out why (damage? scam?)",
         "reason_scam": "high scam risk",
         "reason_ai": "AI: {reason}",
+        "reason_ai_caution": "The AI advises caution: {reason}",
+        "reason_loss": "About {loss} € loss after all costs",
         "chat_started_links": "✅ The bot is running. Send me a link to a car ad on Kleinanzeigen "
                               "and I'll tell you whether it's worth it.",
         "chat_started": "✅ The bot is running and watching the market. Send me a link to a car ad on "

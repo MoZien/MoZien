@@ -314,8 +314,6 @@ class CarService:
 
         flip = estimate_flip(listing, valuation, deal, repair_costs=repairs, today=today, trip=config.trip)
         verdict, reasons = decide(listing, valuation, flip, deal, trade_analysis, today, lang)
-        if verdict == "deal" and trade_analysis is None and ai and result["ai_status"] == "failed":
-            verdict = "check"  # the AI was supposed to look at it but could not
         result["trade"] = {**asdict(flip), "verdict": verdict, "reasons": reasons, "total_costs": flip.total_costs,
                            "score": trade_score(flip, valuation, verdict, deal, listing, trade_analysis)}
 

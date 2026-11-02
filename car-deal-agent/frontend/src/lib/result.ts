@@ -12,14 +12,17 @@ export interface Verdict {
 }
 
 const TONES: Record<string, Tone> = {
-  deal: "good", buy: "good", check: "warn", negotiate: "warn", skip: "bad", avoid: "bad",
+  deal: "good", buy: "good", check: "warn", negotiate: "warn", low_profit: "neutral", skip: "bad", avoid: "bad",
 };
 
-/** Verdict, score and reasons of a result for one purpose (the numbers exist for both). */
-export function verdictOf(result: Result, purpose: Purpose, t: T): Verdict | null {
+/** Verdict, score and reasons of a result for one purpose (the numbers exist for both). `short`
+ *  gives the compact label for cards and lists. */
+export function verdictOf(result: Result, purpose: Purpose, t: T, short = false): Verdict | null {
   const part = purpose === "trade" ? result.trade : result.personal;
   if (!part) return null;
-  return { key: part.verdict, label: t(`verdict_${part.verdict}` as TextKey), tone: TONES[part.verdict] ?? "neutral", score: part.score, reasons: part.reasons };
+  // For a resale "check" means: the numbers work, look at the car first.
+  const key = purpose === "trade" && part.verdict === "check" ? (short ? "verdict_trade_check_short" : "verdict_trade_check") : `verdict_${part.verdict}`;
+  return { key: part.verdict, label: t(key as TextKey), tone: TONES[part.verdict] ?? "neutral", score: part.score, reasons: part.reasons };
 }
 
 export function discountOf(result: Result): number | null {

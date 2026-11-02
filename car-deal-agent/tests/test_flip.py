@@ -59,32 +59,44 @@ def test_decide_deal_check_skip():
     flip = estimate_flip(good, val, SETTINGS, today=TODAY)
 
     assert decide(good, val, flip, SETTINGS, analysis(), TODAY)[0] == "deal"
-    assert decide(good, val, flip, SETTINGS, analysis(verdict="check"), TODAY)[0] == "check"
-    assert decide(good, val, flip, SETTINGS, analysis(scam_risk="medium"), TODAY)[0] == "check"
+    # The AI's caution is a reason to read, not a veto on good numbers.
+    verdict, reasons = decide(good, val, flip, SETTINGS, analysis(verdict="check", verdict_reason="Rost?"), TODAY)
+    assert verdict == "deal" and reasons[-1] == "The AI advises caution: Rost?"
+    assert decide(good, val, flip, SETTINGS, analysis(scam_risk="medium"), TODAY)[0] == "deal"
+    assert decide(good, val, flip, SETTINGS, analysis(verdict="skip"), TODAY)[0] == "check"  # look first
     assert decide(good, val, flip, SETTINGS, analysis(scam_risk="high"), TODAY)[0] == "skip"
-    assert decide(good, val, flip, SETTINGS, analysis(verdict="skip"), TODAY)[0] == "skip"
     assert decide(good, valuation(9000, "low", 5), flip, SETTINGS, None, TODAY)[0] == "check"
 
 
-def test_decide_skips_unprofitable_and_flags_too_cheap():
-    pricey = listing(8500)
+def test_decide_loss_low_profit_and_too_cheap():
     val = valuation(9000)
-    verdict, reasons = decide(pricey, val, estimate_flip(pricey, val, SETTINGS, today=TODAY), SETTINGS, today=TODAY)
-    assert verdict == "skip" and "profit" in reasons[0]
+    loss = listing(8500)
+    verdict, reasons = decide(loss, val, estimate_flip(loss, val, SETTINGS, today=TODAY), SETTINGS, today=TODAY)
+    assert verdict == "skip" and reasons == ["About 320 € loss after all costs"]
+
+    small = listing(7800)  # 380 € profit: a profit, but under the 500 € minimum
+    verdict, reasons = decide(small, val, estimate_flip(small, val, SETTINGS, today=TODAY), SETTINGS, today=TODAY)
+    assert verdict == "low_profit" and "profit" in reasons[0]
+    # the AI does not lift a small profit to a deal, nor does its caution push it further down
+    assert decide(small, val, estimate_flip(small, val, SETTINGS, today=TODAY), SETTINGS,
+                  analysis(verdict="check"), TODAY)[0] == "low_profit"
 
     too_cheap = listing(4000)
     verdict, reasons = decide(too_cheap, val, estimate_flip(too_cheap, val, SETTINGS, today=TODAY), SETTINGS,
                               today=TODAY)
     assert verdict == "check"
-    assert any("56 %" in r for r in reasons)
+    assert "find out why" in reasons[-1]
 
 
 def test_reasons_are_localised():
-    pricey = listing(8500)
+    small = listing(7800)
     val = valuation(9000)
-    flip = estimate_flip(pricey, val, SETTINGS, today=TODAY)
-    _, reasons = decide(pricey, val, flip, SETTINGS, today=TODAY, lang="ar")
+    flip = estimate_flip(small, val, SETTINGS, today=TODAY)
+    _, reasons = decide(small, val, flip, SETTINGS, today=TODAY, lang="ar")
     assert reasons[0].startswith("الربح")
+    _, reasons = decide(listing(8500), val, estimate_flip(listing(8500), val, SETTINGS, today=TODAY), SETTINGS,
+                        today=TODAY, lang="de")
+    assert reasons == ["Nach allen Kosten etwa 320 € Verlust"]
 
 
 def test_max_purchase_price_keeps_the_minimum_profit():

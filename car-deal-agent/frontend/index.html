@@ -36,8 +36,60 @@
         if (["blue", "green", "orange"].indexOf(ui.accent) >= 0) document.documentElement.dataset.accent = ui.accent;
       } catch (e) {}
     </script>
+    <style>
+      /* Start animation: shown before the app's code has loaded, removed by main.tsx. */
+      #splash { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: #f6f6f4; color: #17181a;
+        font-family: "IBM Plex Sans", "IBM Plex Sans Arabic", system-ui, sans-serif; transition: opacity 0.45s ease, transform 0.45s ease; }
+      .dark #splash { background: #0f1012; color: #ececed; }
+      #splash.out { opacity: 0; transform: scale(1.06); pointer-events: none; }
+      #splash .stack { display: flex; flex-direction: column; align-items: center; }
+      #splash .box { width: 92px; height: 92px; border-radius: 26px; background: currentColor; display: grid; place-items: center;
+        animation: sp-pop 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.25) both; box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.45); }
+      #splash svg { width: 66px; height: 66px; }
+      #splash svg path { stroke: #f6f6f4; stroke-dasharray: 1400; stroke-dashoffset: 1400; animation: sp-draw 1s 0.25s ease-out forwards; }
+      .dark #splash svg path { stroke: #0f1012; }
+      #splash svg circle { fill: #f6f6f4; transform-box: fill-box; transform-origin: center; transform: scale(0); animation: sp-wheel 0.35s 1s ease-out forwards; }
+      .dark #splash svg circle { fill: #0f1012; }
+      #splash .name { margin-top: 20px; font-size: 24px; font-weight: 600; letter-spacing: 0.01em; opacity: 0; animation: sp-rise 0.5s 0.65s ease-out forwards; }
+      #splash .tag { margin-top: 6px; font-size: 14px; opacity: 0; animation: sp-rise 0.5s 0.85s ease-out forwards; }
+      #splash .tag span { opacity: 0.6; }
+      #splash .road { position: relative; width: 132px; height: 3px; margin-top: 26px; border-radius: 3px; overflow: hidden; background: rgba(127, 127, 127, 0.18);
+        opacity: 0; animation: sp-rise 0.4s 0.9s ease-out forwards; }
+      #splash .road::after { content: ""; position: absolute; top: 0; bottom: 0; width: 38%; border-radius: 3px; background: currentColor;
+        animation: sp-drive 1.1s 1s ease-in-out infinite; left: -40%; }
+      @keyframes sp-draw { to { stroke-dashoffset: 0; } }
+      @keyframes sp-pop { from { transform: scale(0.6) rotate(-6deg); opacity: 0; } to { transform: none; opacity: 1; } }
+      @keyframes sp-wheel { to { transform: scale(1); } }
+      @keyframes sp-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+      @keyframes sp-drive { from { left: -40%; } to { left: 100%; } }
+      @media (prefers-reduced-motion: reduce) {
+        #splash * { animation: none !important; opacity: 1 !important; transform: none !important; stroke-dashoffset: 0 !important; }
+      }
+    </style>
   </head>
   <body>
+    <div id="splash" aria-hidden="true">
+      <div class="stack">
+        <div class="box">
+          <svg viewBox="0 0 512 512" fill="none" stroke-width="30" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M126 292 L156 212 Q165 190 190 190 H322 Q347 190 356 212 L386 292" />
+            <path d="M112 292 H400 Q414 292 414 306 V344 Q414 358 400 358 H112 Q98 358 98 344 V306 Q98 292 112 292 Z" />
+            <path d="M150 358 V386 M362 358 V386" />
+            <circle cx="162" cy="325" r="16" />
+            <circle cx="350" cy="325" r="16" />
+          </svg>
+        </div>
+        <div class="name">AutoHalle</div>
+        <div class="tag"><span id="splash-tag"></span></div>
+        <div class="road"></div>
+      </div>
+    </div>
+    <script>
+      try {
+        var tags = { ar: "لاقي السيارة الصح بالسعر الصح", de: "Das richtige Auto zum richtigen Preis", en: "The right car at the right price" };
+        document.getElementById("splash-tag").textContent = tags[document.documentElement.lang] || tags.de;
+      } catch (e) {}
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -95,7 +95,7 @@ export function ComparePage() {
                           {car.result.listing.title}
                         </div>
                       </button>
-                      {verdictOf(car.result, view, t) && <Badge tone={verdictOf(car.result, view, t)!.tone} className="mt-1.5">{verdictOf(car.result, view, t)!.label}</Badge>}
+                      {verdictOf(car.result, view, t, true) && <Badge tone={verdictOf(car.result, view, t, true)!.tone} className="mt-1.5">{verdictOf(car.result, view, t, true)!.label}</Badge>}
                     </div>
                   </th>
                 ))}

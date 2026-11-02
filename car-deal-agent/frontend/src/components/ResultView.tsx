@@ -315,7 +315,7 @@ function VerdictCard({ result, view, onView }: { result: Result; view: Purpose; 
         <PurposeSwitch tiny value={view} onChange={onView} />
       </div>
       <div className="mt-3 flex items-baseline gap-3">
-        <span className={cx("text-[28px] font-semibold leading-tight tracking-tight", toneText[verdict.tone])}>{verdict.label}</span>
+        <span className={cx("font-semibold leading-tight tracking-tight", verdict.label.length > 16 ? "text-2xl" : "text-[28px]", toneText[verdict.tone])}>{verdict.label}</span>
         <span className="num text-sm text-muted">{verdict.score}/100</span>
       </div>
       {reason && (

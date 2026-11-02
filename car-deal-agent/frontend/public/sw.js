@@ -1,10 +1,14 @@
-// Opens the app straight from the phone: the app shell comes from this cache, so a sleeping server
-// (Render's free plan) never shows its "loading" page. The shell is refreshed in the background
-// after every start; API calls always go to the network.
-const CACHE = "autohalle-v3";
+// Keeps the app on the phone: when the server is awake it delivers the newest app (network
+// first); when it sleeps (Render's free plan answers with its own wake-up page) or is slow, the
+// app opens from this cache at once and waits for the server itself. API calls always go to the
+// network.
+const CACHE = "autohalle-v4";
 
 // Only our own index page may become the shell, never a hosting provider's wake-up page.
 const isAppShell = (response) => response.ok && response.headers.get("x-autohalle") === "1";
+
+const withTimeout = (promise, ms) =>
+  Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms))]);
 
 async function refreshShell() {
   try {
@@ -40,15 +44,24 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/api/") || url.pathname === "/health" || url.pathname === "/sw.js") return;
 
   if (request.mode === "navigate") {
+    // Network first, so an awake server always delivers the newest app. When it is asleep (the
+    // host answers with its own wake-up page) or slow, the app from the cache opens instead and
+    // waits for the server itself.
     event.respondWith(
-      caches.match("/").then((cached) => {
-        const update = refreshShell();
-        if (cached) {
-          event.waitUntil(update);
-          return cached;
+      (async () => {
+        const cached = await caches.match("/");
+        try {
+          const response = await withTimeout(fetch(request), cached ? 3500 : 60000);
+          if (isAppShell(response)) {
+            const cache = await caches.open(CACHE);
+            await cache.put("/", response.clone());
+            return response;
+          }
+          return cached || response;
+        } catch {
+          return cached || Response.error();
         }
-        return fetch(request).catch(() => caches.match("/"));
-      }),
+      })(),
     );
     return;
   }

@@ -42,7 +42,7 @@ function Facts({ result }: { result: Result }) {
 export function CarCard({ result, purpose, onClick, favorite, footer, compact }: { result: Result; purpose?: Purpose; onClick?: () => void; favorite?: boolean; footer?: ReactNode; compact?: boolean }) {
   const t = useT();
   const view = purpose ?? result.purpose;
-  const verdict = verdictOf(result, view, t);
+  const verdict = verdictOf(result, view, t, true);
   const discount = discountOf(result);
   const { listing, valuation } = result;
   return (
@@ -87,7 +87,7 @@ export function CarCard({ result, purpose, onClick, favorite, footer, compact }:
 /** A car as one list row: photo, title, facts, price and verdict. */
 export function CarRow({ result, onClick, favorite }: { result: Result; onClick?: () => void; favorite?: boolean }) {
   const t = useT();
-  const verdict = verdictOf(result, result.purpose, t);
+  const verdict = verdictOf(result, result.purpose, t, true);
   return (
     <button onClick={onClick} className="flex w-full cursor-pointer items-center gap-3 py-3 text-start">
       <CarPhoto src={photoOf(result)} className="size-16 shrink-0 rounded-lg" />

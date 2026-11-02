@@ -21,7 +21,7 @@ Claude reviews the description: hidden defects, repair costs, scam signals, verd
 profit after negotiation, repairs, fees, HU (and §25a VAT if you trade as a business)
    │
    ▼
-deal / check / skip ──► Telegram message
+deal / check / low_profit / skip ──► Telegram message (deal and check)
 ```
 
 ## How the numbers work
@@ -55,7 +55,7 @@ The TÜV date comes from the ad's "HU bis" field, or from the title and text ("T
 
 **Repair costs.** The AI lists problems it sees in the ad, and every cost must come with the exact words from the ad (`quote`). The program checks that those words really are in the ad; costs without a matching quote, and typical-for-the-model risks the ad doesn't mention, count as 0 € and become questions for the seller instead. The Telegram message shows each counted cost with its quote, or "No defects mentioned in the ad".
 
-**Verdict.** `deal` when profit and ROI pass your minimums and nothing is suspicious; `check` when the market data is thin, the price is suspiciously low (≥ 40 % below market), the AI review failed, or the AI wants an inspection first; `skip` for high scam risk or when the AI finds problems that eat the margin.
+**Verdict.** `deal` ("Schnäppchen") when profit and ROI pass your minimums and nothing speaks against it; `check` ("Lohnt sich – vorher prüfen") when the numbers work but the market data is thin, the price is suspiciously low (≥ 40 % below market), the ad mentions damage or a defect, or the AI review says skip; `low_profit` ("Zu wenig Gewinn") for a profit under your minimums; `skip` ("Finger weg") only for a loss or a high scam risk. The AI review is a reason to read, not a veto: its caution is listed ("KI rät zur Vorsicht: …") without turning good numbers bad. For buying to keep: `buy` up to 5 % above the market price, `negotiate` 5–15 % above (or over budget), `avoid` beyond that, `check` for the same warnings as above.
 
 **First run.** The first run of a search only collects market data. Alerts start with ads posted after that, which is what you want for being first to call. Set `deal.alert_existing: true` to also rate the ads already online.
 
@@ -188,7 +188,7 @@ The tests use synthetic HTML fixtures and fakes for the marketplace, Claude and 
 src/cardeal/
 ├── sources/kleinanzeigen.py   search URL builder, result + detail page parser, polite HTTP client
 ├── valuation.py               market price from comparables
-├── flip.py                    profit calculation and deal/check/skip decision
+├── flip.py                    profit calculation and the trade verdict
 ├── analyzer.py                Claude review with structured output
 ├── pipeline.py                one hunting pass, the cheap checks before the expensive ones
 ├── storage.py                 SQLite: market data, evaluated prices, reports

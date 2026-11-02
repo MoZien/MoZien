@@ -449,8 +449,6 @@ class DealHunter:
                 log.warning("AI analysis failed for %s: %s", listing.url, exc)
 
         verdict, reasons = decide(listing, valuation, flip, settings, analysis, today, self.config.language)
-        if verdict == "deal" and analysis is None and self.analyzer is not None:
-            verdict = "check"  # the AI was supposed to look at it but could not
         return DealReport(listing, valuation, flip, verdict, reasons, analysis, search_name)
 
     def analyze_url(self, url: str) -> tuple[DealReport | None, int]:
