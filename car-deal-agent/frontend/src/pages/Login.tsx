@@ -4,7 +4,7 @@ import { Button, Card, Field, Input, Note, Segmented } from "../components/ui";
 import { ApiError, api, login } from "../lib/api";
 import { useApp } from "../lib/app";
 import { type TextKey, useT } from "../lib/i18n";
-import { navigate, useRoute } from "../lib/router";
+import { href, navigate, useRoute } from "../lib/router";
 import { prefsStore } from "../lib/store";
 import type { Lang } from "../lib/types";
 
@@ -115,7 +115,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="safe-top grid min-h-dvh place-items-center p-4">
+    <div className="safe-top flex min-h-dvh flex-col items-center justify-center p-4">
       <Card className="login-card animate-fade-up w-full max-w-sm p-6">
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -213,6 +213,16 @@ export function LoginPage() {
           </button>
         )}
       </Card>
+      <footer className="mt-4 w-full max-w-sm space-y-2 text-center text-xs leading-relaxed text-faint">
+        <p>{t("login_legal_note")}</p>
+        <nav className="flex justify-center gap-4">
+          {(["impressum", "datenschutz", "nutzungsbedingungen"] as const).map((page) => (
+            <a key={page} href={href(page)} className="text-muted underline-offset-4 hover:text-text hover:underline">
+              {t(({ impressum: "legal_imprint", datenschutz: "legal_privacy", nutzungsbedingungen: "legal_terms" } as const)[page])}
+            </a>
+          ))}
+        </nav>
+      </footer>
     </div>
   );
 }

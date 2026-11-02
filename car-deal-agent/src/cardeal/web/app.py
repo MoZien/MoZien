@@ -18,6 +18,8 @@ Environment:
   DATA_DIR            where the comparables cache lives (default ./data)
   APP_NAME            the name shown in the app (default AutoHalle)
   SCRAPE_MIN_DELAY / SCRAPE_MAX_DELAY  pause between requests to Kleinanzeigen in seconds
+  LEGAL_NAME, LEGAL_ADDRESS, LEGAL_EMAIL, LEGAL_PHONE, LEGAL_VAT_ID
+                      the operator for Impressum, privacy policy and terms (address lines split by ";")
 """
 
 from __future__ import annotations
@@ -124,6 +126,14 @@ def create_app(service: CarService | None = None, access: Access | None = None,
                jobs: JobManager | None = None) -> FastAPI:
     env = os.environ
     app_name = env.get("APP_NAME", "AutoHalle")
+    # Who runs the app, for Impressum and privacy policy (public on purpose).
+    legal = {
+        "name": env.get("LEGAL_NAME", "").strip(),
+        "address": [line.strip() for line in env.get("LEGAL_ADDRESS", "").split(";") if line.strip()],
+        "email": env.get("LEGAL_EMAIL", "").strip(),
+        "phone": env.get("LEGAL_PHONE", "").strip(),
+        "vat_id": env.get("LEGAL_VAT_ID", "").strip(),
+    }
     if access is None:
         secret = env.get("SECRET_KEY") or secrets.token_hex(32)
         mailer = mailer_from_env(env, app_name)
@@ -169,6 +179,7 @@ def create_app(service: CarService | None = None, access: Access | None = None,
             "ai_model": service.ai_model, "auth_required": not access.open, "login": access.methods,
             "account": {"id": current.id, "name": current.name, "email": current.email, "admin": current.admin,
                         "usage": access.usage(current)} if current else None,
+            "legal": legal,
             "makes": MAKES, "fuels": FUELS, "bodies": BODIES, "gearboxes": GEARBOXES,
             "defaults": Prefs().model_dump(), "hunt_defaults": HuntCriteria().model_dump(),
         }
@@ -213,6 +224,16 @@ def create_app(service: CarService | None = None, access: Access | None = None,
     def logout(response: Response):
         response.delete_cookie(COOKIE)
         return {"ok": True}
+
+    @app.post("/api/account/delete")
+    def delete_account(response: Response, current: Account = Depends(account)):
+        """Deletes what the server keeps about the account and signs it out. Saved cars, history and
+        settings live on the device; the app deletes them there."""
+        access.erase(current)
+        jobs.erase(current.id)
+        response.delete_cookie(COOKIE)
+        log.info("account deleted: %s", current.id)
+        return {"deleted": True}
 
     def start(kind: str, who: Account, steps: list[str], work) -> dict:
         job = jobs.submit(kind, who.id, steps, work)

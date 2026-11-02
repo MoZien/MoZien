@@ -1,7 +1,7 @@
-import { LogOut } from "lucide-react";
+import { LogOut, Trash2 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Button, Card, Disclosure, Field, Input, Note, NumberInput, Segmented, Select, Toggle, cx, useToast } from "../components/ui";
-import { ApiError, api, logout } from "../lib/api";
+import { ApiError, api, deleteAccount, logout } from "../lib/api";
 import { useApp } from "../lib/app";
 import { type TextKey, useT } from "../lib/i18n";
 import {
@@ -10,6 +10,7 @@ import {
   DEFAULT_UI,
   type Theme,
   compareStore,
+  eraseAccountData,
   exportData,
   garageStore,
   importData,
@@ -20,7 +21,9 @@ import {
   uiStore,
   useStore,
 } from "../lib/store";
+import { href, navigate } from "../lib/router";
 import type { Lang, Prefs } from "../lib/types";
+import { LEGAL_PAGES } from "./Legal";
 
 const ACCENTS: { value: Accent; color: string }[] = [
   { value: "orange", color: "#ff5a1f" },
@@ -28,6 +31,8 @@ const ACCENTS: { value: Accent; color: string }[] = [
   { value: "green", color: "#12a150" },
   { value: "mono", color: "#0f172a" },
 ];
+
+const LEGAL_LABEL = { impressum: "legal_imprint", datenschutz: "legal_privacy", nutzungsbedingungen: "legal_terms" } as const;
 
 /** A group of settings that opens on tap. */
 function Group({ title, children }: { title: string; children: ReactNode }) {
@@ -45,7 +50,27 @@ export function SettingsPage() {
   const prefs = useStore(prefsStore);
   const ui = useStore(uiStore);
   const file = useRef<HTMLInputElement>(null);
+  const [deleting, setDeleting] = useState(false);
   const set = (patch: Partial<Prefs>) => prefsStore.set((p) => ({ ...p, ...patch }));
+
+  /** Deletes the account on the server and its data on this device, then shows the sign-in. */
+  async function removeAccount() {
+    if (!window.confirm(t("delete_account_confirm"))) return;
+    setDeleting(true);
+    try {
+      await deleteAccount();
+    } catch (error) {
+      if (!(error instanceof ApiError && error.status === 401)) {
+        setDeleting(false);
+        toast(t("delete_account_failed"));
+        return;
+      }
+    }
+    eraseAccountData();
+    toast(t("account_deleted"));
+    navigate("login");
+    await refresh();
+  }
   const setUi = (patch: Partial<typeof ui>) => uiStore.set((u) => ({ ...u, ...patch }));
 
   // Percent values are stored as fractions (0.15) and shown as percent (15).
@@ -210,6 +235,15 @@ export function SettingsPage() {
               <Button variant="danger" onClick={confirm(() => { [savedStore, garageStore, searchesStore, seenStore, compareStore].forEach((s) => s.set([] as never)); })}>{t("clear_all")}</Button>
             </div>
           </Group>
+
+          {meta?.auth_required && meta.account && (
+            <Group title={t("sec_account")}>
+              <p className="text-sm text-muted">{t("delete_account_hint")}</p>
+              <Button variant="danger" icon={<Trash2 className="size-4" />} loading={deleting} onClick={removeAccount}>
+                {t("delete_account")}
+              </Button>
+            </Group>
+          )}
         </Card>
       </div>
 
@@ -227,6 +261,13 @@ export function SettingsPage() {
           <Button size="sm" variant="ghost" icon={<LogOut className="size-4" />} onClick={async () => { await logout(); await refresh(); }}>{t("logout")}</Button>
         )}
       </div>
+      <nav className="flex flex-wrap gap-x-4 gap-y-1 px-1 pb-2 text-sm">
+        {LEGAL_PAGES.map((page) => (
+          <a key={page} href={href(page)} className="text-muted underline-offset-4 hover:text-text hover:underline">
+            {t(LEGAL_LABEL[page])}
+          </a>
+        ))}
+      </nav>
     </div>
   );
 }

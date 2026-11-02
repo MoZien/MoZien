@@ -47,6 +47,7 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
 export const getMeta = () => api<Meta>("/api/meta");
 export const login = (code: string) => api<{ name: string; admin: boolean }>("/api/auth/login", { body: { code } });
 export const logout = () => api("/api/auth/logout", { method: "POST" });
+export const deleteAccount = () => api<{ deleted: boolean }>("/api/account/delete", { method: "POST" });
 
 /** Starts a job and polls it until it ends; `onUpdate` gets every state. Abort to cancel it on the server. */
 export async function runJob<T>(

@@ -257,6 +257,8 @@ export interface Meta {
   auth_required: boolean;
   login?: ("email" | "code")[];
   account: { id?: string; name: string; email?: string; admin: boolean; usage: Record<string, { used: number; limit: number }> } | null;
+  /** The operator, for Impressum and privacy policy. */
+  legal?: { name: string; address: string[]; email: string; phone: string; vat_id: string };
   makes: Record<string, string>;
   fuels: Record<string, string>;
   bodies: Record<string, string>;

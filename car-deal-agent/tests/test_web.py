@@ -532,3 +532,34 @@ def test_autohero_link_is_valued_against_kleinanzeigen(tmp_path):
     result = job["result"]
     assert fake.urls == [url] and result["listing"]["source"] == "autohero"
     assert result["valuation"]["market_price"] > 0
+
+
+def test_delete_account_erases_server_data_and_signs_out(tmp_path):
+    client, email = email_client(tmp_path)
+    client.post("/api/auth/email/start", json={"email": "kha@example.com"})
+    client.post("/api/auth/email/verify", json={"email": "kha@example.com", "code": code_of(email.mailer.sent[-1])})
+    assert analyze(client)["status"] == "done"
+    meta = client.get("/api/meta").json()
+    assert meta["account"]["usage"]["ai"]["used"] == 1
+    access = client.app.state.access
+    jobs = client.app.state.jobs
+    assert any(job.owner == meta["account"]["id"] for job in jobs.jobs.values())
+
+    assert client.post("/api/account/delete").json() == {"deleted": True}
+    assert client.get("/api/meta").json()["account"] is None  # signed out
+    assert client.post("/api/account/delete").status_code == 401
+    assert not any(key[0] == meta["account"]["id"] for key in access._usage)
+    assert not any(job.owner == meta["account"]["id"] for job in jobs.jobs.values())
+    assert "e:kha@example.com" not in email._sent
+    # the address can sign in again (new, empty account), without waiting for the resend pause
+    assert client.post("/api/auth/email/start", json={"email": "kha@example.com"}).json()["sent"] is True
+
+
+def test_operator_details_for_impressum(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEGAL_NAME", "Max Muster")
+    monkeypatch.setenv("LEGAL_ADDRESS", "Musterstr. 1; 12345 Musterstadt")
+    monkeypatch.setenv("LEGAL_EMAIL", "kontakt@example.com")
+    client, _ = make_client(tmp_path=tmp_path)
+    legal = client.get("/api/meta").json()["legal"]
+    assert legal == {"name": "Max Muster", "address": ["Musterstr. 1", "12345 Musterstadt"],
+                     "email": "kontakt@example.com", "phone": "", "vat_id": ""}

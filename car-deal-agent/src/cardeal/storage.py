@@ -93,6 +93,17 @@ class Store:
         self.db.commit()
 
     @_locked
+    def prune(self, before: datetime) -> int:
+        """Deletes ads not seen since `before` (they no longer count for any price) and what refers
+        to them. Returns how many ads went."""
+        cutoff = before.isoformat()
+        gone = self.db.execute("DELETE FROM listings WHERE last_seen < ?", (cutoff,)).rowcount
+        self.db.execute("DELETE FROM comparable_sets WHERE listing_id NOT IN (SELECT id FROM listings)")
+        self.db.execute("DELETE FROM comparables_fetched WHERE fetched_at < ?", (cutoff,))
+        self.db.commit()
+        return gone
+
+    @_locked
     def comparables_fetched_at(self, key: str) -> datetime | None:
         row = self.db.execute("SELECT fetched_at FROM comparables_fetched WHERE key = ?", (key,)).fetchone()
         return datetime.fromisoformat(row["fetched_at"]) if row else None

@@ -6,15 +6,16 @@ from __future__ import annotations
 import logging
 import os
 import statistics
+import time
 from dataclasses import asdict, fields
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 import anthropic
 import requests
 
 from cardeal.analyzer import AnalysisError, ListingAnalyzer, costed_issues, repair_costs
-from cardeal.config import AISettings, ScraperSettings
+from cardeal.config import AISettings, ScraperSettings, ValuationSettings
 from cardeal.flip import decide, estimate_flip
 from cardeal.geo import road_km, zip_of
 from cardeal.models import Comparable, Listing, Valuation
@@ -136,6 +137,8 @@ class CarService:
                  scraper: ScraperSettings | None = None, source=None, ai_client=None, autoscout24=None,
                  autohero=None):
         self.store = Store(store_path)
+        self._pruned_at = 0.0
+        self._prune()
         self.source = source or KleinanzeigenSource(scraper or ScraperSettings())
         self.autoscout24 = autoscout24 or AutoScout24Source(scraper or ScraperSettings())
         self.autohero = autohero or AutoheroSource(scraper or ScraperSettings())
@@ -171,7 +174,18 @@ class CarService:
 
     # --- the three jobs ---------------------------------------------------------------------------
 
+    def _prune(self) -> None:
+        """Ads older than the price lookback no longer count: delete them (at most once a day)."""
+        if time.monotonic() - self._pruned_at < 86_400 and self._pruned_at:
+            return
+        self._pruned_at = time.monotonic()
+        days = ValuationSettings().lookback_days
+        gone = self.store.prune(datetime.now() - timedelta(days=days))
+        if gone:
+            log.info("cache: %d ads older than %d days deleted", gone, days)
+
     def _hunter(self, prefs: Prefs, job: Job | None, searches=None, exclude_places=()) -> DealHunter:
+        self._prune()
         config = prefs.config(self.ai_model, searches)
         config.filters.exclude_places = list(exclude_places)
         return DealHunter(config, TrackedSource(self.source, job), self.store)

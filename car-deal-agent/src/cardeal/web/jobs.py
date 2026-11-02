@@ -137,6 +137,19 @@ class JobManager:
         job.cancel_event.set()
         return True
 
+    def erase(self, owner: str) -> None:
+        """Account deleted: its finished jobs (and their results) go now; running ones are stopped
+        and no longer belong to anyone, so nobody can read them until they are cleaned up."""
+        with self.lock:
+            for job_id in [j for j, job in self.jobs.items() if job.owner == owner]:
+                job = self.jobs[job_id]
+                if job.status in ("queued", "running"):
+                    job.cancel_event.set()
+                    job.owner = ""
+                else:
+                    del self.jobs[job_id]
+                    self.order.remove(job_id)
+
     def _forget_old(self) -> None:
         cutoff = time.time() - JOB_TTL_SECONDS
         for job_id in [j for j, job in self.jobs.items() if job.updated < cutoff and job.status not in ("queued", "running")]:

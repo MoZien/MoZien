@@ -37,6 +37,15 @@ services:
         sync: false
       - key: ADMIN_EMAILS        # your own address: no daily limit, AI check in the settings
         sync: false
+      # Impressum and privacy policy: who runs the app (address lines separated by ";")
+      - key: LEGAL_NAME
+        sync: false
+      - key: LEGAL_ADDRESS
+        sync: false
+      - key: LEGAL_EMAIL
+        sync: false
+      - key: LEGAL_PHONE
+        sync: false
       - key: ALLOWED_EMAILS      # empty = anyone may sign up; or name@x.de,@company.de
         sync: false
       - key: ACCESS_CODES        # optional second way in: name:code,name:code ...

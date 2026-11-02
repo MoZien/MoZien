@@ -104,6 +104,19 @@ export function accountScope() {
   return scope;
 }
 
+/** Deletes everything the signed-in account keeps on this device (saved cars, history, garage,
+ *  searches, hunt) and the remembered sign-in. Device settings (language, theme) stay. */
+export function eraseAccountData() {
+  try {
+    const suffix = `@${scope}`;
+    for (const key of Object.keys(localStorage)) if (key.endsWith(suffix)) localStorage.removeItem(key);
+    localStorage.removeItem("ah.meta");
+  } catch {
+    /* storage blocked: nothing stored */
+  }
+  scoped.forEach((store) => store.reload());
+}
+
 function adoptLegacyData(owner: string) {
   try {
     if (localStorage.getItem(LEGACY_OWNER)) return;

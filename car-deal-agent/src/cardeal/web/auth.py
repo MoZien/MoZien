@@ -122,6 +122,12 @@ class EmailLogin:
             by_ip.append(now)
         return email, code
 
+    def erase(self, email: str) -> None:
+        """Account deleted: a pending code and the address's send times go (the per-IP limit stays)."""
+        with self._lock:
+            self._pending.pop(email, None)
+            self._sent.pop(f"e:{email}", None)
+
     def forget(self, email: str) -> None:
         """The code could not be sent: let the user try again right away."""
         with self._lock:
@@ -230,6 +236,16 @@ class Access:
             if not account.admin:
                 self._usage[total] = self._usage.get(total, 0) + 1
             return True
+
+    def erase(self, account: Account) -> None:
+        """Deletes what the server keeps about an account: its usage counts and, for an email
+        account, its sign-in data. The day totals of all accounts together stay (no person in them)."""
+        with self._lock:
+            for key in [key for key in self._usage if key[0] == account.id]:
+                del self._usage[key]
+            self._names.pop(account.id, None)
+        if self.email is not None and account.email:
+            self.email.erase(account.email)
 
     def usage(self, account: Account) -> dict:
         today = date.today().isoformat()

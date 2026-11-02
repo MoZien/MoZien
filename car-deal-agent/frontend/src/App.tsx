@@ -25,6 +25,7 @@ import { HelpPage } from "./pages/Help";
 import { HuntPage } from "./pages/Hunt";
 import { LoginPage } from "./pages/Login";
 import { Onboarding } from "./pages/Onboarding";
+import { LEGAL_PAGES, type LegalKind, LegalPage } from "./pages/Legal";
 import { SavedPage } from "./pages/Saved";
 import { SettingsPage } from "./pages/Settings";
 import { ToolsPage } from "./pages/Tools";
@@ -52,7 +53,8 @@ const MORE: NavItem[] = [
   { page: "settings", label: "nav_settings", icon: (c) => <SettingsIcon className={c} />, tint: "bg-surface-2 text-muted" },
   { page: "help", label: "nav_help", icon: (c) => <CircleHelp className={c} />, tint: "bg-accent/12 text-accent" },
 ];
-const PAGES = new Set([...MAIN, ...MORE].map((item) => item.page));
+const PAGES = new Set<string>([...MAIN, ...MORE].map((item) => item.page));
+const isLegal = (page: string): page is LegalKind => (LEGAL_PAGES as string[]).includes(page);
 
 function useApplyUi() {
   const ui = useStore(uiStore);
@@ -125,15 +127,26 @@ function Shell() {
   }, [meta, needsLogin]);
   const [moreOpen, setMoreOpen] = useState(false);
   const start = PAGES.has(ui.startPage) ? ui.startPage : "analyze";
-  const page = PAGES.has(route.page) ? route.page : start;
+  const page = PAGES.has(route.page) || isLegal(route.page) ? route.page : start;
   const appName = meta?.app_name ?? "AutoHalle";
 
   useEffect(() => {
     const item = [...MAIN, ...MORE].find((n) => n.page === page);
-    document.title = item ? `${t(item.label)} · ${appName}` : appName;
+    const legal = { impressum: "legal_imprint", datenschutz: "legal_privacy", nutzungsbedingungen: "legal_terms" } as const;
+    const label = item ? t(item.label) : isLegal(page) ? t(legal[page]) : null;
+    document.title = label ? `${label} · ${appName}` : appName;
   }, [page, appName, t]);
 
-  if (needsLogin) return <LoginPage />;
+  // Impressum, privacy policy and terms can be read before signing in.
+  if (needsLogin) {
+    return isLegal(page) ? (
+      <main className="mx-auto max-w-2xl px-4 pb-10 pt-[max(1.5rem,env(safe-area-inset-top))]">
+        <LegalPage kind={page} back={href("login")} />
+      </main>
+    ) : (
+      <LoginPage />
+    );
+  }
 
   const favorites = saved.filter((car) => car.favorite).length;
   const content = (() => {
@@ -154,6 +167,10 @@ function Shell() {
         return <SettingsPage />;
       case "help":
         return <HelpPage />;
+      case "impressum":
+      case "datenschutz":
+      case "nutzungsbedingungen":
+        return <LegalPage kind={page} />;
       default:
         return <AnalyzePage route={route} />;
     }

@@ -191,6 +191,13 @@ The tests use synthetic HTML fixtures and fakes for the marketplace, Claude and 
 - **Asking prices, not sale prices.** `resale_factor` covers the gap; tune it with your own sales.
 - **Variants are mixed.** A Golf GTI and a Golf 1.2 TSI share one segment. Make separate searches (`query: "gti"`, `fuel`, `gearbox`) for variants that matter.
 - **The AI only sees the ad text.** It cannot replace a test drive, an OBD scan or a look underneath the car.
+- **Impressum, privacy policy, terms.** The web app has them under `#/impressum`, `#/datenschutz`
+  and `#/nutzungsbedingungen` (also before sign-in). The operator's details come from `LEGAL_NAME`,
+  `LEGAL_ADDRESS` (lines separated by `;`), `LEGAL_EMAIL` and optionally `LEGAL_PHONE` /
+  `LEGAL_VAT_ID`. The texts describe what the app does as built (Render in Frankfurt, Gmail for the
+  codes, Anthropic for the AI, no tracking, fonts served by the app, ads cached for at most 60 days);
+  they are a starting point, not legal advice. "Konto löschen" in the settings removes what the
+  server keeps about an account and the account's data on that device.
 - **Flipping as a business.** Buying and reselling cars regularly is a trade in Germany: you need a Gewerbeanmeldung, a dealer cannot exclude warranty (Sachmängelhaftung) when selling to consumers, and the margin scheme under §25a UStG applies (`deal.vat_margin_scheme: true`). Factor in income tax and insurance as well.
 
 ## Project structure
