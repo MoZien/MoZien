@@ -69,3 +69,10 @@ def test_verdicts_for_buying_to_keep():
     assert verdict(car(price=6_500), valuation=low)[0] == "check"
     _, reasons, score = verdict(car(price=13_000))
     assert score <= 30 and "über dem Marktpreis" in reasons[0]
+
+
+def test_the_most_to_pay_never_exceeds_the_market_price():
+    from cardeal.personal import offer_range
+    assert offer_range(2_899, 2_380, "overpriced", True) == (2_150, 2_350)
+    assert offer_range(None, 2_380, "unknown", True) == (2_150, 2_350)
+    assert offer_range(2_899, 3_500, "good", True)[1] == 2_899  # a good price: the asking price itself

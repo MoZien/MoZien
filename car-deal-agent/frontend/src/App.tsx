@@ -6,6 +6,7 @@ import {
   Columns3,
   Gauge,
   Heart,
+  Loader2,
   Menu,
   Radar,
   ScanSearch,
@@ -15,7 +16,7 @@ import {
 import { type ReactNode, useEffect, useState } from "react";
 import { Modal, ToastProvider, cx } from "./components/ui";
 import { useApp } from "./lib/app";
-import { type TextKey, useT } from "./lib/i18n";
+import { type TextKey, translate, useT } from "./lib/i18n";
 import { href, useRoute } from "./lib/router";
 import { prefsStore, savedStore, uiStore, useStore } from "./lib/store";
 import { AnalyzePage } from "./pages/Analyze";
@@ -67,6 +68,7 @@ function useApplyUi() {
   }, [ui.theme, ui.accent]);
   useEffect(() => {
     document.documentElement.lang = prefs.language;
+    document.querySelector('meta[name="description"]')?.setAttribute("content", translate(prefs.language, "meta_description"));
     document.documentElement.dir = prefs.language === "ar" ? "rtl" : "ltr";
   }, [prefs.language]);
 }
@@ -75,7 +77,34 @@ export default function App() {
   return (
     <ToastProvider>
       <Shell />
+      <StatusPill />
     </ToastProvider>
+  );
+}
+
+/** "Server is starting" while the free server wakes up, or "new version" after a deploy. */
+function StatusPill() {
+  const { waking, updateReady } = useApp();
+  const t = useT();
+  if (!waking && !updateReady) return null;
+  return (
+    <div className="no-print pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+64px)] z-50 flex justify-center px-4 lg:top-4">
+      <div className="animate-fade-up pointer-events-auto flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-2 text-sm shadow-lg">
+        {waking ? (
+          <>
+            <Loader2 className="size-4 animate-spin text-muted" />
+            <span>{t("server_waking")}</span>
+          </>
+        ) : (
+          <>
+            <span>{t("update_ready")}</span>
+            <button className="cursor-pointer font-semibold underline-offset-4 hover:underline" onClick={() => window.location.reload()}>
+              {t("reload")}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 

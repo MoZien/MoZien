@@ -1,7 +1,7 @@
 import { LogOut } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Button, Card, Disclosure, Field, Input, Note, NumberInput, Segmented, Select, Toggle, cx, useToast } from "../components/ui";
-import { logout } from "../lib/api";
+import { ApiError, api, logout } from "../lib/api";
 import { useApp } from "../lib/app";
 import { type TextKey, useT } from "../lib/i18n";
 import {
@@ -163,6 +163,7 @@ export function SettingsPage() {
 
           <Group title={t("sec_ai")}>
             {meta && !meta.ai_available && <Note tone="warn">{t("ai_unavailable_note")}</Note>}
+            {meta && (meta.account?.admin || !meta.auth_required) && <AiCheck />}
             <Toggle checked={prefs.ai_enabled} onChange={(ai_enabled) => set({ ai_enabled })} label={t("s_ai")} />
             <Toggle checked={prefs.ai_in_hunt} onChange={(ai_in_hunt) => set({ ai_in_hunt })} label={t("s_ai_hunt")} />
             <Field label={t("s_ai_effort")}>
@@ -214,7 +215,7 @@ export function SettingsPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-faint">
         <span>
-          {meta?.account?.name && <span className="font-medium text-muted">{meta.account.name} · </span>}
+          {meta?.account?.name && <span className="font-medium text-muted">{t("signed_in_as")} {meta.account.name} · </span>}
           {meta?.account?.usage && (
             <span>
               {t("ai_usage")}: <span className="num">{meta.account.usage.ai.used}/{meta.account.usage.ai.limit}</span> ·{" "}
@@ -226,6 +227,38 @@ export function SettingsPage() {
           <Button size="sm" variant="ghost" icon={<LogOut className="size-4" />} onClick={async () => { await logout(); await refresh(); }}>{t("logout")}</Button>
         )}
       </div>
+    </div>
+  );
+}
+
+/** For the owner: one tiny request that shows whether key, credit and model work. */
+function AiCheck() {
+  const t = useT();
+  const prefs = useStore(prefsStore);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; model: string; reason?: string; detail?: string } | null>(null);
+  async function run() {
+    setBusy(true);
+    setResult(null);
+    try {
+      setResult(await api("/api/admin/ai-check", { body: { prefs } }));
+    } catch (err) {
+      setResult({ ok: false, model: "", reason: err instanceof ApiError ? err.code : "other" });
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="space-y-2">
+      <Button size="sm" loading={busy} onClick={run}>
+        {t("ai_check")}
+      </Button>
+      {result && (
+        <Note tone={result.ok ? "good" : "bad"}>
+          {result.ok ? t("ai_check_ok", { model: result.model }) : t(`ai_reason_${result.reason ?? "other"}` as TextKey)}
+          {result.detail && <span className="mt-1 block break-all text-xs opacity-80" dir="ltr">{result.detail}</span>}
+        </Note>
+      )}
     </div>
   );
 }

@@ -58,6 +58,9 @@ class PersonalEstimate:
     reasons: list[str] = field(default_factory=list)
 
 
+ROUND_TO = 50
+
+
 def _round_to(value: float, step: int = 50) -> int:
     return int(round(value / step) * step)
 
@@ -101,7 +104,7 @@ def offer_range(asking: int | None, market: int, rating: str, negotiable: bool) 
     """(first offer, most to pay). A cheap car is worth paying quickly; an expensive one is worth
     the market price at most."""
     if asking is None:
-        return _round_to(market * 0.9), _round_to(market)
+        return _round_to(market * 0.9), int(market // ROUND_TO * ROUND_TO)
     if rating == "steal":
         start, top = asking * 0.97, asking
     elif rating == "good":
@@ -112,7 +115,10 @@ def offer_range(asking: int | None, market: int, rating: str, negotiable: bool) 
         start, top = market * 0.90, market
     if not negotiable:
         start = max(start, top * 0.95)  # a fixed price leaves less room
-    return _round_to(min(start, top)), _round_to(top)
+    # The ceiling is the asking price itself or the market price rounded down: rounding up would
+    # tell the buyer to pay more than the market.
+    ceiling = asking if top == asking else int(top // ROUND_TO * ROUND_TO)
+    return min(_round_to(start), ceiling), ceiling
 
 
 def estimate_personal(

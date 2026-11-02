@@ -1,7 +1,7 @@
 {
   "name": "AutoHalle – Gebrauchtwagen-Check",
   "short_name": "AutoHalle",
-  "description": "Used-car deals from Kleinanzeigen, valued against the real market.",
+  "description": "Gebrauchtwagen von Kleinanzeigen prüfen: Marktpreis, Empfehlung und KI-Bericht.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -29,5 +29,6 @@
       "sizes": "any",
       "type": "image/svg+xml"
     }
-  ]
+  ],
+  "lang": "de"
 }

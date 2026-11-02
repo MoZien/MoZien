@@ -125,11 +125,24 @@ cd frontend && npm ci && npm run build && cd ..
 cardeal-web                      # http://localhost:8000 (dev UI with hot reload: cd frontend && npm run dev)
 ```
 
-Environment variables: `ANTHROPIC_API_KEY`, `AI_MODEL` (default `claude-sonnet-5-5`),
-`ACCESS_CODES` (`name:code,name:code`; empty = open, the daily allowance is then shared by all
-visitors), `ADMIN_CODE` (no daily limit, usage report at `/api/admin/usage`), `SECRET_KEY`,
-`AI_DAILY_LIMIT` (40), `CHAT_DAILY_LIMIT` (150), `APP_NAME`, `DATA_DIR`, `SCRAPE_MIN_DELAY` /
-`SCRAPE_MAX_DELAY`. API docs at `/api/docs`.
+**Sign-in.** Users type their email address and get a six-digit code (and a one-tap link) by
+email; the session lasts 30 days. Sending works through Gmail (`GMAIL_USER` + `GMAIL_APP_PASSWORD`,
+an [app password](https://myaccount.google.com/apppasswords) of an account with 2-step verification)
+or through [Brevo](https://www.brevo.com)'s HTTPS API (`BREVO_API_KEY` + `MAIL_FROM`, free up to 300
+mails a day). `ALLOWED_EMAILS` limits who may sign up (`name@x.de,@company.de`; empty = anyone),
+`ADMIN_EMAILS` names the owner (no daily limit, "Test the AI" in the settings). Access codes
+(`ACCESS_CODES`, `ADMIN_CODE`) still work as a second way in. Without mail and codes the app is open.
+
+Other environment variables: `ANTHROPIC_API_KEY`, `AI_MODEL` (default `claude-sonnet-5-5`),
+`SECRET_KEY`, `AI_DAILY_LIMIT` (40 per user), `CHAT_DAILY_LIMIT` (150), `AI_GLOBAL_LIMIT` (400 for
+all users together), `CHAT_GLOBAL_LIMIT` (3000), `JOB_WORKERS` (analyses at the same time, default 2;
+requests to Kleinanzeigen stay one at a time), `PUBLIC_URL` (address used in the email link),
+`APP_NAME`, `DATA_DIR`, `SCRAPE_MIN_DELAY` / `SCRAPE_MAX_DELAY`. API docs at `/api/docs`.
+
+**How many users at once?** Browsing, saved cars and the chat are not limited by the app. Analyses
+go through a queue: `JOB_WORKERS` run at the same time (each takes about 10–40 seconds, most of it
+waiting politely between requests to Kleinanzeigen and for the AI), the rest wait their turn with
+their place shown. A user can have at most 3 analyses waiting.
 
 ### Online with Render
 
@@ -137,11 +150,14 @@ visitors), `ADMIN_CODE` (no daily limit, usage report at `/api/admin/usage`), `S
 
 1. <https://dashboard.render.com> → **New** → **Blueprint** → connect GitHub and pick this
    repository and branch.
-2. Enter `ANTHROPIC_API_KEY`, `ACCESS_CODES` (the codes you hand to your users) and `ADMIN_CODE`.
+2. Enter `ANTHROPIC_API_KEY`, the mail settings (above) and `ADMIN_EMAILS`.
 3. **Deploy Blueprint**. After the first build (a few minutes) the app runs at the
    `https://….onrender.com` address Render shows; every push to the branch redeploys it.
 
-The free instance sleeps after 15 idle minutes; the first visit afterwards takes about a minute.
+On the free plan the instance sleeps after 15 idle minutes. The app still opens at once on the
+phone (the service worker keeps the app itself) and shows "server is starting" while the first
+request wakes it (about a minute); outgoing SMTP is blocked there, so use Brevo for the mails. The
+**Starter** plan (about 7 $ a month) keeps the server awake and allows Gmail.
 Kleinanzeigen may block data-centre IPs; if the app reports "blocked", run it on a machine at home.
 
 ## Costs

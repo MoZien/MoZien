@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import sqlite3
+import threading
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
@@ -50,15 +52,25 @@ CREATE TABLE IF NOT EXISTS reports (
 """
 
 
+def _locked(method):
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+    return wrapper
+
+
 class Store:
     def __init__(self, path: str | Path):
         if str(path) != ":memory:":
             Path(path).parent.mkdir(parents=True, exist_ok=True)
-        # The web app opens it in one thread and uses it from its job worker thread.
+        # The web app opens it in one thread and uses it from several job threads: one at a time.
+        self._lock = threading.RLock()
         self.db = sqlite3.connect(str(path), check_same_thread=False)
         self.db.row_factory = sqlite3.Row
         self.db.executescript(SCHEMA)
 
+    @_locked
     def upsert(self, listing: Listing, segment: str, now: datetime) -> None:
         self.db.execute(
             """
@@ -80,10 +92,12 @@ class Store:
         )
         self.db.commit()
 
+    @_locked
     def comparables_fetched_at(self, key: str) -> datetime | None:
         row = self.db.execute("SELECT fetched_at FROM comparables_fetched WHERE key = ?", (key,)).fetchone()
         return datetime.fromisoformat(row["fetched_at"]) if row else None
 
+    @_locked
     def mark_comparables_fetched(self, key: str, now: datetime) -> None:
         self.db.execute(
             "INSERT INTO comparables_fetched (key, fetched_at) VALUES (?, ?) "
@@ -92,9 +106,11 @@ class Store:
         )
         self.db.commit()
 
+    @_locked
     def has_segment(self, segment: str) -> bool:
         return self.db.execute("SELECT 1 FROM listings WHERE segment = ? LIMIT 1", (segment,)).fetchone() is not None
 
+    @_locked
     def add_to_set(self, key: str, listing_ids: list[str]) -> None:
         """Remembers which ads a comparables search (key = its URL) returned."""
         self.db.executemany(
@@ -103,6 +119,7 @@ class Store:
         )
         self.db.commit()
 
+    @_locked
     def comparable_set(self, key: str, since: datetime) -> list[Listing]:
         rows = self.db.execute(
             "SELECT l.* FROM listings l JOIN comparable_sets c ON c.listing_id = l.id "
@@ -111,6 +128,7 @@ class Store:
         )
         return self._listings(rows)
 
+    @_locked
     def comparable_groups(self, since: datetime) -> list[list[Listing]]:
         """Every stored comparables search with its ads seen since `since` (for the regional price level)."""
         rows = self.db.execute(
@@ -123,6 +141,7 @@ class Store:
             groups.setdefault(row["set_key"], []).extend(self._listings([row]))
         return list(groups.values())
 
+    @_locked
     def comparables(self, segment: str, since: datetime) -> list[Listing]:
         rows = self.db.execute(
             "SELECT * FROM listings WHERE segment = ? AND last_seen >= ?",
@@ -141,6 +160,7 @@ class Store:
             for r in rows
         ]
 
+    @_locked
     def needs_evaluation(self, listing: Listing) -> bool:
         """New listings and price drops get evaluated; everything else was seen already."""
         row = self.db.execute("SELECT evaluated_price FROM listings WHERE id = ?", (listing.id,)).fetchone()
@@ -148,10 +168,12 @@ class Store:
             return True
         return listing.price is not None and listing.price < row["evaluated_price"]
 
+    @_locked
     def mark_evaluated(self, listing: Listing) -> None:
         self.db.execute("UPDATE listings SET evaluated_price = ? WHERE id = ?", (listing.price, listing.id))
         self.db.commit()
 
+    @_locked
     def save_report(self, report: DealReport, now: datetime) -> None:
         data = asdict(report)
         if report.analysis is not None:
@@ -163,6 +185,7 @@ class Store:
         )
         self.db.commit()
 
+    @_locked
     def recent_reports(self, limit: int = 10, verdicts: tuple[str, ...] = ("deal", "check")) -> list[dict]:
         placeholders = ",".join("?" for _ in verdicts)
         rows = self.db.execute(
@@ -172,5 +195,6 @@ class Store:
         )
         return [json.loads(r["report_json"]) for r in rows]
 
+    @_locked
     def close(self) -> None:
         self.db.close()

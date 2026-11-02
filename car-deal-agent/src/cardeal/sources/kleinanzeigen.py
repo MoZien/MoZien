@@ -12,6 +12,7 @@ import json
 import logging
 import random
 import re
+import threading
 import time
 import unicodedata
 from collections.abc import Callable
@@ -299,15 +300,20 @@ class KleinanzeigenSource:
             {"User-Agent": USER_AGENT, "Accept-Language": "de-DE,de;q=0.9"}
         )
         self._sleep = sleep
+        self._lock = threading.Lock()
         self._has_requested = False
         self._location_ids: dict[str, str | None] = {}
 
     def _get(self, url: str) -> str:
-        # Stay slow and polite: a random pause before every request but the first.
-        if self._has_requested:
-            self._sleep(random.uniform(self.settings.min_delay_seconds, self.settings.max_delay_seconds))
-        self._has_requested = True
+        # Stay slow and polite: one request at a time (also with several jobs running), with a
+        # random pause before every request but the first.
+        with self._lock:
+            if self._has_requested:
+                self._sleep(random.uniform(self.settings.min_delay_seconds, self.settings.max_delay_seconds))
+            self._has_requested = True
+            return self._fetch(url)
 
+    def _fetch(self, url: str) -> str:
         for attempt in range(3):
             response = self.session.get(url, timeout=self.settings.timeout_seconds)
             if response.status_code in (403, 429):

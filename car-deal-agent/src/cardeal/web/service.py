@@ -4,6 +4,7 @@ extras. All of it reuses the valuation, flip and personal code of the Telegram b
 from __future__ import annotations
 
 import logging
+import os
 import statistics
 from dataclasses import asdict, fields
 from datetime import datetime
@@ -46,6 +47,32 @@ FUELS = {"benzin": "Benzin", "diesel": "Diesel", "elektro": "Elektro", "hybrid":
 BODIES = {"kleinwagen": "Kleinwagen", "limousine": "Limousine", "kombi": "Kombi", "suv": "SUV/Geländewagen",
           "coupe": "Coupé", "cabrio": "Cabrio", "bus": "Van/Bus", "andere": "Andere"}
 GEARBOXES = {"manuell": "Manuell", "automatik": "Automatik"}
+
+
+def ai_error_reason(exc: BaseException) -> str:
+    """Why an AI call failed, as a code the app can explain in the user's language."""
+    if isinstance(exc, AnalysisError):
+        return "refused" if "declined" in str(exc) else "output"
+    if isinstance(exc, (anthropic.AuthenticationError, anthropic.PermissionDeniedError)):
+        return "key"
+    if isinstance(exc, anthropic.NotFoundError):
+        return "model"
+    if isinstance(exc, anthropic.RateLimitError):
+        return "rate"
+    if isinstance(exc, anthropic.APIConnectionError):  # includes timeouts
+        return "network"
+    if isinstance(exc, anthropic.BadRequestError):
+        text = str(exc).lower()
+        return "credit" if "credit" in text or "billing" in text else "request"
+    if isinstance(exc, anthropic.APIStatusError) and exc.status_code >= 500:
+        return "busy"
+    return "other"
+
+
+def clean_api_key(raw: str | None) -> str | None:
+    """A key pasted into a dashboard often carries spaces, quotes or a line break."""
+    key = (raw or "").strip().strip("\"'").strip()
+    return key or None
 
 
 class TrackedSource:
@@ -111,7 +138,8 @@ class CarService:
         if not self._ai_checked:
             self._ai_checked = True
             try:
-                client = anthropic.Anthropic()
+                key = clean_api_key(os.environ.get("ANTHROPIC_API_KEY"))
+                client = anthropic.Anthropic(api_key=key) if key else anthropic.Anthropic()
                 if client.api_key or client.auth_token:
                     self._ai_client = client
             except anthropic.AnthropicError as exc:
@@ -267,7 +295,7 @@ class CarService:
         result: dict[str, Any] = {
             "purpose": prefs.purpose, "listing": self.listing_json(listing, prefs),
             "valuation": self.valuation_json(valuation), "trade": None, "personal": None,
-            "analysis": None, "analysis_kind": None, "ai_status": "off", "costed_issues": [],
+            "analysis": None, "analysis_kind": None, "ai_status": "off", "ai_error": None, "costed_issues": [],
             "created_at": datetime.now().isoformat(timespec="seconds"),
         }
         if valuation.market_price is None:
@@ -317,8 +345,9 @@ class CarService:
             else:
                 estimate = estimate_personal(listing, valuation, prefs.personal(), config.deal, trip=config.trip)
                 analysis = analyzer.analyze_personal(listing, valuation, estimate, prefs.buyer())
-        except (AnalysisError, anthropic.APIError) as exc:
-            log.warning("AI review failed for %s: %s", listing.url, exc)
+        except Exception as exc:  # the numbers stand without the AI; say why it is missing
+            log.warning("AI review failed for %s: %r", listing.url, exc, exc_info=True)
+            result["ai_error"] = ai_error_reason(exc)
             if job is not None:
                 job.step("ai", "failed")
             return "failed"
@@ -337,10 +366,14 @@ class CarService:
             raise UserFacingError("ai_unavailable")
         if not self.access.use(account, "chat"):
             raise UserFacingError("quota")
+        conversation = chat_messages(messages)
+        if not conversation:
+            raise UserFacingError("bad_input")
         try:
-            return analyzer.chat(chat_context(context), messages)
-        except (AnalysisError, anthropic.APIError) as exc:
-            raise UserFacingError("ai_failed", message=str(exc)[:200]) from None
+            return analyzer.chat(chat_context(context), conversation)
+        except Exception as exc:
+            log.warning("AI chat failed: %r", exc, exc_info=True)
+            raise UserFacingError("ai_failed", reason=ai_error_reason(exc)) from None
 
     def scan_text(self, text: str, prefs: Prefs, account: Account) -> dict:
         analyzer = self.analyzer(prefs)
@@ -350,8 +383,21 @@ class CarService:
             raise UserFacingError("quota")
         try:
             return analyzer.scan_text(text).model_dump()
-        except (AnalysisError, anthropic.APIError) as exc:
-            raise UserFacingError("ai_failed", message=str(exc)[:200]) from None
+        except Exception as exc:
+            log.warning("AI text scan failed: %r", exc, exc_info=True)
+            raise UserFacingError("ai_failed", reason=ai_error_reason(exc)) from None
+
+    def ai_check(self, prefs: Prefs) -> dict:
+        """One tiny request with the app's settings: tells the owner whether key, credit and model work."""
+        analyzer = self.analyzer(prefs)
+        if analyzer is None:
+            return {"ok": False, "reason": "unavailable", "model": self.ai_model}
+        try:
+            answer = analyzer.chat("(connection test)", [{"role": "user", "content": "Reply with the word OK."}])
+        except Exception as exc:
+            log.warning("AI check failed: %r", exc, exc_info=True)
+            return {"ok": False, "reason": ai_error_reason(exc), "model": self.ai_model, "detail": str(exc)[:300]}
+        return {"ok": True, "model": self.ai_model, "answer": answer[:40]}
 
     # --- JSON ---------------------------------------------------------------------------------------
 
@@ -375,6 +421,23 @@ class CarService:
         if valuation.used:
             data["median"] = round(statistics.median(c.adjusted for c in valuation.used), -1)
         return data
+
+
+def chat_messages(messages: list[dict]) -> list[dict]:
+    """The conversation as the API takes it: starts with the user and alternates (a trimmed
+    history can start with an answer; two questions in a row are merged)."""
+    cleaned: list[dict] = []
+    for message in messages:
+        content = str(message.get("content", "")).strip()
+        if not content or (not cleaned and message.get("role") != "user"):
+            continue
+        if cleaned and cleaned[-1]["role"] == message["role"]:
+            cleaned[-1]["content"] += "\n\n" + content
+        else:
+            cleaned.append({"role": message["role"], "content": content})
+    while cleaned and cleaned[-1]["role"] != "user":
+        cleaned.pop()
+    return cleaned
 
 
 def chat_context(result: dict) -> str:

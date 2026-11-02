@@ -250,3 +250,159 @@ def test_one_user_cannot_flood_the_queue(tmp_path, code):
         jobs.submit("x", "u", [], lambda job: None)
     assert exc.value.code == code
     gate.set()
+
+
+class FailingClaude(FakeClaude):
+    """Raises the given error on every request, like the real API with a bad key or no credit."""
+
+    def __init__(self, error):
+        super().__init__()
+        self.error = error
+        self.beta = SimpleNamespace(messages=SimpleNamespace(create=self._fail, parse=self._fail))
+
+    def _fail(self, **request):
+        raise self.error
+
+
+def api_error(cls, status, message):
+    import httpx
+    response = httpx.Response(status, request=httpx.Request("POST", "https://api.anthropic.com/v1/messages"),
+                              json={"type": "error", "error": {"type": "x", "message": message}})
+    return cls(message, response=response, body=None)
+
+
+@pytest.mark.parametrize(("error", "reason"), [
+    ("auth", "key"), ("credit", "credit"), ("model", "model"), ("network", "network"), ("boom", "other"),
+])
+def test_ai_failures_say_why(tmp_path, error, reason):
+    import anthropic
+    import httpx
+    errors = {
+        "auth": api_error(anthropic.AuthenticationError, 401, "invalid x-api-key"),
+        "credit": api_error(anthropic.BadRequestError, 400, "Your credit balance is too low to access the API."),
+        "model": api_error(anthropic.NotFoundError, 404, "model: claude-x"),
+        "network": anthropic.APIConnectionError(request=httpx.Request("POST", "https://api.anthropic.com")),
+        "boom": ValueError("Illegal header value"),
+    }
+    client, service = make_client(tmp_path=tmp_path)
+    result = analyze(client)["result"]
+    service._ai_client = FailingClaude(errors[error])
+    response = client.post("/api/ai/chat", json={"context": result, "messages": [{"role": "user", "content": "Hi?"}]})
+    assert response.status_code == 400
+    assert response.json()["error"] == {"code": "ai_failed", "reason": reason}
+    evaluated = client.post("/api/evaluate", json={"listing": result["listing"], "valuation": result["valuation"],
+                                                  "prefs": {"purpose": "trade"}, "ai": True}).json()
+    assert evaluated["ai_status"] == "failed" and evaluated["ai_error"] == reason
+    check = client.post("/api/admin/ai-check", json={}).json()
+    assert check["ok"] is False and check["reason"] == reason
+
+
+def test_ai_check_and_trimmed_chat_history(tmp_path):
+    from cardeal.web.service import chat_messages, clean_api_key
+    client, service = make_client(tmp_path=tmp_path)
+    assert client.post("/api/admin/ai-check", json={}).json()["ok"] is True
+    history = [{"role": "assistant", "content": "earlier answer"}, {"role": "user", "content": "a"},
+               {"role": "user", "content": "b"}, {"role": "assistant", "content": "c"}, {"role": "user", "content": "d"}]
+    assert chat_messages(history) == [{"role": "user", "content": "a\n\nb"}, {"role": "assistant", "content": "c"},
+                                      {"role": "user", "content": "d"}]
+    result = analyze(client)["result"]
+    long_answer = "x" * 9_000  # a long earlier answer must not make the next question fail
+    response = client.post("/api/ai/chat", json={"context": result, "messages": [
+        {"role": "assistant", "content": "intro"}, {"role": "user", "content": "q1"},
+        {"role": "assistant", "content": long_answer}, {"role": "user", "content": "q2"}]})
+    assert response.status_code == 200
+    assert service.ai_client.requests[-1]["messages"][0] == {"role": "user", "content": "q1"}
+    assert clean_api_key(' "sk-ant-abc"\n') == "sk-ant-abc" and clean_api_key("  ") is None
+
+
+class FakeMailer:
+    def __init__(self, fail=False):
+        self.sent, self.fail = [], fail
+
+    def send(self, to, subject, text, html_body):
+        from cardeal.web.mail import MailError
+        if self.fail:
+            raise MailError("smtp down")
+        self.sent.append(SimpleNamespace(to=to, subject=subject, text=text, html=html_body))
+
+
+def email_client(tmp_path, mailer=None, allowed="", admins="boss@example.com", **limits):
+    from cardeal.web.auth import EmailLogin, email_list
+    email = EmailLogin(mailer or FakeMailer(), b"secret", allowed=email_list(allowed), admins=email_list(admins))
+    access = Access(None, "test-secret", email=email, **limits)
+    service = CarService(str(tmp_path / "cache.sqlite3"), access, source=FakeKleinanzeigen(), ai_client=FakeClaude())
+    return TestClient(create_app(service=service, access=access, jobs=JobManager())), email
+
+
+def code_of(mail):
+    import re
+    return re.search(r"\b(\d{6})\b", mail.subject).group(1)
+
+
+def test_email_login(tmp_path):
+    client, email = email_client(tmp_path)
+    meta = client.get("/api/meta").json()
+    assert meta["auth_required"] is True and meta["login"] == ["email"] and meta["account"] is None
+    assert client.post("/api/jobs/analyze", json={"url": AD}).status_code == 401
+    assert client.post("/api/auth/email/start", json={"email": "no-at-sign"}).json()["error"]["code"] == "bad_email"
+
+    sent = client.post("/api/auth/email/start", json={"email": " Kha@Example.com ", "language": "de"}).json()
+    assert sent == {"sent": True, "email": "kha@example.com", "minutes": 10}
+    mail = email.mailer.sent[-1]
+    code = code_of(mail)
+    assert mail.to == "kha@example.com" and "Anmeldecode" in mail.subject and code in mail.html
+    assert f"#/login?email=kha%40example.com&code={code}" in mail.text  # the one-tap link
+    again = client.post("/api/auth/email/start", json={"email": "kha@example.com"})
+    assert again.status_code == 429 and again.json()["error"]["code"] == "too_soon"
+
+    wrong = client.post("/api/auth/email/verify", json={"email": "kha@example.com", "code": "000000" if code != "000000" else "111111"})
+    assert wrong.status_code == 400 and wrong.json()["error"] == {"code": "code_wrong", "left": 4}
+    ok = client.post("/api/auth/email/verify", json={"email": "KHA@example.com", "code": code})
+    assert ok.json() == {"name": "kha@example.com", "email": "kha@example.com", "admin": False}
+    account = client.get("/api/meta").json()["account"]
+    assert account["email"] == "kha@example.com" and account["admin"] is False
+    assert client.post("/api/jobs/analyze", json={"url": AD}).status_code == 200
+    assert client.post("/api/admin/ai-check", json={}).status_code == 403
+    # a code works once
+    assert client.post("/api/auth/email/verify", json={"email": "kha@example.com", "code": code}).json()["error"]["code"] == "code_expired"
+
+
+def test_email_login_rules(tmp_path):
+    client, email = email_client(tmp_path, allowed="@firma.de,boss@example.com")
+    assert client.post("/api/auth/email/start", json={"email": "x@gmail.com"}).status_code == 403
+    client.post("/api/auth/email/start", json={"email": "boss@example.com"})
+    client.post("/api/auth/email/verify", json={"email": "boss@example.com", "code": code_of(email.mailer.sent[-1])})
+    assert client.get("/api/meta").json()["account"]["admin"] is True
+    assert client.post("/api/admin/ai-check", json={}).json()["ok"] is True
+    client.post("/api/auth/email/start", json={"email": "anna@firma.de"})
+    pending = email.mailer.sent[-1]
+    for _ in range(5):  # five wrong tries burn the code
+        client.post("/api/auth/email/verify", json={"email": "anna@firma.de", "code": "1234"})
+    assert client.post("/api/auth/email/verify",
+                       json={"email": "anna@firma.de", "code": code_of(pending)}).json()["error"]["code"] == "code_expired"
+
+
+def test_email_that_cannot_be_sent(tmp_path):
+    client, email = email_client(tmp_path, mailer=FakeMailer(fail=True))
+    response = client.post("/api/auth/email/start", json={"email": "kha@example.com"})
+    assert response.status_code == 503 and response.json()["error"]["code"] == "mail_failed"
+    email.mailer.fail = False  # fixed: the user may ask again right away
+    assert client.post("/api/auth/email/start", json={"email": "kha@example.com"}).json()["sent"] is True
+
+
+def test_all_accounts_share_a_daily_ai_cap(tmp_path):
+    from cardeal.web.auth import Account
+    access = Access(None, "s", ai_daily_limit=5, ai_global_limit=3)
+    users = [Account(id=f"u{i}", name=f"u{i}") for i in range(4)]
+    assert [access.use(user, "ai") for user in users] == [True, True, True, False]
+    assert access.use(Account(id="boss", name="boss", admin=True), "ai") is True
+
+
+def test_mailer_from_env():
+    from cardeal.web.mail import BrevoMailer, SmtpMailer, mailer_from_env
+    gmail = mailer_from_env({"GMAIL_USER": "me@gmail.com", "GMAIL_APP_PASSWORD": "abcd efgh ijkl mnop"})
+    assert isinstance(gmail, SmtpMailer) and gmail.password == "abcdefghijklmnop" and gmail.port == 465
+    assert gmail.sender == "AutoHalle <me@gmail.com>"
+    brevo = mailer_from_env({"BREVO_API_KEY": "xkeysib", "MAIL_FROM": "Auto Halle <me@gmail.com>"})
+    assert isinstance(brevo, BrevoMailer) and brevo.email == "me@gmail.com" and brevo.name == "Auto Halle"
+    assert mailer_from_env({}) is None and mailer_from_env({"BREVO_API_KEY": "x"}) is None

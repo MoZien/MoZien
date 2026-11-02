@@ -63,7 +63,7 @@ export function GaragePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5 [&>*:last-child]:col-span-2 lg:[&>*:last-child]:col-span-1">
         <Card className="p-4"><Stat label={t("realized")} value={<span className="num">{euro(stats.realized)}</span>} tone={stats.realized >= 0 ? "good" : "bad"} /></Card>
         <Card className="p-4"><Stat label={t("expected_profit")} value={<span className="num">{euro(stats.expected)}</span>} tone="accent" /></Card>
         <Card className="p-4"><Stat label={t("invested")} value={<span className="num">{euro(stats.invested)}</span>} /></Card>

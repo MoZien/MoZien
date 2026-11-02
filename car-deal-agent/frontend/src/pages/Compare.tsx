@@ -66,9 +66,11 @@ export function ComparePage() {
         <h1 className="text-2xl font-semibold tracking-tight">{t("compare_title")}</h1>
         <div className="flex items-center gap-2">
           <PurposeSwitch compact tiny />
-          <Button size="sm" icon={<Plus className="size-4" />} onClick={() => setPicking(true)} disabled={ids.length >= 4}>
-            {t("compare_pick")}
-          </Button>
+          {cars.length > 0 && (
+            <Button size="sm" icon={<Plus className="size-4" />} onClick={() => setPicking(true)} disabled={ids.length >= 4}>
+              {t("compare_pick")}
+            </Button>
+          )}
         </div>
       </div>
       {cars.length === 0 ? (

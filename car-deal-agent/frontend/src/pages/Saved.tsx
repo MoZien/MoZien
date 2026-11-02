@@ -67,25 +67,23 @@ export function SavedPage() {
         ]}
       />
       <div className="space-y-1">
-      <div className="grid grid-cols-[1fr_auto] gap-2">
         <div className="relative">
           <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-faint" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t("search_saved")}
-            className="h-10 w-full rounded-xl border border-line bg-surface ps-9 pe-3 text-sm outline-none focus:border-muted"
+            className="h-11 w-full rounded-xl border border-line bg-surface ps-9 pe-3 text-sm outline-none focus:border-muted"
           />
         </div>
-        <Select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label={t("sort")} className="h-10">
-          <option value="date">{t("sort_date")}</option>
-          <option value="score">{t("sort_score")}</option>
-          <option value="discount">{t("sort_discount")}</option>
-          <option value="price">{t("sort_price")}</option>
-        </Select>
-      </div>
-      <Disclosure title={t("more_filters")}>
-        <div className="grid grid-cols-2 gap-2">
+        <Disclosure title={t("sort_filter")}>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <Select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label={t("sort")} className="h-10">
+              <option value="date">{t("sort_date")}</option>
+              <option value="score">{t("sort_score")}</option>
+              <option value="discount">{t("sort_discount")}</option>
+              <option value="price">{t("sort_price")}</option>
+            </Select>
         <Select value={purpose} onChange={(e) => setPurpose(e.target.value as typeof purpose)} aria-label={t("purpose")} className="h-10">
           <option value="all">{t("purpose")}: {t("all")}</option>
           <option value="personal">{t("purpose_personal_short")}</option>
@@ -99,13 +97,18 @@ export function SavedPage() {
             </option>
           ))}
         </Select>
-        </div>
-      </Disclosure>
+          </div>
+        </Disclosure>
       </div>
 
       {list.length === 0 ? (
         <Card>
-          <EmptyState icon={tab === "favorites" ? <Heart className="size-6" /> : <History className="size-6" />} title={t("empty")} text={t("no_analyses")} />
+          <EmptyState
+            icon={tab === "favorites" ? <Heart className="size-6" /> : <History className="size-6" />}
+            title={t("empty")}
+            text={t(tab === "favorites" ? "no_favorites" : "no_analyses")}
+            action={<Button onClick={() => navigate("analyze")}>{t("nav_analyze")}</Button>}
+          />
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">

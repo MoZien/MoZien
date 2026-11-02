@@ -218,6 +218,7 @@ export interface Result {
   analysis: Analysis | null;
   analysis_kind: Purpose | null;
   ai_status: "ok" | "off" | "unavailable" | "failed" | "quota" | "skipped";
+  ai_error?: string | null;
   costed_issues: Issue[];
   created_at: string;
 }
@@ -254,7 +255,8 @@ export interface Meta {
   ai_available: boolean;
   ai_model: string;
   auth_required: boolean;
-  account: { name: string; admin: boolean; usage: Record<string, { used: number; limit: number }> } | null;
+  login?: ("email" | "code")[];
+  account: { name: string; email?: string; admin: boolean; usage: Record<string, { used: number; limit: number }> } | null;
   makes: Record<string, string>;
   fuels: Record<string, string>;
   bodies: Record<string, string>;

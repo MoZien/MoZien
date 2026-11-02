@@ -1,6 +1,7 @@
 # Render Blueprint for the AutoHalle web app (car-deal-agent/). One instance: jobs and the
-# comparables cache live in that process. Free plan: the instance sleeps after 15 idle minutes
-# and the first request after that takes about a minute.
+# comparables cache live in that process. Free plan: the instance sleeps after 15 idle minutes;
+# the app still opens at once from the phone (service worker) and waits for the server in the
+# background. "Starter" keeps it awake all the time and allows sending mail through Gmail.
 services:
   - type: web
     name: autohalle
@@ -19,7 +20,21 @@ services:
     envVars:
       - key: ANTHROPIC_API_KEY   # your Claude API key (asked for when the Blueprint is created)
         sync: false
-      - key: ACCESS_CODES        # name:code,name:code ... who may use the app (empty = everyone)
+      # Sign-in with a code by email. Free plan: Render blocks SMTP, so use Brevo (BREVO_API_KEY +
+      # MAIL_FROM). Paid plan: a Gmail app password works (GMAIL_USER + GMAIL_APP_PASSWORD).
+      - key: BREVO_API_KEY
+        sync: false
+      - key: MAIL_FROM           # e.g. AutoHalle <your.name@gmail.com>
+        sync: false
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
+      - key: ADMIN_EMAILS        # your own address: no daily limit, AI check in the settings
+        sync: false
+      - key: ALLOWED_EMAILS      # empty = anyone may sign up; or name@x.de,@company.de
+        sync: false
+      - key: ACCESS_CODES        # optional second way in: name:code,name:code ...
         sync: false
       - key: ADMIN_CODE          # your own code: no daily limit
         sync: false
@@ -31,3 +46,7 @@ services:
         value: AutoHalle
       - key: AI_DAILY_LIMIT
         value: "40"
+      - key: AI_GLOBAL_LIMIT     # AI reviews per day for all users together
+        value: "400"
+      - key: JOB_WORKERS         # analyses at the same time
+        value: "2"

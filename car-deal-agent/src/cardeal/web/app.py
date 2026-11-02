@@ -3,10 +3,17 @@
 Environment:
   ANTHROPIC_API_KEY   Claude API key; without it the app runs without AI reviews
   AI_MODEL            default claude-sonnet-5-5
-  ACCESS_CODES        name:code,name:code ... (empty: open to everyone)
-  ADMIN_CODE          code for the owner (no daily limit, usage report)
+  GMAIL_USER + GMAIL_APP_PASSWORD, or BREVO_API_KEY + MAIL_FROM: sign-in with a code sent by email
+                      (see cardeal/web/mail.py; Render's free plan blocks SMTP, use Brevo there)
+  ALLOWED_EMAILS      who may sign in by email: name@x.de,@company.de (empty: anyone)
+  ADMIN_EMAILS        the owner's address(es): no daily limit, usage report, AI check
+  ACCESS_CODES        name:code,name:code ... codes as a second way in (without email and codes: open)
+  ADMIN_CODE          code for the owner
   SECRET_KEY          signs login cookies (set it, or logins end at every restart)
-  AI_DAILY_LIMIT      AI reviews per code and day (default 40), CHAT_DAILY_LIMIT (default 150)
+  AI_DAILY_LIMIT      AI reviews per account and day (default 40), CHAT_DAILY_LIMIT (default 150)
+  AI_GLOBAL_LIMIT     AI reviews per day for all accounts together (default 400), CHAT_GLOBAL_LIMIT (3000)
+  JOB_WORKERS         analyses running at the same time (default 2; more means more load on Kleinanzeigen)
+  PUBLIC_URL          the app's address for links in emails (default: the address it was called at)
   DATA_DIR            where the comparables cache lives (default ./data)
   APP_NAME            the name shown in the app (default AutoHalle)
   SCRAPE_MIN_DELAY / SCRAPE_MAX_DELAY  pause between requests to Kleinanzeigen in seconds
@@ -16,8 +23,10 @@ from __future__ import annotations
 
 import logging
 import os
+import secrets
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
@@ -28,8 +37,16 @@ from pydantic import BaseModel, Field
 from cardeal import __version__
 from cardeal.config import ScraperSettings
 from cardeal.geo import road_km
-from cardeal.web.auth import COOKIE, SESSION_DAYS, Access, Account
+from cardeal.web.auth import (
+    COOKIE,
+    SESSION_DAYS,
+    Access,
+    Account,
+    EmailLogin,
+    email_list,
+)
 from cardeal.web.jobs import JobManager, UserFacingError
+from cardeal.web.mail import MailError, login_email, mailer_from_env
 from cardeal.web.prefs import HuntCriteria, ManualCar, Prefs
 from cardeal.web.service import (
     BODIES,
@@ -48,6 +65,16 @@ FRONTEND_DIST = Path(os.environ.get("FRONTEND_DIST", Path(__file__).resolve().pa
 
 class LoginRequest(BaseModel):
     code: str = Field(min_length=1, max_length=200)
+
+
+class EmailStartRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+    language: str = Field(default="de", pattern=r"^(ar|de|en)$")
+
+
+class EmailVerifyRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+    code: str = Field(min_length=4, max_length=20)
 
 
 class AnalyzeRequest(BaseModel):
@@ -74,12 +101,16 @@ class EvaluateRequest(BaseModel):
 
 class ChatMessage(BaseModel):
     role: str = Field(pattern=r"^(user|assistant)$")
-    content: str = Field(min_length=1, max_length=4000)
+    content: str = Field(min_length=1, max_length=20_000)
 
 
 class ChatRequest(BaseModel):
     context: dict[str, Any]
     messages: list[ChatMessage] = Field(min_length=1, max_length=30)
+    prefs: Prefs = Field(default_factory=Prefs)
+
+
+class AiCheckRequest(BaseModel):
     prefs: Prefs = Field(default_factory=Prefs)
 
 
@@ -91,24 +122,32 @@ class ScanRequest(BaseModel):
 def create_app(service: CarService | None = None, access: Access | None = None,
                jobs: JobManager | None = None) -> FastAPI:
     env = os.environ
-    access = access or Access(
-        env.get("ACCESS_CODES"), env.get("SECRET_KEY"), env.get("ADMIN_CODE"),
-        ai_daily_limit=int(env.get("AI_DAILY_LIMIT", "40")), chat_daily_limit=int(env.get("CHAT_DAILY_LIMIT", "150")),
-    )
+    app_name = env.get("APP_NAME", "AutoHalle")
+    if access is None:
+        secret = env.get("SECRET_KEY") or secrets.token_hex(32)
+        mailer = mailer_from_env(env, app_name)
+        email = EmailLogin(mailer, secret.encode(), allowed=email_list(env.get("ALLOWED_EMAILS")),
+                           admins=email_list(env.get("ADMIN_EMAILS"))) if mailer else None
+        access = Access(
+            env.get("ACCESS_CODES"), secret, env.get("ADMIN_CODE"), email=email,
+            ai_daily_limit=int(env.get("AI_DAILY_LIMIT", "40")), chat_daily_limit=int(env.get("CHAT_DAILY_LIMIT", "150")),
+            ai_global_limit=int(env.get("AI_GLOBAL_LIMIT", "400")),
+            chat_global_limit=int(env.get("CHAT_GLOBAL_LIMIT", "3000")),
+        )
     if service is None:
         data_dir = Path(env.get("DATA_DIR", "data"))
         data_dir.mkdir(parents=True, exist_ok=True)
         scraper = ScraperSettings(min_delay_seconds=float(env.get("SCRAPE_MIN_DELAY", "3")),
                                   max_delay_seconds=float(env.get("SCRAPE_MAX_DELAY", "6")))
         service = CarService(str(data_dir / "cache.sqlite3"), access, env.get("AI_MODEL", "claude-sonnet-5-5"), scraper)
-    jobs = jobs or JobManager()
-    app_name = env.get("APP_NAME", "AutoHalle")
+    jobs = jobs or JobManager(workers=int(env.get("JOB_WORKERS", "2")))
     app = FastAPI(title=app_name, version=__version__, docs_url="/api/docs", openapi_url="/api/openapi.json")
     app.state.service, app.state.access, app.state.jobs = service, access, jobs
 
     @app.exception_handler(UserFacingError)
     async def user_error(_: Request, exc: UserFacingError):
-        status = {"quota": 429, "too_many_jobs": 429, "ai_unavailable": 503, "blocked": 503}.get(exc.code, 400)
+        status = {"quota": 429, "too_many_jobs": 429, "too_soon": 429, "too_many_codes": 429, "ai_unavailable": 503,
+                  "blocked": 503, "mail_failed": 503, "not_allowed": 403}.get(exc.code, 400)
         return JSONResponse({"error": {"code": exc.code, **exc.details}}, status_code=status)
 
     def account(request: Request) -> Account:
@@ -126,22 +165,48 @@ def create_app(service: CarService | None = None, access: Access | None = None,
         current = access.account(request.cookies.get(COOKIE))
         return {
             "app_name": app_name, "version": __version__, "ai_available": service.ai_available,
-            "ai_model": service.ai_model, "auth_required": not access.open,
-            "account": {"name": current.name, "admin": current.admin, "usage": access.usage(current)}
-            if current else None,
+            "ai_model": service.ai_model, "auth_required": not access.open, "login": access.methods,
+            "account": {"name": current.name, "email": current.email, "admin": current.admin,
+                        "usage": access.usage(current)} if current else None,
             "makes": MAKES, "fuels": FUELS, "bodies": BODIES, "gearboxes": GEARBOXES,
             "defaults": Prefs().model_dump(), "hunt_defaults": HuntCriteria().model_dump(),
         }
+
+    def sign_in(found: Account, request: Request, response: Response) -> dict:
+        # Secure on HTTPS (Render forwards the scheme); a plain-HTTP local run needs it off.
+        response.set_cookie(COOKIE, access.token(found), max_age=SESSION_DAYS * 86400, httponly=True,
+                            samesite="lax", secure=request.url.scheme == "https")
+        return {"name": found.name, "email": found.email, "admin": found.admin}
 
     @app.post("/api/auth/login")
     def login(body: LoginRequest, request: Request, response: Response):
         found = access.login(body.code)
         if found is None:
             raise HTTPException(401, detail={"code": "bad_code"})
-        # Secure on HTTPS (Render forwards the scheme); a plain-HTTP local run needs it off.
-        response.set_cookie(COOKIE, access.token(found), max_age=SESSION_DAYS * 86400, httponly=True,
-                            samesite="lax", secure=request.url.scheme == "https")
-        return {"name": found.name, "admin": found.admin}
+        return sign_in(found, request, response)
+
+    @app.post("/api/auth/email/start")
+    async def email_start(body: EmailStartRequest, request: Request):
+        if access.email is None:
+            raise HTTPException(404, detail={"code": "no_email_login"})
+        ip = (request.headers.get("x-forwarded-for") or (request.client.host if request.client else "")).split(",")[0]
+        email, code = access.email.request_code(body.email, ip.strip())
+        base = (env.get("PUBLIC_URL") or str(request.base_url)).rstrip("/")
+        link = f"{base}/#/login?{urlencode({'email': email, 'code': code})}"
+        subject, text, html_body = login_email(code, link, body.language, app_name, access.email.code_minutes)
+        try:
+            await run_in_threadpool(access.email.mailer.send, email, subject, text, html_body)
+        except MailError as exc:
+            log.error("login email to %s failed: %s", email, exc)
+            access.email.forget(email)
+            raise UserFacingError("mail_failed") from None
+        return {"sent": True, "email": email, "minutes": access.email.code_minutes}
+
+    @app.post("/api/auth/email/verify")
+    def email_verify(body: EmailVerifyRequest, request: Request, response: Response):
+        if access.email is None:
+            raise HTTPException(404, detail={"code": "no_email_login"})
+        return sign_in(access.email.verify(body.email, body.code), request, response)
 
     @app.post("/api/auth/logout")
     def logout(response: Response):
@@ -201,6 +266,12 @@ def create_app(service: CarService | None = None, access: Access | None = None,
             raise HTTPException(404, detail={"code": "unknown_zip"})
         return {"km": round(km)}
 
+    @app.post("/api/admin/ai-check")
+    async def ai_check(body: AiCheckRequest, who: Account = Depends(account)):
+        if not (who.admin or access.open):
+            raise HTTPException(403, detail={"code": "admin_only"})
+        return await run_in_threadpool(service.ai_check, body.prefs)
+
     @app.get("/api/admin/usage")
     def usage(who: Account = Depends(account)):
         if not who.admin:
@@ -217,7 +288,8 @@ def create_app(service: CarService | None = None, access: Access | None = None,
             file = (FRONTEND_DIST / path).resolve()
             if path and file.is_file() and FRONTEND_DIST.resolve() in file.parents:
                 return FileResponse(file)
-            return FileResponse(FRONTEND_DIST / "index.html", headers={"Cache-Control": "no-cache"})
+            # The marker tells the service worker this is our page (not a host's wake-up page).
+            return FileResponse(FRONTEND_DIST / "index.html", headers={"Cache-Control": "no-cache", "X-AutoHalle": "1"})
 
     return app
 

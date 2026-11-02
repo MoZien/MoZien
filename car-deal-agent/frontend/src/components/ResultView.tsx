@@ -55,7 +55,8 @@ export function ResultView({ result, onChange, onReanalyze }: { result: Result; 
       if (entry) saveResult(merged);
       toast(t("updated"), "good");
     } catch (error) {
-      toast(t(`err_${(error as { code?: string }).code ?? "server"}` as TextKey, { message: "" }), "bad");
+      const reason = (error as { details?: { reason?: string } }).details?.reason;
+      toast(reason ? t(`ai_reason_${reason}` as TextKey) : t(`err_${(error as { code?: string }).code ?? "server"}` as TextKey, { message: "" }), "bad");
     } finally {
       setBusy(null);
     }
@@ -428,7 +429,12 @@ function AiReview({ result, view, busy, onReview }: { result: Result; view: Purp
         {analysis && !matches ? (
           <p className="text-sm text-muted">{t("ai_review_other", { purpose: t(result.analysis_kind === "trade" ? "purpose_trade_short" : "purpose_personal_short") })}</p>
         ) : (
-          statusNote[result.ai_status] && <Note tone="warn">{t(statusNote[result.ai_status]!)}</Note>
+          statusNote[result.ai_status] && (
+            <Note tone="warn">
+              {t(statusNote[result.ai_status]!)}
+              {result.ai_status === "failed" && result.ai_error && <span className="mt-1 block">{t(`ai_reason_${result.ai_error}` as TextKey)}</span>}
+            </Note>
+          )
         )}
         <Button className="mt-4" variant="primary" loading={busy} disabled={!prefs.ai_enabled} onClick={onReview}>
           {t("ai_for_purpose")}
@@ -567,6 +573,7 @@ function Market({ result, view }: { result: Result; view: Purpose }) {
   const prefs = useStore(prefsStore);
   const { valuation, listing, trade, personal } = result;
   const [sort, setSort] = useState<"near" | "price" | "km">("near");
+  const [showAll, setShowAll] = useState(false);
   const used = useMemo(() => {
     const list = [...valuation.used];
     if (sort === "price") list.sort((a, b) => a.adjusted - b.adjusted);
@@ -644,7 +651,7 @@ function Market({ result, view }: { result: Result; view: Purpose }) {
           />
         </div>
         <div className="divide-y divide-line">
-          {used.map((comp, i) => (
+          {(showAll ? used : used.slice(0, 12)).map((comp, i) => (
             <a key={i} href={comp.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-surface-2 sm:px-5">
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium rtl:text-right" dir="auto">
@@ -661,6 +668,11 @@ function Market({ result, view }: { result: Result; view: Purpose }) {
             </a>
           ))}
         </div>
+        {used.length > 12 && !showAll && (
+          <button onClick={() => setShowAll(true)} className="w-full cursor-pointer border-t border-line px-4 py-3 text-sm font-medium text-muted hover:bg-surface-2 hover:text-text">
+            {t("show_all", { n: used.length })}
+          </button>
+        )}
       </Card>
     </div>
   );

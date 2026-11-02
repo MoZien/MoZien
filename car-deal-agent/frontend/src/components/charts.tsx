@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { euro, km as fmtKm, number } from "../lib/format";
 import { cx, Num } from "./ui";
 
@@ -94,9 +94,18 @@ interface Point {
 /** Comparable cars as price over mileage, the car being valued highlighted. */
 export function Scatter({ points, target, marketY, xLabel, yLabel, targetLabel }: { points: Point[]; target?: Point | null; marketY?: number | null; xLabel: string; yLabel: string; targetLabel: string }) {
   const [hover, setHover] = useState<Point | null>(null);
-  const width = 640;
-  const height = 300;
-  const pad = { l: 64, r: 16, t: 16, b: 40 };
+  // Drawn at the real pixel size, so labels stay readable on a phone and do not grow on a desktop.
+  const box = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(640);
+  useEffect(() => {
+    const element = box.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => setWidth(Math.max(280, Math.round(entry.contentRect.width))));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  const height = width < 500 ? 230 : 300;
+  const pad = { l: 46, r: 10, t: 22, b: 38 };
   const all = [...points, ...(target ? [target] : [])];
   const xs = all.map((p) => p.x);
   const ys = [...all.map((p) => p.y), ...(marketY ? [marketY] : [])];
@@ -107,12 +116,12 @@ export function Scatter({ points, target, marketY, xLabel, yLabel, targetLabel }
   const ticks = (low: number, high: number, n = 4) => Array.from({ length: n + 1 }, (_, i) => low + ((high - low) * i) / n);
   if (!points.length) return null;
   return (
-    <div className="relative" dir="ltr">
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-auto w-full" role="img" aria-label={yLabel}>
+    <div ref={box} className="relative" dir="ltr">
+      <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="block max-w-full" role="img" aria-label={yLabel}>
         {ticks(y0, y1).map((y) => (
           <g key={`y${y}`}>
             <line x1={pad.l} x2={width - pad.r} y1={sy(y)} y2={sy(y)} stroke="var(--line)" strokeDasharray="3 4" />
-            <text x={pad.l - 8} y={sy(y) + 4} textAnchor="end" fontSize="11" fill="var(--faint)">
+            <text x={pad.l - 6} y={sy(y) + 4} textAnchor="end" fontSize="11" fill="var(--faint)">
               {number(Math.round(y / 100) * 100)}
             </text>
           </g>
@@ -135,7 +144,7 @@ export function Scatter({ points, target, marketY, xLabel, yLabel, targetLabel }
             key={i}
             cx={sx(p.x)}
             cy={sy(p.y)}
-            r={hover === p ? 7 : 5}
+            r={hover === p ? 6.5 : 4.5}
             fill="var(--faint)"
             fillOpacity={0.75}
             stroke="var(--surface)"

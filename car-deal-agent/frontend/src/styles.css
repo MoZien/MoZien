@@ -78,7 +78,11 @@ body {
 }
 ::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.num { font-variant-numeric: tabular-nums; unicode-bidi: isolate; direction: ltr; display: inline-block; }
+/* Numbers read left to right in every language. A component class, so layout utilities
+   (grid, block, flex) on the same element still win. */
+@layer components {
+  .num { font-variant-numeric: tabular-nums; unicode-bidi: isolate; direction: ltr; display: inline-block; }
+}
 .scrollbar-thin { scrollbar-width: thin; }
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -88,8 +92,11 @@ body {
 /* iPhones zoom into any field whose text is smaller than 16px and stay zoomed, which cuts off
    the page at both sides. On phones every field therefore uses 16px. */
 @media (max-width: 639px) {
-  input, select, textarea { font-size: 16px !important; }
+  input, select, textarea { font-size: 16px; }
+  input.otp { font-size: 24px; }
 }
+/* Fields show focus with their own border and ring; the global outline on top looked doubled. */
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: none; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }

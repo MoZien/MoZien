@@ -42,7 +42,8 @@ export function ChatPanel({ result }: { result: Result }) {
       const { answer } = await chat(context, next.slice(-12), prefs);
       setMessages([...next, { role: "assistant", content: answer }]);
     } catch (err) {
-      setError(t(`err_${err instanceof ApiError ? err.code : "server"}` as TextKey, { message: "" }));
+      const reason = err instanceof ApiError ? (err.details.reason as string | undefined) : undefined;
+      setError(reason ? t(`ai_reason_${reason}` as TextKey) : t(`err_${err instanceof ApiError ? err.code : "server"}` as TextKey, { message: "" }));
     } finally {
       setBusy(false);
     }
