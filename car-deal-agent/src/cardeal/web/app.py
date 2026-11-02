@@ -231,6 +231,11 @@ def create_app(service: CarService | None = None, access: Access | None = None,
     def hunt(body: HuntRequest, who: Account = Depends(account)):
         return start("hunt", who, ["search", "check"], lambda job: service.hunt(job, body.criteria, body.prefs, who))
 
+    @app.get("/api/jobs/active")
+    def active_jobs(who: Account = Depends(account)):
+        """This user's jobs that still run or wait, so the app can pick them up after a restart."""
+        return [{"id": job.id, "kind": job.kind, "status": job.status} for job in jobs.active(who.id)]
+
     @app.get("/api/jobs/{job_id}")
     def job_status(job_id: str, who: Account = Depends(account)):
         job = jobs.get(job_id, who.id)

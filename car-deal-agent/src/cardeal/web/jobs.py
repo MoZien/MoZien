@@ -116,6 +116,11 @@ class JobManager:
         job = self.jobs.get(job_id)
         return job if job is not None and job.owner == owner else None
 
+    def active(self, owner: str) -> list[Job]:
+        with self.lock:
+            return [self.jobs[j] for j in self.order
+                    if self.jobs[j].owner == owner and self.jobs[j].status in ("queued", "running")]
+
     def position(self, job: Job) -> int | None:
         """How many jobs run or wait before this one (0 = it runs now)."""
         if job.status != "queued":

@@ -16,6 +16,7 @@ import {
 import { type ReactNode, useEffect, useState } from "react";
 import { Modal, ToastProvider, cx } from "./components/ui";
 import { useApp } from "./lib/app";
+import { huntStore, resumeHunt } from "./lib/hunt";
 import { type TextKey, translate, useT } from "./lib/i18n";
 import { href, useRoute } from "./lib/router";
 import { prefsStore, savedStore, uiStore, useStore } from "./lib/store";
@@ -114,7 +115,14 @@ function Shell() {
   const route = useRoute();
   const ui = useStore(uiStore);
   const saved = useStore(savedStore);
+  const hunt = useStore(huntStore);
   const { meta, needsLogin } = useApp();
+  const hunting = hunt.jobId != null;
+
+  // A hunt that was running before the app was closed or reloaded carries on.
+  useEffect(() => {
+    if (meta && !needsLogin) resumeHunt();
+  }, [meta, needsLogin]);
   const [moreOpen, setMoreOpen] = useState(false);
   const start = PAGES.has(ui.startPage) ? ui.startPage : "analyze";
   const page = PAGES.has(route.page) ? route.page : start;
@@ -168,6 +176,7 @@ function Shell() {
       {item.icon("size-4")}
       <span className="flex-1">{t(item.label)}</span>
       {item.page === "saved" && favorites > 0 && <span className="num text-xs text-faint">{favorites}</span>}
+      {item.page === "hunt" && hunting && <RunningDot count={hunt.found.length} />}
     </a>
   );
 
@@ -212,7 +221,14 @@ function Shell() {
         <div className="mx-auto grid max-w-md grid-cols-4">
           {MAIN.map((item) => (
             <a key={item.page} href={href(item.page)} onClick={item.page === "analyze" ? home : undefined} className={cx("flex min-w-0 flex-col items-center gap-1 pb-2 pt-2.5 text-[11px]", page === item.page ? "font-semibold text-text" : "text-muted")}>
-              {item.icon("size-5")}
+              <span className="relative">
+                {item.icon("size-5")}
+                {item.page === "hunt" && hunting && (
+                  <span className="absolute -end-1.5 -top-1">
+                    <RunningDot count={hunt.found.length} />
+                  </span>
+                )}
+              </span>
               <span className="max-w-full truncate px-1">{t(item.label)}</span>
             </a>
           ))}
@@ -240,6 +256,15 @@ function Shell() {
 
       {!ui.onboarded && meta && <Onboarding />}
     </div>
+  );
+}
+
+/** The hunt is running: a pulsing dot, with the number of cars found so far. */
+function RunningDot({ count }: { count: number }) {
+  return count > 0 ? (
+    <span className="num grid h-4 min-w-4 place-items-center rounded-full bg-good px-1 text-[10px] font-semibold text-white">{count}</span>
+  ) : (
+    <span className="block size-2.5 animate-pulse rounded-full bg-good ring-2 ring-surface" />
   );
 }
 

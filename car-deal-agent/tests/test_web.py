@@ -428,3 +428,18 @@ def test_gmail_through_apps_script(monkeypatch):
     with pytest.raises(mail.MailError, match="wrong secret"):
         sender.send("kha@example.com", "s", "t", "h")
     assert mail.mailer_from_env({"GMAIL_SCRIPT_URL": "https://x"}) is None  # without the secret
+
+
+def test_running_jobs_can_be_found_again(tmp_path):
+    import threading
+    access = Access(None, "s")
+    jobs = JobManager()
+    service = CarService(str(tmp_path / "c.sqlite3"), access, source=FakeKleinanzeigen(), ai_client=FakeClaude())
+    client = TestClient(create_app(service=service, access=access, jobs=jobs))
+    gate = threading.Event()
+    job = jobs.submit("hunt", "public", ["search"], lambda job: gate.wait(5))
+    jobs.submit("analyze", "someone-else", [], lambda job: gate.wait(5))
+    active = client.get("/api/jobs/active").json()
+    assert active == [{"id": job.id, "kind": "hunt", "status": active[0]["status"]}]
+    assert active[0]["status"] in ("queued", "running")
+    gate.set()

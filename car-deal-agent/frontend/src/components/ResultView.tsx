@@ -3,6 +3,7 @@ import {
   BadgeEuro,
   CheckCircle2,
   Columns3,
+  Expand,
   ExternalLink,
   Heart,
   Loader2,
@@ -22,6 +23,7 @@ import { navigate } from "../lib/router";
 import { compareStore, garageStore, prefsStore, saveResult, savedStore, uid, updateSaved, useStore } from "../lib/store";
 import type { Purpose, Result } from "../lib/types";
 import { CarPhoto, toneText } from "./CarCard";
+import { Lightbox, photoSize } from "./Lightbox";
 import { ChatPanel } from "./ChatPanel";
 import { PurposeSwitch } from "./PurposeSwitch";
 import { Meter, PriceRange, Scatter } from "./charts";
@@ -198,6 +200,7 @@ function Header({ result }: { result: Result }) {
   const t = useT();
   const { listing } = result;
   const [photo, setPhoto] = useState(0);
+  const [gallery, setGallery] = useState(false);
   const images = listing.images ?? [];
   const facts: { label: TextKey; value: ReactNode }[] = [
     { label: "mileage", value: <span className="num">{km(listing.km)}</span> },
@@ -214,16 +217,26 @@ function Header({ result }: { result: Result }) {
     <Card className="overflow-hidden">
       <div className="grid grid-cols-1 md:grid-cols-2">
         <div className="bg-surface-2">
-          <CarPhoto src={images[photo] ?? ""} className="aspect-[4/3] w-full" alt={listing.title} />
+          {images.length > 0 ? (
+            <button type="button" onClick={() => setGallery(true)} className="relative block w-full cursor-zoom-in" aria-label={t("photos_open")}>
+              <CarPhoto src={images[photo] ?? ""} className="aspect-[4/3] w-full" alt={listing.title} />
+              <span className="num absolute bottom-2.5 end-2.5 flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 text-xs font-medium text-white">
+                <Expand className="size-3.5" /> {photo + 1}/{images.length}
+              </span>
+            </button>
+          ) : (
+            <CarPhoto src="" className="aspect-[4/3] w-full" alt={listing.title} />
+          )}
           {images.length > 1 && (
             <div className="no-scrollbar flex gap-1.5 overflow-x-auto p-2">
               {images.slice(0, 12).map((src, i) => (
                 <button key={src} onClick={() => setPhoto(i)} className={cx("size-12 shrink-0 cursor-pointer overflow-hidden rounded-md border-2", i === photo ? "border-text" : "border-transparent opacity-70")}>
-                  <img src={src} alt="" referrerPolicy="no-referrer" className="size-full object-cover" />
+                  <img src={photoSize(src, 2)} alt="" referrerPolicy="no-referrer" loading="lazy" className="size-full object-cover" />
                 </button>
               ))}
             </div>
           )}
+          {gallery && <Lightbox images={images.slice(0, 12)} start={photo} onClose={() => setGallery(false)} />}
         </div>
         <div className="p-4 sm:p-5">
           <h1 className="text-lg font-semibold leading-snug sm:text-xl">

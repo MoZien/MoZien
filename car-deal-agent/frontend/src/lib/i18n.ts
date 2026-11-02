@@ -547,6 +547,7 @@ const dict = {
   show_all: ["عرض الكل ({n})", "Alle anzeigen ({n})", "Show all ({n})"],
   sort_filter: ["ترتيب وفلترة", "Sortieren & filtern", "Sort & filter"],
   no_favorites: ["ما في مفضلة لسا. اضغط ♡ «حفظ» عند أي سيارة.", "Noch keine Favoriten. Tippe bei einem Auto auf ♡ «Speichern».", "No favourites yet. Tap ♡ «Save» on any car."],
+  photos_open: ["كبّر الصور", "Fotos groß ansehen", "View photos full size"],
 } as const;
 
 export type TextKey = keyof typeof dict;

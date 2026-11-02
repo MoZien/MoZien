@@ -64,7 +64,7 @@ export function AnalyzePage({ route }: { route: Route }) {
       const done = await runJob<Result>("analyze", { url: adUrl, prefs: prefsStore.get() }, setJob, controller.signal);
       if (done.status === "done" && done.result) {
         setResult(done.result);
-        if (uiStore.get().autoSave) saveResult(done.result);
+        if (uiStore.get().autoSave || !mounted.current) saveResult(done.result);
       } else if (done.error) {
         setError(done.error);
       }
@@ -99,7 +99,15 @@ export function AnalyzePage({ route }: { route: Route }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route]);
 
-  useEffect(() => () => abort.current?.abort(), []);
+  // Leaving the page does not stop a running analysis: it finishes on the server and is saved,
+  // so it shows up under the recent checks.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     const onHome = () => {

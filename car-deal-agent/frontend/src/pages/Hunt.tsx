@@ -1,14 +1,14 @@
 import { Bookmark, Radar, Square, Trash2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { CarCard } from "../components/CarCard";
 import { PurposeSwitch } from "../components/PurposeSwitch";
 import { Button, Card, CardHeader, Disclosure, Field, Input, Note, NumberInput, Select, Toggle } from "../components/ui";
-import { ApiError, cancelJob, runJob } from "../lib/api";
 import { useApp } from "../lib/app";
 import { useT } from "../lib/i18n";
 import { navigate } from "../lib/router";
-import { createStore, markSeen, prefsStore, saveResult, searchesStore, seenStore, uid, useStore } from "../lib/store";
-import type { HuntCriteria, HuntResult, Job, Result } from "../lib/types";
+import { huntStore, startHunt, stopHunt } from "../lib/hunt";
+import { createStore, prefsStore, saveResult, searchesStore, seenStore, uid, useStore } from "../lib/store";
+import type { HuntCriteria } from "../lib/types";
 import { errorText } from "./Analyze";
 
 export const DEFAULT_CRITERIA: HuntCriteria = {
@@ -27,60 +27,20 @@ export function HuntPage() {
   const skipSeen = useStore(skipStore);
   const searches = useStore(searchesStore);
   const seen = useStore(seenStore);
-  const [job, setJob] = useState<Job<HuntResult> | null>(null);
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [found, setFound] = useState<Result[]>([]);
-  const [summary, setSummary] = useState<HuntResult | null>(null);
-  const [error, setError] = useState<{ code: string } | null>(null);
+  const hunt = useStore(huntStore);
   const [placesText, setPlacesText] = useState(criteria.exclude_places.join(", "));
-  const abort = useRef<AbortController | null>(null);
-
-  useEffect(() => () => abort.current?.abort(), []);
   const set = (patch: Partial<HuntCriteria>) => criteriaStore.set((c) => ({ ...c, ...patch }));
 
-  async function start() {
-    abort.current?.abort();
-    const controller = new AbortController();
-    abort.current = controller;
-    setError(null);
-    setFound([]);
-    setSummary(null);
+  function start() {
     const body = {
       criteria: { ...criteria, exclude_places: placesText.split(",").map((p) => p.trim()).filter(Boolean), skip_ids: skipSeen ? seen.slice(0, 2000) : [] },
       prefs,
     };
-    try {
-      const done = await runJob<HuntResult>(
-        "hunt",
-        body,
-        (update) => {
-          setJob(update);
-          setJobId(update.id);
-          const partial = (update.partial.found ?? []) as Result[];
-          setFound(partial);
-        },
-        controller.signal,
-      );
-      if (done.result) {
-        setSummary(done.result);
-        setFound(done.result.found);
-        done.result.found.forEach((result) => saveResult(result));
-      }
-      if (done.partial?.checked_ids) markSeen(done.partial.checked_ids as string[]);
-      if (done.error) setError(done.error);
-    } catch (err) {
-      if ((err as Error).name !== "AbortError") setError({ code: err instanceof ApiError ? err.code : "server" });
-    } finally {
-      setJob(null);
-    }
+    startHunt(body);
   }
 
-  async function stop() {
-    // Stopping keeps what was found so far: the server ends the hunt after the current ad.
-    if (jobId) await cancelJob(jobId);
-  }
-
-  const running = job != null;
+  const { job, found, summary, error } = hunt;
+  const running = hunt.jobId != null;
   const progress = job?.progress ?? {};
   const makes = Object.entries(meta?.makes ?? {});
 
@@ -207,7 +167,7 @@ export function HuntPage() {
         </Disclosure>
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {running ? (
-            <Button variant="danger" size="lg" className="flex-1 sm:flex-none" icon={<Square className="size-4" />} onClick={stop}>
+            <Button variant="danger" size="lg" className="flex-1 sm:flex-none" icon={<Square className="size-4" />} loading={hunt.stopping} onClick={stopHunt}>
               {t("stop")}
             </Button>
           ) : (
