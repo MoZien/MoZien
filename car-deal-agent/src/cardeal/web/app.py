@@ -18,6 +18,9 @@ Environment:
   DATA_DIR            where the comparables cache lives (default ./data)
   APP_NAME            the name shown in the app (default AutoHalle)
   SCRAPE_MIN_DELAY / SCRAPE_MAX_DELAY  pause between requests to Kleinanzeigen in seconds
+  FETCH_MODE          who loads the marketplace pages: device (the app on the phone or the browser
+                      extension; the server keeps no ads), server (the server itself), or both
+                      (default: the device when the app can, else the server)
   LEGAL_NAME, LEGAL_ADDRESS, LEGAL_EMAIL, LEGAL_PHONE, LEGAL_VAT_ID
                       the operator for Impressum, privacy policy and terms (address lines split by ";")
 """
@@ -48,6 +51,7 @@ from cardeal.web.auth import (
     EmailLogin,
     email_list,
 )
+from cardeal.web.device import MAX_PAGE_CHARS, wait_for_change
 from cardeal.web.jobs import JobManager, UserFacingError
 from cardeal.web.mail import MailError, login_email, mailer_from_env
 from cardeal.web.prefs import HuntCriteria, ManualCar, Prefs
@@ -63,6 +67,10 @@ from cardeal.web.service import (
 
 log = logging.getLogger(__name__)
 
+# Long polling: the longest a status request waits for a change, and how long the answer to a
+# delivered page waits for the job's next request (the job pauses 1-2.5 s between pages).
+MAX_WAIT_SECONDS = 8.0
+CHAIN_WAIT_SECONDS = 4.0
 FRONTEND_DIST = Path(os.environ.get("FRONTEND_DIST", Path(__file__).resolve().parents[3] / "frontend" / "dist"))
 
 
@@ -83,16 +91,29 @@ class EmailVerifyRequest(BaseModel):
 class AnalyzeRequest(BaseModel):
     url: str = Field(min_length=10, max_length=500)
     prefs: Prefs = Field(default_factory=Prefs)
+    device: bool = False  # the app can load the pages itself (native app or browser extension)
 
 
 class ValuateRequest(BaseModel):
     car: ManualCar
     prefs: Prefs = Field(default_factory=Prefs)
+    device: bool = False
 
 
 class HuntRequest(BaseModel):
     criteria: HuntCriteria = Field(default_factory=HuntCriteria)
     prefs: Prefs = Field(default_factory=Prefs)
+    device: bool = False
+
+
+class DevicePage(BaseModel):
+    """A page the device loaded for a job (or why it couldn't)."""
+
+    id: int
+    status: int = 0
+    url: str = Field(default="", max_length=2000)
+    body: str = Field(default="", max_length=MAX_PAGE_CHARS)
+    error: str | None = Field(default=None, max_length=300)
 
 
 class EvaluateRequest(BaseModel):
@@ -126,6 +147,9 @@ def create_app(service: CarService | None = None, access: Access | None = None,
                jobs: JobManager | None = None) -> FastAPI:
     env = os.environ
     app_name = env.get("APP_NAME", "AutoHalle")
+    fetch_mode = env.get("FETCH_MODE", "both").strip().lower()
+    if fetch_mode not in ("device", "server", "both"):
+        fetch_mode = "both"
     # Who runs the app, for Impressum and privacy policy (public on purpose).
     legal = {
         "name": env.get("LEGAL_NAME", "").strip(),
@@ -179,7 +203,7 @@ def create_app(service: CarService | None = None, access: Access | None = None,
             "ai_model": service.ai_model, "auth_required": not access.open, "login": access.methods,
             "account": {"id": current.id, "name": current.name, "email": current.email, "admin": current.admin,
                         "usage": access.usage(current)} if current else None,
-            "legal": legal,
+            "legal": legal, "fetch_mode": fetch_mode,
             "makes": MAKES, "fuels": FUELS, "bodies": BODIES, "gearboxes": GEARBOXES,
             "defaults": Prefs().model_dump(), "hunt_defaults": HuntCriteria().model_dump(),
         }
@@ -235,22 +259,30 @@ def create_app(service: CarService | None = None, access: Access | None = None,
         log.info("account deleted: %s", current.id)
         return {"deleted": True}
 
-    def start(kind: str, who: Account, steps: list[str], work) -> dict:
-        job = jobs.submit(kind, who.id, steps, work)
-        return {"job_id": job.id}
+    def start(kind: str, who: Account, steps: list[str], work, device: bool) -> dict:
+        # Device mode when the app can load pages itself and the server allows it; FETCH_MODE=device
+        # turns the server's own requests off (the app then has to be the native app or have the
+        # browser extension).
+        if fetch_mode == "device" and not device:
+            raise UserFacingError("needs_device")
+        job = jobs.submit(kind, who.id, steps, work, device=device and fetch_mode != "server")
+        return {"job_id": job.id, "device": job.device is not None}
 
     @app.post("/api/jobs/analyze")
     def analyze(body: AnalyzeRequest, who: Account = Depends(account)):
         steps = ["ad", "market", "ai"] if body.prefs.ai_enabled else ["ad", "market"]
-        return start("analyze", who, steps, lambda job: service.analyze_url(job, body.url, body.prefs, who))
+        return start("analyze", who, steps, lambda job: service.analyze_url(job, body.url, body.prefs, who),
+                     body.device)
 
     @app.post("/api/jobs/valuate")
     def valuate(body: ValuateRequest, who: Account = Depends(account)):
-        return start("valuate", who, ["market"], lambda job: service.valuate(job, body.car, body.prefs, who))
+        return start("valuate", who, ["market"], lambda job: service.valuate(job, body.car, body.prefs, who),
+                     body.device)
 
     @app.post("/api/jobs/hunt")
     def hunt(body: HuntRequest, who: Account = Depends(account)):
-        return start("hunt", who, ["search", "check"], lambda job: service.hunt(job, body.criteria, body.prefs, who))
+        return start("hunt", who, ["search", "check"],
+                     lambda job: service.hunt(job, body.criteria, body.prefs, who), body.device)
 
     @app.get("/api/jobs/active")
     def active_jobs(who: Account = Depends(account)):
@@ -258,11 +290,27 @@ def create_app(service: CarService | None = None, access: Access | None = None,
         return [{"id": job.id, "kind": job.kind, "status": job.status} for job in jobs.active(who.id)]
 
     @app.get("/api/jobs/{job_id}")
-    def job_status(job_id: str, who: Account = Depends(account)):
+    def job_status(job_id: str, who: Account = Depends(account), since: int | None = None, wait: float = 0):
+        """The job's state. With `since` (the version the app has) and `wait` (seconds) it answers as
+        soon as something changed, e.g. the job needs the device to load a page."""
         job = jobs.get(job_id, who.id)
         if job is None:
             raise HTTPException(404, detail={"code": "no_job"})
+        wait_for_change(job, since, min(max(wait, 0.0), MAX_WAIT_SECONDS))
         return job.public(jobs.position(job))
+
+    @app.post("/api/jobs/{job_id}/fetch")
+    def device_page(job_id: str, page: DevicePage, who: Account = Depends(account)):
+        """The device delivers a page the job asked for; the answer is the job's next state (often
+        the next page it needs), so the app doesn't have to poll for it."""
+        job = jobs.get(job_id, who.id)
+        if job is None or job.device is None:
+            raise HTTPException(404, detail={"code": "no_job"})
+        version = job.version
+        delivered = job.device.deliver(page.id, page.status, page.body, page.url, page.error)
+        if delivered:
+            wait_for_change(job, version + 1, CHAIN_WAIT_SECONDS)  # +1: the delivery itself
+        return {**job.public(jobs.position(job)), "delivered": delivered}
 
     @app.post("/api/jobs/{job_id}/cancel")
     def cancel(job_id: str, who: Account = Depends(account)):

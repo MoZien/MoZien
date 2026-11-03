@@ -7,7 +7,7 @@ import logging
 import os
 import statistics
 import time
-from dataclasses import asdict, fields
+from dataclasses import asdict, dataclass, fields
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -28,6 +28,7 @@ from cardeal.sources.kleinanzeigen import KleinanzeigenSource, listing_from_url
 from cardeal.storage import Store
 from cardeal.valuation import ad_flags, plausible_km
 from cardeal.web.auth import Access, Account
+from cardeal.web.device import DEVICE_SCRAPER, DeviceGone, DeviceSession
 from cardeal.web.jobs import Job, JobCancelled, UserFacingError
 from cardeal.web.prefs import HuntCriteria, ManualCar, Prefs
 
@@ -132,6 +133,16 @@ def valuation_from_json(data: dict) -> Valuation:
     return Valuation(**values)
 
 
+@dataclass
+class Fetchers:
+    """Where one job gets its pages from and keeps its market data."""
+
+    kleinanzeigen: Any
+    autoscout24: Any
+    autohero: Any
+    store: Store
+
+
 class CarService:
     def __init__(self, store_path: str, access: Access, ai_model: str = "claude-sonnet-5-5",
                  scraper: ScraperSettings | None = None, source=None, ai_client=None, autoscout24=None,
@@ -184,20 +195,34 @@ class CarService:
         if gone:
             log.info("cache: %d ads older than %d days deleted", gone, days)
 
-    def _hunter(self, prefs: Prefs, job: Job | None, searches=None, exclude_places=()) -> DealHunter:
+    def _fetchers(self, job: Job | None) -> Fetchers:
+        """Server mode: the shared sources and the shared market cache. Device mode: sources that
+        load every page through the user's device, and a store that lives only as long as the job,
+        so the server keeps no ads."""
+        if job is None or job.device is None:
+            return Fetchers(self.source, self.autoscout24, self.autohero, self.store)
+        session = DeviceSession(job.device)
+        return Fetchers(KleinanzeigenSource(DEVICE_SCRAPER, session=session),
+                        AutoScout24Source(DEVICE_SCRAPER, session=session),
+                        AutoheroSource(DEVICE_SCRAPER, session=session), Store(":memory:"))
+
+    def _hunter(self, prefs: Prefs, job: Job | None, searches=None, exclude_places=(),
+                fetchers: Fetchers | None = None) -> DealHunter:
         self._prune()
+        fetchers = fetchers or self._fetchers(job)
         config = prefs.config(self.ai_model, searches)
         config.filters.exclude_places = list(exclude_places)
-        return DealHunter(config, TrackedSource(self.source, job), self.store)
+        return DealHunter(config, TrackedSource(fetchers.kleinanzeigen, job), fetchers.store)
 
     def analyze_url(self, job: Job, url: str, prefs: Prefs, account: Account) -> dict:
-        hunter = self._hunter(prefs, job)
+        fetchers = self._fetchers(job)
+        hunter = self._hunter(prefs, job, fetchers=fetchers)
         if is_autoscout24(url):
             job.step("ad", "active")
-            listing = self._fetch_other(self.autoscout24, url, "AutoScout24")
+            listing = self._fetch_other(fetchers.autoscout24, url, "AutoScout24")
         elif is_autohero(url):
             job.step("ad", "active")
-            listing = self._fetch_other(self.autohero, url, "Autohero")
+            listing = self._fetch_other(fetchers.autohero, url, "Autohero")
         else:
             try:
                 listing = listing_from_url(url)
@@ -258,6 +283,9 @@ class CarService:
                 break  # stopped by the user: keep what was found
             except SourceBlockedError:
                 job.partial["stopped"] = "blocked"
+                break
+            except DeviceGone:
+                job.partial["stopped"] = "device"  # the app was closed: keep what was found
                 break
             except UserFacingError:
                 result = None

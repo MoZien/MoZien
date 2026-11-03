@@ -45,6 +45,17 @@ class Job:
     created: float = field(default_factory=time.time)
     updated: float = field(default_factory=time.time)
     cancel_event: threading.Event = field(default_factory=threading.Event)
+    # Changes the app waits for (a page to load on the device, the end of the job) bump `version`
+    # and wake waiting requests; in device mode `device` is the job's DeviceLink.
+    cond: threading.Condition = field(default_factory=threading.Condition, repr=False)
+    version: int = 0
+    device: Any = None
+
+    def touch(self) -> None:
+        with self.cond:
+            self.version += 1
+            self.updated = time.time()
+            self.cond.notify_all()
 
     def step(self, key: str, state: str, **detail: Any) -> None:
         for step in self.steps:
@@ -66,18 +77,24 @@ class Job:
             "id": self.id, "kind": self.kind, "status": self.status, "steps": self.steps,
             "progress": self.progress, "partial": self.partial, "result": self.result, "error": self.error,
             "queue_position": position, "created": self.created, "updated": self.updated,
+            "version": self.version, "device": self.device is not None,
         }
 
 
 class JobManager:
-    def __init__(self, workers: int = 1, max_per_owner: int = 3):
+    def __init__(self, workers: int = 1, max_per_owner: int = 3, device_workers: int = 16):
         self.jobs: dict[str, Job] = {}
         self.order: list[str] = []
         self.lock = threading.Lock()
         self.executor = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="job")
+        # Device jobs mostly wait for the user's device to load pages, and each loads its pages from
+        # its own connection: they get their own, larger pool and don't queue behind server jobs.
+        self.device_executor = ThreadPoolExecutor(max_workers=device_workers, thread_name_prefix="device-job")
         self.max_per_owner = max_per_owner
 
-    def submit(self, kind: str, owner: str, steps: list[str], work: Callable[[Job], Any]) -> Job:
+    def submit(self, kind: str, owner: str, steps: list[str], work: Callable[[Job], Any], device: bool = False) -> Job:
+        from cardeal.web.device import DeviceLink  # device imports this module
+
         with self.lock:
             self._forget_old()
             active = [j for j in self.jobs.values() if j.owner == owner and j.status in ("queued", "running")]
@@ -85,9 +102,11 @@ class JobManager:
                 raise UserFacingError("too_many_jobs", limit=self.max_per_owner)
             job = Job(id=uuid.uuid4().hex[:16], kind=kind, owner=owner,
                       steps=[{"key": key, "state": "pending"} for key in steps])
+            if device:
+                job.device = DeviceLink(job)
             self.jobs[job.id] = job
             self.order.append(job.id)
-        self.executor.submit(self._run, job, work)
+        (self.device_executor if device else self.executor).submit(self._run, job, work)
         return job
 
     def _run(self, job: Job, work: Callable[[Job], Any]) -> None:
@@ -95,7 +114,7 @@ class JobManager:
             job.status = "cancelled"
             return
         job.status = "running"
-        job.updated = time.time()
+        job.touch()
         try:
             job.result = work(job)
             job.status = "cancelled" if job.cancel_event.is_set() and job.kind != "hunt" else "done"
@@ -107,10 +126,10 @@ class JobManager:
             log.exception("job %s (%s) failed", job.id, job.kind)
             job.status, job.error = "error", {"code": "internal", "message": f"{type(exc).__name__}: {exc}"[:300]}
         finally:
-            job.updated = time.time()
             for step in job.steps:
                 if step["state"] == "active":
                     step["state"] = "done" if job.status == "done" else "failed"
+            job.touch()
 
     def get(self, job_id: str, owner: str) -> Job | None:
         job = self.jobs.get(job_id)
@@ -123,7 +142,7 @@ class JobManager:
 
     def position(self, job: Job) -> int | None:
         """How many jobs run or wait before this one (0 = it runs now)."""
-        if job.status != "queued":
+        if job.status != "queued" or job.device is not None:
             return None
         with self.lock:
             ahead = [j for j in self.order[: self.order.index(job.id)]
@@ -135,6 +154,7 @@ class JobManager:
         if job is None:
             return False
         job.cancel_event.set()
+        job.touch()  # a job waiting for the device stops at once
         return True
 
     def erase(self, owner: str) -> None:
