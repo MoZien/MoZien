@@ -11,3 +11,5 @@ frontend/dist
 frontend/test-results
 frontend/playwright-report
 tests
+frontend/android
+frontend/ios
