@@ -173,6 +173,47 @@ AutoUncle, auto.de and eBay block automated requests (HTTP 403); pkw.de loads it
 browser; Carvago has no car data in the page; heycar left Germany; willhaben is Austrian. Their
 ads can be valued with "Value a car" instead.
 
+### Device mode: the user's phone or browser loads the pages
+
+Instead of the server, the user's own device can open the ad and the comparison searches, like
+the user browsing; the server only computes and keeps no ads (each such job values against an
+in-memory store that is gone when the job ends). The marketplaces see ordinary visitors loading a
+few pages each, the server's IP is never blocked, and a check takes seconds (1–2.5 s between
+pages instead of 4–9 s).
+
+How it works: a job started with `device: true` puts each page it needs into `partial.fetch`
+(`{id, url}`); the app loads it and posts it to `POST /api/jobs/{id}/fetch`, whose answer is the
+job's next state (long polling: `GET /api/jobs/{id}?since=<version>&wait=8`). The sources get a
+`DeviceSession` (`cardeal/web/device.py`) instead of `requests.Session`, so parsing and valuation
+are unchanged. Only Kleinanzeigen, AutoScout24 and Autohero pages are ever requested. If the
+device stops answering for 45 s (app closed), an analysis ends with `device_gone` and a hunt stops
+and keeps what it found.
+
+Who can load pages:
+
+- **Native app** (`frontend/android`, `frontend/ios`, Capacitor 8): the bundled web app talks to
+  the live server (`.env.app` sets `VITE_API_BASE`); its native HTTP may load other sites. On
+  Android, "Teilen" from the Kleinanzeigen app opens the shared ad in AutoHalle.
+- **Browser helper** (`extension/`, Chrome/Edge, Manifest V3): loads the pages for AutoHalle's
+  tab, without the user's cookies, and adds a "Mit AutoHalle prüfen" button to ad pages. The
+  Docker image serves it as `/autohalle-helfer.zip`; the help page explains how to install it
+  (until it is in the Chrome Web Store: developer mode, "Load unpacked").
+- A **normal browser tab** can't (browsers don't let one site read another): there the server
+  loads the pages, unless `FETCH_MODE=device` (default `both`; `server` turns device mode off).
+
+Building the app:
+
+```bash
+cd frontend
+npm run app:build            # web app with the live server's address, copied into android/ and ios/
+npm run app:android          # + debug APK: android/app/build/outputs/apk/debug/app-debug.apk
+                             #   (needs JDK 21 and the Android SDK, ANDROID_HOME)
+npm run app:ios              # + opens Xcode (needs a Mac; signing with an Apple developer account)
+```
+
+App id `io.github.mozien.autohalle` (change it in `capacitor.config.json` and the Android
+namespace before the first store upload if you get your own domain).
+
 ## Costs
 
 Claude is only called for real candidates (after the price and profit filters), typically a few ads per day per search. With the default `claude-opus-5-5` ($4 / $20 per million input/output tokens) one review costs roughly 3–8 cents. Model and effort can be changed under `ai:` in the config. Refusal fallbacks are enabled, so a rare safety-classifier decline is retried on another model instead of failing.

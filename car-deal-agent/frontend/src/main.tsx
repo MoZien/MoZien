@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { AppProvider } from "./lib/app";
+import { isNativeApp } from "./lib/device";
 import { setAccountScope } from "./lib/store";
 // Fonts are served by the app itself, not loaded from Google (no visitor data to third parties).
 import "@fontsource/ibm-plex-sans/latin-400.css";
@@ -47,6 +48,7 @@ if (splash) {
 }
 
 // Installable on the home screen; the service worker only caches the app shell.
-if ("serviceWorker" in navigator && import.meta.env.PROD) {
+// The native app has its files on board (updates come through the store): no service worker there.
+if ("serviceWorker" in navigator && import.meta.env.PROD && !isNativeApp()) {
   window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => undefined));
 }

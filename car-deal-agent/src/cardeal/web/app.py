@@ -18,6 +18,7 @@ Environment:
   DATA_DIR            where the comparables cache lives (default ./data)
   APP_NAME            the name shown in the app (default AutoHalle)
   SCRAPE_MIN_DELAY / SCRAPE_MAX_DELAY  pause between requests to Kleinanzeigen in seconds
+  CORS_ORIGINS        origins of the native app (default capacitor://localhost,https://localhost)
   FETCH_MODE          who loads the marketplace pages: device (the app on the phone or the browser
                       extension; the server keeps no ads), server (the server itself), or both
                       (default: the device when the app can, else the server)
@@ -36,6 +37,7 @@ from urllib.parse import urlencode
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -177,6 +179,12 @@ def create_app(service: CarService | None = None, access: Access | None = None,
         service = CarService(str(data_dir / "cache.sqlite3"), access, env.get("AI_MODEL", "claude-sonnet-5-5"), scraper)
     jobs = jobs or JobManager(workers=int(env.get("JOB_WORKERS", "2")))
     app = FastAPI(title=app_name, version=__version__, docs_url="/api/docs", openapi_url="/api/openapi.json")
+    # The native app's pages come from capacitor://localhost (iOS) or https://localhost (Android).
+    # Its requests normally go through the native HTTP layer (no CORS); this covers the rest.
+    origins = [o.strip() for o in env.get("CORS_ORIGINS", "capacitor://localhost,https://localhost").split(",") if o.strip()]
+    if origins:
+        app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True,
+                           allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
     app.state.service, app.state.access, app.state.jobs = service, access, jobs
 
     @app.exception_handler(UserFacingError)

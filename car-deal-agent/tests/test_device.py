@@ -187,3 +187,12 @@ def test_device_link_rules():
     job.touch()
     worker.join(2)
     assert "at" in stopped
+
+
+def test_native_app_origins_may_call_the_api(tmp_path):
+    client, _, _ = device_client(tmp_path)
+    ok = client.get("/api/meta", headers={"Origin": "capacitor://localhost"})
+    assert ok.headers.get("access-control-allow-origin") == "capacitor://localhost"
+    assert ok.headers.get("access-control-allow-credentials") == "true"
+    other = client.get("/api/meta", headers={"Origin": "https://evil.example.com"})
+    assert "access-control-allow-origin" not in other.headers

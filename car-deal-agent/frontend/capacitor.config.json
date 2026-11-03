@@ -1,0 +1,16 @@
+{
+  "appId": "io.github.mozien.autohalle",
+  "appName": "AutoHalle",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    },
+    "CapacitorCookies": {
+      "enabled": true
+    }
+  }
+}

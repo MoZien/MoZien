@@ -1,16 +1,22 @@
 {
   "name": "autohalle-web",
   "private": true,
-  "version": "1.6.0",
+  "version": "1.7.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "app:build": "vite build --mode app && cap sync",
+    "app:android": "npm run app:build && cd android && ./gradlew assembleDebug",
+    "app:ios": "npm run app:build && cap open ios"
   },
   "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/ios": "^8.6.0",
     "@fontsource/ibm-plex-sans": "^5.3.0",
     "@fontsource/ibm-plex-sans-arabic": "^5.3.0",
     "lucide-react": "^1.66.0",
@@ -18,6 +24,7 @@
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.6.0",
     "@playwright/test": "1.56.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/react": "^19.3.0",

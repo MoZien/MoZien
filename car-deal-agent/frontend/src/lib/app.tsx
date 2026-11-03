@@ -1,5 +1,6 @@
 import { type ReactNode, createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { ApiError, getMeta, setUnauthorizedHandler } from "./api";
+import { isNativeApp } from "./device";
 import { DEFAULT_PREFS, prefsStore, setAccountScope } from "./store";
 import type { Meta } from "./types";
 
@@ -56,8 +57,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const data = await getMeta();
       // An older copy of the app (kept on the phone) talking to a newer server: right after the
-      // start, load the new one at once (once per version); later, offer it.
-      if (data.version !== __APP_VERSION__) {
+      // start, load the new one at once (once per version); later, offer it. (Not in the native
+      // app: its files come with the app, a new version through the store.)
+      if (data.version !== __APP_VERSION__ && !isNativeApp()) {
         let tried = false;
         try {
           tried = sessionStorage.getItem("ah.reloadedFor") === data.version;
