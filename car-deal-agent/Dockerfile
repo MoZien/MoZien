@@ -15,6 +15,9 @@ COPY pyproject.toml README.md ./
 COPY src ./src
 RUN pip install ".[web]" && useradd --create-home app
 COPY --from=frontend /web/dist ./frontend/dist
+# The browser helper as a download (/autohalle-helfer.zip)
+COPY extension ./extension
+RUN python extension/pack.py frontend/dist/autohalle-helfer.zip
 USER app
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s CMD python -c "import urllib.request,os; urllib.request.urlopen(f'http://127.0.0.1:{os.environ[\"PORT\"]}/health')" || exit 1

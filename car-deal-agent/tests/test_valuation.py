@@ -212,3 +212,19 @@ def test_local_price_level_from_comparable_searches():
     assert local_ads == 60
     assert 0.88 < factor < 0.95  # most of the 10 %, pulled a little towards 1
     assert local_price_factor(groups[:1], "06108", 150, TODAY) is None  # 10 local ads: too few to tell
+
+
+@pytest.mark.parametrize("title, price, differs", [
+    ("BMW X4 M40 M40d - 28.000€ Preis", 2_800, True),      # a missing zero: no 2,800 EUR X4
+    ("Golf 7 für 9500 Euro oder Tausch", 950, True),
+    ("Golf 6 TÜV neu 3.500€", 3_500, False),
+    ("BMW 320d statt 12.000€ nur 4.500€", 4_500, False),   # the old price, not this one
+    ("Polo 9N NP 18.000€ Scheckheft", 2_900, False),
+    ("Corsa 900€ VB", 9_000, False),                        # the field is higher: not a fake deal
+    ("Astra H 1.6, 800€ in Reparatur gesteckt", 2_500, False),
+])
+def test_price_in_title_that_differs(title, price, differs):
+    from cardeal.valuation import ad_flags, price_in_title_differs
+    car = Listing(id="a", source="k", url="u", title=title, price=price)
+    assert price_in_title_differs(car) is differs
+    assert ("not_its_price" in ad_flags(car)) is differs

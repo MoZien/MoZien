@@ -210,6 +210,7 @@ export function HuntPage() {
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-2">
                 <div className="h-full rounded-full bg-accent transition-all duration-700" style={{ width: `${progress.total ? Math.max(4, ((progress.checked ?? 0) / progress.total) * 100) : 4}%` }} />
               </div>
+              {job?.device && !job?.partial?.paused && <p className="mt-2 text-xs font-medium text-muted">{t("hunt_keep_open")}</p>}
               {Boolean(job?.partial?.paused) && (
                 <p className="mt-2 flex items-start gap-1.5 text-xs font-medium leading-relaxed text-warn">
                   <Coffee className="mt-px size-3.5 shrink-0" /> {t("hunt_paused")}
@@ -238,17 +239,17 @@ export function HuntPage() {
         </Note>
       )}
 
-      {summary && !running && summary.stopped === "blocked" && (
+      {summary && !running && (summary.stopped === "blocked" || summary.stopped === "device") && (
         <Note tone="warn" icon={<AlertTriangle className="size-4" />}>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>{t("hunt_blocked", { checked: summary.checked })}</span>
+            <span>{summary.stopped === "device" ? t("hunt_stopped_device") : t("hunt_blocked", { checked: summary.checked })}</span>
             <Button size="sm" icon={<RotateCcw className="size-3.5" />} onClick={start}>
-              {t("retry")}
+              {t(summary.stopped === "device" ? "hunt_continue" : "retry")}
             </Button>
           </div>
         </Note>
       )}
-      {summary && !running && summary.stopped !== "blocked" && (
+      {summary && !running && summary.stopped !== "blocked" && summary.stopped !== "device" && (
         <Note tone={summary.found.length ? "good" : "neutral"} icon={summary.found.length ? <CheckCircle2 className="size-4" /> : undefined}>
           {summary.found.length ? t("hunt_done", { found: summary.found.length, checked: summary.checked }) : t("hunt_none", { n: summary.checked })}
         </Note>

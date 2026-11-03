@@ -88,14 +88,37 @@ def _mentions(pattern: re.Pattern | None, text: str) -> bool:
     return any(not _NEGATED.search(text[max(0, m.start() - 25):m.start()]) for m in pattern.finditer(text or ""))
 
 
+# A price named in the title ("28.000€", "9500 Euro"), and words that make it another price.
+_STATED_PRICE = re.compile(r"(?<![\d.,])(\d{1,3}(?:\.\d{3})+|\d{3,6})(?:,-)?\s*(?:€|eur\b|euro\b)", re.IGNORECASE)
+_OTHER_PRICE = re.compile(r"(?:statt|neupreis|\bnp\b|uvp|vorher|ursprünglich|\bwar\b)\W*$", re.IGNORECASE)
+
+
+def price_in_title_differs(listing: Listing) -> bool:
+    """The title names a price far above the price field ("BMW X4 - 28.000€ Preis" with 2,800):
+    a missing zero or a decoy, so the field is not what the car costs."""
+    if not listing.price or listing.price < MIN_PLAUSIBLE_PRICE:
+        return False
+    title = listing.title or ""
+    for match in _STATED_PRICE.finditer(title):
+        if _OTHER_PRICE.search(title[max(0, match.start() - 20):match.start()]):
+            continue
+        if int(match.group(1).replace(".", "")) >= 2.5 * listing.price:
+            return True
+    return False
+
+
 def ad_flags(listing: Listing) -> set[str]:
     """What the ad says about the car: "broken" (Bastler, Export, Motorschaden, parts ...),
-    "no_tuv", "not_its_price" (leasing, rates), "defect" or "no_offer" (wanted, dealer buys)."""
-    return {
+    "no_tuv", "not_its_price" (leasing, rates, a title price far above the price field),
+    "defect" or "no_offer" (wanted, dealer buys)."""
+    flags = {
         flag for flag, (anywhere, title_only) in _PATTERNS.items()
         if _mentions(anywhere, listing.title) or _mentions(anywhere, listing.description)
         or _mentions(title_only, listing.title)
     }
+    if price_in_title_differs(listing):
+        flags.add("not_its_price")
+    return flags
 
 
 def no_fair_price(listing: Listing) -> bool:

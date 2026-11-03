@@ -1,4 +1,4 @@
-import { Check, Circle, Loader2, X } from "lucide-react";
+import { Check, Circle, Loader2, Smartphone, X } from "lucide-react";
 import { type TextKey, useT } from "../lib/i18n";
 import type { Job } from "../lib/types";
 import { Button, Card, cx } from "./ui";
@@ -61,7 +61,13 @@ export function JobProgress({ job, onCancel, extra }: { job: Job | null; onCance
       <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
         {job.queue_position != null && job.queue_position > 0 && <span className="rounded-full bg-warn/15 px-2.5 py-1 font-medium text-warn">{t("queue", { n: job.queue_position })}</span>}
         {pages > 0 && <span className="num">{t("requests_done", { n: pages })}</span>}
-        <span>{t("takes_time")}</span>
+        {job.device ? (
+          <span className="flex items-center gap-1 font-medium text-good">
+            <Smartphone className="size-3.5" /> {t("device_loading")}
+          </span>
+        ) : (
+          <span>{t("takes_time")}</span>
+        )}
       </div>
       {extra}
     </Card>

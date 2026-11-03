@@ -239,6 +239,10 @@ export interface Job<T = unknown> {
   result: T | null;
   error: { code: string; [key: string]: unknown } | null;
   queue_position: number | null;
+  /** Grows with every change the app waits for (a page to load, the end). */
+  version?: number;
+  /** The user's device loads the pages for this job (device mode). */
+  device?: boolean;
 }
 
 export interface HuntResult {
@@ -259,6 +263,8 @@ export interface Meta {
   account: { id?: string; name: string; email?: string; admin: boolean; usage: Record<string, { used: number; limit: number }> } | null;
   /** The operator, for Impressum and privacy policy. */
   legal?: { name: string; address: string[]; email: string; phone: string; vat_id: string };
+  /** Who loads marketplace pages: the user's device, the server, or the device when it can. */
+  fetch_mode?: "device" | "server" | "both";
   makes: Record<string, string>;
   fuels: Record<string, string>;
   bodies: Record<string, string>;

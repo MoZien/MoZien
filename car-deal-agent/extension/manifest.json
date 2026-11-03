@@ -1,0 +1,86 @@
+{
+  "manifest_version": 3,
+  "name": "AutoHalle Helfer",
+  "short_name": "AutoHalle",
+  "version": "1.0.0",
+  "description": "Lädt Anzeigen für AutoHalle direkt in deinem Browser: Die Plattformen sehen dich als normalen Besucher, und kein Server sammelt ihre Anzeigen.",
+  "icons": {
+    "16": "icon-16.png",
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  },
+  "action": {
+    "default_title": "AutoHalle öffnen",
+    "default_icon": {
+      "16": "icon-16.png",
+      "48": "icon-48.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "host_permissions": [
+    "https://www.kleinanzeigen.de/*",
+    "https://www.autoscout24.de/*",
+    "https://www.autoscout24.at/*",
+    "https://www.autoscout24.ch/*",
+    "https://www.autoscout24.it/*",
+    "https://www.autoscout24.fr/*",
+    "https://www.autoscout24.nl/*",
+    "https://www.autoscout24.be/*",
+    "https://www.autoscout24.es/*",
+    "https://www.autoscout24.lu/*",
+    "https://www.autoscout24.pl/*",
+    "https://www.autoscout24.cz/*",
+    "https://www.autoscout24.hu/*",
+    "https://www.autoscout24.ro/*",
+    "https://www.autoscout24.bg/*",
+    "https://www.autoscout24.hr/*",
+    "https://www.autoscout24.se/*",
+    "https://www.autoscout24.com/*",
+    "https://www.autohero.com/*",
+    "https://autohero.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://autohalle.onrender.com/*",
+        "http://127.0.0.1/*",
+        "http://localhost/*"
+      ],
+      "js": [
+        "bridge.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://www.kleinanzeigen.de/s-anzeige/*",
+        "https://www.autoscout24.de/angebote/*",
+        "https://www.autoscout24.at/angebote/*",
+        "https://www.autoscout24.ch/angebote/*",
+        "https://www.autoscout24.it/angebote/*",
+        "https://www.autoscout24.fr/angebote/*",
+        "https://www.autoscout24.nl/angebote/*",
+        "https://www.autoscout24.be/angebote/*",
+        "https://www.autoscout24.es/angebote/*",
+        "https://www.autoscout24.lu/angebote/*",
+        "https://www.autoscout24.pl/angebote/*",
+        "https://www.autoscout24.cz/angebote/*",
+        "https://www.autoscout24.hu/angebote/*",
+        "https://www.autoscout24.ro/angebote/*",
+        "https://www.autoscout24.bg/angebote/*",
+        "https://www.autoscout24.hr/angebote/*",
+        "https://www.autoscout24.se/angebote/*",
+        "https://www.autoscout24.com/angebote/*",
+        "https://www.autohero.com/*/id/*",
+        "https://autohero.com/*/id/*"
+      ],
+      "js": [
+        "button.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "minimum_chrome_version": "116"
+}

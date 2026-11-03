@@ -1,10 +1,13 @@
-import { ApiError, api } from "./api";
+import { ApiError, api, nextJobState } from "./api";
+import { canLoadPages } from "./device";
 import { createScopedStore, markSeen, saveResult } from "./store";
 import type { HuntResult, Job, Result } from "./types";
 
 // The deal hunt runs on the server; this follows it from anywhere in the app. Leaving the hunt
-// page, opening a found car or closing the app does not stop it: the job id is kept, and the app
-// picks the hunt up again (also after a restart) until it ends.
+// page or opening a found car does not stop it: the job id is kept, and the app picks the hunt up
+// again (also after a restart) until it ends. When this device loads the pages (native app or
+// browser extension), the hunt needs the app open: closed for longer than about a minute, the
+// server stops it and keeps what was found.
 
 export interface HuntState {
   jobId: string | null;
@@ -28,7 +31,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export async function startHunt(body: unknown) {
   huntStore.set({ ...EMPTY });
   try {
-    const { job_id } = await api<{ job_id: string }>("/api/jobs/hunt", { body });
+    const { job_id } = await api<{ job_id: string }>("/api/jobs/hunt", { body: { ...(body as object), device: canLoadPages() } });
     huntStore.set({ ...EMPTY, jobId: job_id });
     follow();
   } catch (err) {
@@ -71,13 +74,15 @@ async function follow() {
   if (following) return;
   following = true;
   let delay = 900;
+  let last: Job<HuntResult> | null = null;
   try {
     for (;;) {
       const { jobId } = huntStore.get();
       if (!jobId) return;
       let job: Job<HuntResult>;
       try {
-        job = await api<Job<HuntResult>>(`/api/jobs/${jobId}`);
+        job = await nextJobState<HuntResult>(jobId, last && last.id === jobId ? last : null);
+        last = job;
       } catch (err) {
         if (err instanceof ApiError && (err.status === 404 || err.status === 401)) {
           // The server forgot the job (restarted, or it ended long ago): keep what was found.
@@ -91,8 +96,10 @@ async function follow() {
       const found = ((job.result?.found ?? job.partial.found ?? []) as Result[]).map(slim);
       if (!finished) {
         huntStore.set((state) => ({ ...state, job, found }));
-        await sleep(delay);
-        delay = Math.min(delay + 200, 2500);
+        if (!job.device) {
+          await sleep(delay);
+          delay = Math.min(delay + 200, 2500);
+        }
         continue;
       }
       job.result?.found.forEach((result) => saveResult(result));
