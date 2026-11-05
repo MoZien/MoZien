@@ -196,3 +196,12 @@ def test_native_app_origins_may_call_the_api(tmp_path):
     assert ok.headers.get("access-control-allow-credentials") == "true"
     other = client.get("/api/meta", headers={"Origin": "https://evil.example.com"})
     assert "access-control-allow-origin" not in other.headers
+
+
+def test_by_default_the_server_never_loads_marketplace_pages(tmp_path, monkeypatch):
+    monkeypatch.delenv("FETCH_MODE", raising=False)
+    client, _, server_source = device_client(tmp_path)
+    assert client.get("/api/meta").json()["fetch_mode"] == "device"
+    assert client.post("/api/jobs/analyze", json={"url": AD}).json()["error"]["code"] == "needs_device"
+    assert client.post("/api/jobs/hunt", json={}).json()["error"]["code"] == "needs_device"
+    assert server_source.searches == [] and server_source.detail_calls == []

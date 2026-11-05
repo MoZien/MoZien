@@ -19,9 +19,9 @@ Environment:
   APP_NAME            the name shown in the app (default AutoHalle)
   SCRAPE_MIN_DELAY / SCRAPE_MAX_DELAY  pause between requests to Kleinanzeigen in seconds
   CORS_ORIGINS        origins of the native app (default capacitor://localhost,https://localhost)
-  FETCH_MODE          who loads the marketplace pages: device (the app on the phone or the browser
-                      extension; the server keeps no ads), server (the server itself), or both
-                      (default: the device when the app can, else the server)
+  FETCH_MODE          who loads the marketplace pages: device (default: only the app on the phone or
+                      the browser helper; the server never contacts the marketplaces and keeps no
+                      ads), both (the device when it can, else the server) or server
   LEGAL_NAME, LEGAL_ADDRESS, LEGAL_EMAIL, LEGAL_PHONE, LEGAL_VAT_ID
                       the operator for Impressum, privacy policy and terms (address lines split by ";")
 """
@@ -149,9 +149,9 @@ def create_app(service: CarService | None = None, access: Access | None = None,
                jobs: JobManager | None = None) -> FastAPI:
     env = os.environ
     app_name = env.get("APP_NAME", "AutoHalle")
-    fetch_mode = env.get("FETCH_MODE", "both").strip().lower()
+    fetch_mode = env.get("FETCH_MODE", "device").strip().lower()
     if fetch_mode not in ("device", "server", "both"):
-        fetch_mode = "both"
+        fetch_mode = "device"
     # Who runs the app, for Impressum and privacy policy (public on purpose).
     legal = {
         "name": env.get("LEGAL_NAME", "").strip(),

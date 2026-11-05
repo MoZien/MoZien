@@ -1,4 +1,5 @@
 import { Gauge } from "lucide-react";
+import { DeviceHint } from "../components/DeviceHint";
 import { useRef, useState } from "react";
 import { JobProgress } from "../components/JobProgress";
 import { PurposeSwitch } from "../components/PurposeSwitch";
@@ -57,6 +58,7 @@ export function ValuatePage() {
         <h1 className="text-2xl font-semibold tracking-tight">{t("valuate_title")}</h1>
         <p className="mt-1 text-sm text-muted">{t("valuate_sub")}</p>
       </div>
+      <DeviceHint />
       <Card className="p-5">
         <div className="mb-4">
           <PurposeSwitch />

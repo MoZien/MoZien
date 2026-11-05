@@ -1,4 +1,5 @@
 import { AlertTriangle, Bookmark, CheckCircle2, Coffee, RotateCcw, Square, Trash2 } from "lucide-react";
+import { DeviceHint } from "../components/DeviceHint";
 import { useState } from "react";
 import { CarCard } from "../components/CarCard";
 import { PurposeSwitch } from "../components/PurposeSwitch";
@@ -50,6 +51,7 @@ export function HuntPage() {
         <h1 className="text-2xl font-semibold tracking-tight">{t("hunt_title")}</h1>
         <p className="mt-1 text-sm text-muted">{t("hunt_sub")}</p>
       </div>
+      <DeviceHint />
 
       <Card className="p-4 sm:p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

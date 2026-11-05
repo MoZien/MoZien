@@ -22,6 +22,7 @@ function HelperCard() {
         <div className="min-w-0 flex-1">
           <h2 className="font-semibold">{t("helper_title")}</h2>
           <p className="mt-1 text-sm leading-relaxed text-muted">{t("helper_text")}</p>
+          {kind !== "native" && <p className="mt-2 text-sm leading-relaxed text-muted">{t("helper_phone")}</p>}
           {kind ? (
             <p className="mt-3 flex items-center gap-1.5 text-sm font-semibold text-good">
               <CheckCircle2 className="size-4" /> {t(kind === "native" ? "helper_native" : "helper_active")}

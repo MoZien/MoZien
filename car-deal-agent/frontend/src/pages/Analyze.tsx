@@ -1,6 +1,7 @@
 import { AlertTriangle, ArrowLeft, ArrowRight, BadgeEuro, ChevronRight, ClipboardPaste, Columns3, FileSearch, Flame, Gauge, Heart, Home, Loader2, Radar, ScanSearch, TrendingDown } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CarPhoto } from "../components/CarCard";
+import { DeviceHint, useNeedsDevice } from "../components/DeviceHint";
 import { JobProgress } from "../components/JobProgress";
 import { ResultView } from "../components/ResultView";
 import { Button, Note, cx } from "../components/ui";
@@ -50,10 +51,15 @@ export function AnalyzePage({ route }: { route: Route }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route.param]);
 
+  const needsDevice = useNeedsDevice();
   const start = useCallback(async (target: string) => {
     const adUrl = extractAdUrl(target);
     if (!adUrl) {
       setError({ code: "bad_url" });
+      return;
+    }
+    if (needsDevice) {
+      setError({ code: "needs_device" });
       return;
     }
     abort.current?.abort();
@@ -76,7 +82,7 @@ export function AnalyzePage({ route }: { route: Route }) {
     } finally {
       if (abort.current === controller) setJob(null);
     }
-  }, []);
+  }, [needsDevice]);
 
   // #/analyze?url=... starts right away (share target, bookmarklet, links from other pages).
   useEffect(() => {
@@ -245,6 +251,8 @@ export function AnalyzePage({ route }: { route: Route }) {
         </div>
       </section>
 
+      <DeviceHint />
+
       {running && (
         <JobProgress
           job={job}
@@ -272,7 +280,7 @@ export function AnalyzePage({ route }: { route: Route }) {
         <Note tone="bad" icon={<AlertTriangle className="size-4" />}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span>{errorText(t, error)}</span>
-            {error.code !== "bad_url" && (
+            {error.code !== "bad_url" && error.code !== "needs_device" && (
               <Button size="sm" onClick={() => start(url)}>
                 {t("retry")}
               </Button>
