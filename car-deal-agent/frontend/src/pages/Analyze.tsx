@@ -2,6 +2,7 @@ import { AlertTriangle, ArrowLeft, ArrowRight, BadgeEuro, ChevronRight, Clipboar
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CarPhoto } from "../components/CarCard";
 import { DeviceHint, useNeedsDevice } from "../components/DeviceHint";
+import { ShareSetup } from "../components/ShareSetup";
 import { JobProgress } from "../components/JobProgress";
 import { ResultView } from "../components/ResultView";
 import { Button, Note, cx } from "../components/ui";
@@ -252,6 +253,7 @@ export function AnalyzePage({ route }: { route: Route }) {
       </section>
 
       <DeviceHint />
+      <ShareSetup />
 
       {running && (
         <JobProgress

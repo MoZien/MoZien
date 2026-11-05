@@ -1,0 +1,44 @@
+# Builds the iPhone app (with its share extension) on a GitHub Mac: unsigned, for the simulator.
+# It proves the Xcode project compiles after a change, without a Mac or an Apple account.
+name: iPhone app build
+
+on:
+  push:
+    branches: [claude/intelligent-fermi-lme4t3]
+    paths:
+      - "car-deal-agent/frontend/**"
+      - ".github/workflows/ios-app.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: car-deal-agent/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: car-deal-agent/frontend/package-lock.json
+      - run: npm ci
+      - name: Web app for the native app, copied into the Xcode project
+        run: npm run app:build
+      - name: Build for the iOS simulator (unsigned)
+        run: |
+          xcodebuild -version
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+      - name: The share extension is inside the app
+        run: |
+          app=build/Build/Products/Debug-iphonesimulator/App.app
+          ls -la "$app/PlugIns/ShareExtension.appex"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$app/Info.plist"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$app/PlugIns/ShareExtension.appex/Info.plist"

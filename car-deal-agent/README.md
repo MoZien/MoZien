@@ -192,8 +192,14 @@ and keeps what it found.
 Who can load pages:
 
 - **Native app** (`frontend/android`, `frontend/ios`, Capacitor 8): the bundled web app talks to
-  the live server (`.env.app` sets `VITE_API_BASE`); its native HTTP may load other sites. On
-  Android, "Teilen" from the Kleinanzeigen app opens the shared ad in AutoHalle.
+  the live server (`.env.app` sets `VITE_API_BASE`); its native HTTP may load other sites.
+  "Teilen" from the Kleinanzeigen app: on Android the app receives the shared text directly; on
+  the iPhone the share extension (`ios/App/ShareExtension`) posts a notification with the link
+  (Apple doesn't let share extensions open their app), and tapping it opens the check — the app
+  asks for the notification permission when the user sets sharing up; without it the extension
+  copies the link. Bundle id and version are set once at project level (`AUTOHALLE_BUNDLE_ID`,
+  `MARKETING_VERSION`); the extension uses `$(AUTOHALLE_BUNDLE_ID).share`. A GitHub workflow
+  (`.github/workflows/ios-app.yml`) builds the iOS app with the extension on a Mac runner.
 - **Browser helper** (`extension/`, Chrome/Edge, Manifest V3): loads the pages for AutoHalle's
   tab, without the user's cookies, and adds a "Mit AutoHalle prüfen" button to ad pages. The
   Docker image serves it as `/autohalle-helfer.zip`; the help page explains how to install it
