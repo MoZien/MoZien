@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "car-deal-agent"
-version = "1.7.0"
+version = "1.8.0"
 description = "Watches Kleinanzeigen for used cars priced below market value and judges whether they are worth flipping."
 readme = "README.md"
 requires-python = ">=3.10"
