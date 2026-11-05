@@ -2,6 +2,7 @@ import { type ReactNode, createContext, useCallback, useContext, useEffect, useR
 import { ApiError, getMeta, setUnauthorizedHandler } from "./api";
 import { isNativeApp } from "./device";
 import { DEFAULT_PREFS, prefsStore, setAccountScope } from "./store";
+import { syncFor } from "./sync";
 import type { Meta } from "./types";
 
 interface AppState {
@@ -76,6 +77,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       firstAnswer.current = false;
       // Saved cars, garage and searches of the account that is signed in now.
       setAccountScope(data.account?.id ?? null, Boolean(data.account?.admin) || !data.auth_required);
+      // Saved cars, garage and searches on every device of the account (not in open mode).
+      syncFor(data.auth_required && data.account?.id ? data.account.id : null);
       setMeta(data);
       setMetaError(null);
       setWaking(false);

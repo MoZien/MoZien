@@ -15,7 +15,10 @@ Environment:
   AI_GLOBAL_LIMIT     AI reviews per day for all accounts together (default 400), CHAT_GLOBAL_LIMIT (3000)
   JOB_WORKERS         analyses running at the same time (default 2; more means more load on Kleinanzeigen)
   PUBLIC_URL          the app's address for links in emails (default: the address it was called at)
-  DATA_DIR            where the comparables cache lives (default ./data)
+  DATA_DIR            where the comparables cache and the synced data live (default ./data); on
+                      Render's free plan this disk is wiped at every deploy (devices then send their
+                      data again), a Render disk keeps it
+  SYNC_DB             file for the synced saved cars, garage and searches (default DATA_DIR/sync.sqlite3)
   APP_NAME            the name shown in the app (default AutoHalle)
   SCRAPE_MIN_DELAY / SCRAPE_MAX_DELAY  pause between requests to Kleinanzeigen in seconds
   CORS_ORIGINS        origins of the native app (default capacitor://localhost,https://localhost)
@@ -55,6 +58,8 @@ from cardeal.web.auth import (
 )
 from cardeal.web.device import MAX_PAGE_CHARS, wait_for_change
 from cardeal.web.jobs import JobManager, UserFacingError
+from cardeal.web.sync import COLLECTIONS as SYNC_COLLECTIONS
+from cardeal.web.sync import SyncError, SyncStore
 from cardeal.web.mail import MailError, login_email, mailer_from_env
 from cardeal.web.prefs import HuntCriteria, ManualCar, Prefs
 from cardeal.web.service import (
@@ -108,6 +113,14 @@ class HuntRequest(BaseModel):
     device: bool = False
 
 
+class SyncManifest(BaseModel):
+    manifest: dict[str, str] = Field(default_factory=dict)
+
+
+class SyncPush(BaseModel):
+    items: list[dict[str, Any]] = Field(default_factory=list, max_length=100)
+
+
 class DevicePage(BaseModel):
     """A page the device loaded for a job (or why it couldn't)."""
 
@@ -146,7 +159,7 @@ class ScanRequest(BaseModel):
 
 
 def create_app(service: CarService | None = None, access: Access | None = None,
-               jobs: JobManager | None = None) -> FastAPI:
+               jobs: JobManager | None = None, sync: SyncStore | None = None) -> FastAPI:
     env = os.environ
     app_name = env.get("APP_NAME", "AutoHalle")
     fetch_mode = env.get("FETCH_MODE", "device").strip().lower()
@@ -178,6 +191,7 @@ def create_app(service: CarService | None = None, access: Access | None = None,
                                   max_delay_seconds=float(env.get("SCRAPE_MAX_DELAY", "6")))
         service = CarService(str(data_dir / "cache.sqlite3"), access, env.get("AI_MODEL", "claude-sonnet-5-5"), scraper)
     jobs = jobs or JobManager(workers=int(env.get("JOB_WORKERS", "2")))
+    sync = sync or SyncStore(env.get("SYNC_DB") or Path(env.get("DATA_DIR", "data")) / "sync.sqlite3")
     app = FastAPI(title=app_name, version=__version__, docs_url="/api/docs", openapi_url="/api/openapi.json")
     # The native app's pages come from capacitor://localhost (iOS) or https://localhost (Android).
     # Its requests normally go through the native HTTP layer (no CORS); this covers the rest.
@@ -259,10 +273,11 @@ def create_app(service: CarService | None = None, access: Access | None = None,
 
     @app.post("/api/account/delete")
     def delete_account(response: Response, current: Account = Depends(account)):
-        """Deletes what the server keeps about the account and signs it out. Saved cars, history and
-        settings live on the device; the app deletes them there."""
+        """Deletes what the server keeps about the account (sign-in data, usage, jobs, its synced
+        cars, garage and searches) and signs it out; the app deletes the account's data on the device."""
         access.erase(current)
         jobs.erase(current.id)
+        sync.erase(current.id)
         response.delete_cookie(COOKIE)
         log.info("account deleted: %s", current.id)
         return {"deleted": True}
@@ -323,6 +338,32 @@ def create_app(service: CarService | None = None, access: Access | None = None,
     @app.post("/api/jobs/{job_id}/cancel")
     def cancel(job_id: str, who: Account = Depends(account)):
         return {"cancelled": jobs.cancel(job_id, who.id)}
+
+    def syncing(who: Account = Depends(account)) -> Account:
+        # Only real accounts sync: in open mode everybody is the same "public" account.
+        if access.open or who.id == "public":
+            raise HTTPException(404, detail={"code": "no_sync"})
+        return who
+
+    def sync_collection(collection: str) -> str:
+        if collection not in SYNC_COLLECTIONS:
+            raise HTTPException(404, detail={"code": "no_sync"})
+        return collection
+
+    @app.post("/api/sync/{collection}/reconcile")
+    def sync_reconcile(collection: str, body: SyncManifest, who: Account = Depends(syncing)):
+        """The device says what it has (id -> last change); the answer says what the server needs
+        from it and gives it what is newer here."""
+        if len(body.manifest) > 3 * SYNC_COLLECTIONS[sync_collection(collection)]:
+            raise UserFacingError("bad_sync")
+        return sync.reconcile(who.id, collection, body.manifest)
+
+    @app.post("/api/sync/{collection}")
+    def sync_push(collection: str, body: SyncPush, who: Account = Depends(syncing)):
+        try:
+            return sync.put(who.id, sync_collection(collection), body.items)
+        except SyncError:
+            raise UserFacingError("bad_sync") from None
 
     @app.post("/api/evaluate")
     async def evaluate(body: EvaluateRequest, who: Account = Depends(account)):

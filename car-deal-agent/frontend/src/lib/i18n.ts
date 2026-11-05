@@ -474,7 +474,7 @@ const dict = {
   clear_history: ["امسح السجل (غير المفضلة)", "Verlauf löschen (ohne Favoriten)", "Clear history (keep favorites)"],
   clear_all: ["امسح كل البيانات", "Alle Daten löschen", "Delete all data"],
   reset_settings: ["رجّع الإعدادات الافتراضية", "Einstellungen zurücksetzen", "Reset settings"],
-  storage_note: ["كل بياناتك محفوظة بهالجهاز بس، مش على الخادم.", "Alle deine Daten bleiben auf diesem Gerät, nicht auf dem Server.", "All your data stays on this device, not on the server."],
+  storage_note: ["سياراتك المحفوظة والكراج وعمليات البحث بتتزامن مع حسابك، يعني بتلاقيهن على كل أجهزتك. الإعدادات بتضل على هالجهاز بس.", "Gespeicherte Autos, Garage und Suchen werden mit deinem Konto abgeglichen – du hast sie auf jedem Gerät. Einstellungen bleiben auf diesem Gerät.", "Saved cars, garage and searches are synced with your account, so you have them on every device. Settings stay on this device."],
   ai_usage: ["استخدام الذكاء الاصطناعي اليوم", "KI-Nutzung heute", "AI usage today"],
   logout: ["تسجيل خروج", "Abmelden", "Sign out"],
   version: ["الإصدار", "Version", "Version"],

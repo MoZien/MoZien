@@ -201,6 +201,14 @@ Who can load pages:
 - A **normal browser tab** can't (browsers don't let one site read another): there the server
   loads the pages, unless `FETCH_MODE=device` (default `both`; `server` turns device mode off).
 
+**Sync.** Saved cars, the garage and saved searches of an account are kept on the server too
+(`cardeal/web/sync.py`, `frontend/src/lib/sync.ts`), so every device the account signs in on has
+them. Each item is stored on its own with the time it last changed; a deletion leaves a note
+without content for 180 days. A device and the server compare `id -> last change` and swap only
+what is newer on either side (the latest change wins). Settings, the compare list and seen ads stay
+on the device; open mode (no accounts) doesn't sync. On Render's free plan the disk is wiped at
+every deploy: devices then simply send their data again; a Render disk (`DATA_DIR`) keeps it.
+
 Building the app:
 
 ```bash

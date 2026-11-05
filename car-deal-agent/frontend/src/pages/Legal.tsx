@@ -121,8 +121,8 @@ function Privacy() {
       <Section title="2. Das Wichtigste in Kürze">
         <ul className="list-disc space-y-1 ps-5">
           <li>Keine Werbung, kein Tracking, keine Analyse-Tools, keine Schriftarten oder Skripte von fremden Servern.</li>
-          <li>Deine gespeicherten Autos, dein Verlauf, deine Garage, Suchen und Einstellungen liegen nur auf deinem Gerät.</li>
-          <li>Der Server speichert über dich nur, was für Anmeldung, Missbrauchsschutz und die laufende Prüfung nötig ist – und das nur kurz.</li>
+          <li>Deine gespeicherten Autos, deine Garage und deine Suchen hält die App für dein Konto auf dem Server bereit, damit du sie auf allen deinen Geräten hast. Einstellungen bleiben nur auf deinem Gerät.</li>
+          <li>Darüber hinaus speichert der Server über dich nur, was für Anmeldung, Missbrauchsschutz und die laufende Prüfung nötig ist – und das nur kurz.</li>
           <li>Für die KI-Auswertung gehen Anzeigendaten und deine Chat-Fragen an Anthropic (USA). Du kannst die KI in den Einstellungen abschalten.</li>
         </ul>
       </Section>
@@ -151,11 +151,17 @@ function Privacy() {
         </p>
       </Section>
 
-      <Section title="5. Daten auf deinem Gerät">
+      <Section title="5. Deine gespeicherten Autos, Garage und Suchen">
         <p>
-          Gespeicherte Autos, Verlauf, Garage, Suchen, Vergleich und Einstellungen speichert die App im Speicher deines Browsers (localStorage), getrennt
-          nach Konto. Sie werden nicht an den Server übertragen. Du kannst sie in den Einstellungen exportieren und löschen. Die Speicherung ist für die
-          Funktionen nötig, die du nutzt (§ 25 Abs. 2 Nr. 2 TDDDG).
+          Die App speichert deine Daten im Speicher deines Browsers bzw. der App (localStorage), getrennt nach Konto. Gespeicherte Autos (mit dem
+          Ergebnis der Prüfung, deinen Notizen und dem Status), deine Garage und deine gespeicherten Suchen hält sie außerdem für dein Konto auf dem
+          Server (Render, Frankfurt) bereit, damit du sie auf allen Geräten hast, auf denen du angemeldet bist. Rechtsgrundlage ist die Nutzung der
+          App, um die du bittest (Art. 6 Abs. 1 lit. b DSGVO).
+        </p>
+        <p>
+          Löschst du einen Eintrag, verschwindet er auch auf dem Server; ein Löschvermerk ohne Inhalt bleibt bis zu 180 Tage, damit die Löschung auch
+          deine anderen Geräte erreicht. Mit „Konto löschen“ ist alles sofort weg. Einstellungen, Vergleichsliste und bereits gesehene Anzeigen
+          bleiben nur auf dem jeweiligen Gerät (§ 25 Abs. 2 Nr. 2 TDDDG). In den Einstellungen kannst du alles exportieren und löschen.
         </p>
       </Section>
 
