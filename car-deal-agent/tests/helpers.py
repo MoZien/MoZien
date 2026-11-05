@@ -5,6 +5,7 @@ def make_analysis(**overrides) -> ListingAnalysis:
     data = dict(
         verdict="buy", verdict_reason="solid car", issues=[], positives=[], scam_risk="low", scam_signals=[],
         resale_difficulty="easy", questions_for_seller=[], negotiation_tip="", seller_message="",
+        photo_findings=[], odometer_km_in_photo=None,
     )
     return ListingAnalysis(**{**data, **overrides})
 

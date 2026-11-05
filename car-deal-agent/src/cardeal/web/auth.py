@@ -221,15 +221,27 @@ class Access:
     def _sign(self, payload: str) -> str:
         return hmac.new(self.secret, payload.encode(), hashlib.sha256).hexdigest()[:32]
 
+    def _keys(self, account: Account, kind: str) -> tuple[tuple[str, str, str], tuple[str, str, str], int]:
+        today = date.today().isoformat()
+        limit = self.ai_daily_limit if kind == "ai" else self.chat_daily_limit
+        return (account.id, kind, today), ("*", kind, today), limit
+
+    def _used_up(self, account: Account, kind: str) -> bool:
+        key, total, limit = self._keys(account, kind)
+        return not account.admin and (self._usage.get(key, 0) >= limit
+                                      or self._usage.get(total, 0) >= self.global_limits[kind])
+
+    def has_allowance(self, account: Account, kind: str) -> bool:
+        """Whether `use` would allow one more call now; counts nothing."""
+        with self._lock:
+            return not self._used_up(account, kind)
+
     def use(self, account: Account, kind: str) -> bool:
         """Counts one AI call of `kind` ("ai" or "chat") for today; False when the account's allowance
         or the daily cap of all accounts together is used up (the owner has neither)."""
-        limit = self.ai_daily_limit if kind == "ai" else self.chat_daily_limit
-        today = date.today().isoformat()
-        key, total = (account.id, kind, today), ("*", kind, today)
+        key, total, _ = self._keys(account, kind)
         with self._lock:
-            if not account.admin and (self._usage.get(key, 0) >= limit
-                                      or self._usage.get(total, 0) >= self.global_limits[kind]):
+            if self._used_up(account, kind):
                 return False
             self._usage[key] = self._usage.get(key, 0) + 1
             self._names[account.id] = account.name

@@ -117,7 +117,8 @@ theme, installable on the phone's home screen.
   and limits), help.
 - **Per car:** score, price position, comparables chart with links, the whole calculation step by
   step, AI review, chat about the car, share / print / PDF.
-- User data (saved cars, settings) stays in the browser. The server only keeps the market cache.
+- Settings stay on the device; saved cars, the garage and saved searches sync between the devices
+  of an account (see *Sync* below). In device mode the server keeps no ads at all.
 
 ```bash
 pip install -e ".[web]"
@@ -205,7 +206,8 @@ Who can load pages:
   Docker image serves it as `/autohalle-helfer.zip`; the help page explains how to install it
   (until it is in the Chrome Web Store: developer mode, "Load unpacked").
 - A **normal browser tab** can't (browsers don't let one site read another): there the server
-  loads the pages, unless `FETCH_MODE=device` (default `both`; `server` turns device mode off).
+  loads the pages only if `FETCH_MODE` allows it (default `device`: it doesn't, and the app shows
+  how to get the app or the helper; `both` lets the server step in, `server` turns device mode off).
 
 **Sync.** Saved cars, the garage and saved searches of an account are kept on the server too
 (`cardeal/web/sync.py`, `frontend/src/lib/sync.ts`), so every device the account signs in on has
@@ -214,6 +216,17 @@ without content for 180 days. A device and the server compare `id -> last change
 what is newer on either side (the latest change wins). Settings, the compare list and seen ads stay
 on the device; open mode (no accounts) doesn't sync. On Render's free plan the disk is wiped at
 every deploy: devices then simply send their data again; a Render disk (`DATA_DIR`) keeps it.
+
+**Photo check.** For a single check the AI also looks at up to six of the ad's photos (dents,
+rust, repainted panels, tyres, interior, warning lights, the odometer) and lists what it sees,
+each finding next to its photo; a mileage on the dashboard that doesn't match the ad is flagged.
+In device mode the server asks the device for them (`{"kind": "photos", "urls": [...]}` in
+`partial.fetch`): the app loads them as plain images – the platforms' photo servers allow that
+(CORS) – shrinks them to 1024 px JPEGs on a canvas (`frontend/src/lib/photos.ts`) and posts them
+back; a new review after switching the purpose sends them with `POST /api/evaluate`. In server
+mode the server loads them (`cardeal/web/photos.py`). They go to Claude with the ad and are not
+stored. Each photo adds about 1,000 input tokens (about 1 cent per check with Sonnet 5.5). It
+can be turned off in the settings ("KI prüft auch die Fotos"); hunts never send photos.
 
 Building the app:
 

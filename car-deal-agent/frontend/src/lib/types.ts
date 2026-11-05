@@ -37,6 +37,8 @@ export interface Prefs {
   ai_enabled: boolean;
   ai_effort: "low" | "medium" | "high";
   ai_in_hunt: boolean;
+  /** Single checks: the AI also looks at the ad's photos. */
+  ai_photos: boolean;
 }
 
 export interface HuntCriteria {
@@ -188,6 +190,13 @@ export interface Issue {
   cost_eur: number;
 }
 
+/** Something the ad's photos show; `photo` counts from 1 in the order the AI got them. */
+export interface PhotoFinding {
+  photo: number;
+  finding: string;
+  severity: "info" | "warn" | "bad";
+}
+
 export interface Analysis {
   verdict: string;
   verdict_reason: string;
@@ -198,6 +207,10 @@ export interface Analysis {
   questions_for_seller: string[];
   negotiation_tip: string;
   seller_message: string;
+  /** What the photos show (absent in reviews from before photo checks). */
+  photo_findings?: PhotoFinding[];
+  /** The mileage on the dashboard if a photo shows it legibly. */
+  odometer_km_in_photo?: number | null;
   // trade review
   resale_difficulty?: "easy" | "normal" | "hard";
   // personal review
@@ -221,6 +234,9 @@ export interface Result {
   ai_error?: string | null;
   costed_issues: Issue[];
   created_at: string;
+  /** How many of the ad's photos the AI looked at, and where each is in listing.images. */
+  photos_checked?: number;
+  photo_index?: number[];
 }
 
 export interface JobStep {

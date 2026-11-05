@@ -1,3 +1,4 @@
+import base64
 import time
 from dataclasses import replace
 from types import SimpleNamespace
@@ -7,7 +8,14 @@ import requests
 from fastapi.testclient import TestClient
 from helpers import issue, make_analysis
 
-from cardeal.analyzer import ListingAnalysis, PersonalAnalysis, TextScan, WeakPoint
+from cardeal.analyzer import (
+    ListingAnalysis,
+    PersonalAnalysis,
+    Photo,
+    PhotoFinding,
+    TextScan,
+    WeakPoint,
+)
 from cardeal.models import Listing
 from cardeal.sources.base import SourceBlockedError
 from cardeal.web.app import create_app
@@ -21,6 +29,7 @@ GOLF = dict(title="VW Golf 1.4 TSI", price=6_000, negotiable=True, year=2014, mo
             gearbox="Manuell", make_slug="volkswagen", model_slug="golf", fuel_slug="benzin",
             gearbox_slug="manuell", hu_until="08/2027", description="Scheckheft. Klima muss befüllt werden.",
             images=["https://img.kleinanzeigen.de/api/v1/prod-ads/images/aa/1?rule=$_59.AUTO"])
+JPEG = base64.b64encode(b"\xff\xd8\xff\xe0" + bytes(200)).decode()  # starts like a JPEG file
 
 
 def comps(prefix, n=20, price=9_000):
@@ -66,14 +75,15 @@ class FakeClaude:
         self.requests.append(request)
         kind = request["output_format"]
         if kind is ListingAnalysis:
-            parsed = make_analysis(verdict_reason="trade view", issues=[issue()])
+            parsed = make_analysis(verdict_reason="trade view", issues=[issue()], odometer_km_in_photo=100_400,
+                                   photo_findings=[PhotoFinding(photo=1, finding="Delle hinten links", severity="warn")])
         elif kind is PersonalAnalysis:
             parsed = PersonalAnalysis(
                 verdict="buy", verdict_reason="personal view", reliability=4, issues=[issue()],
                 known_weak_points=[WeakPoint(item="Steuerkette", typical_cost_eur=900, how_to_check="Kaltstart")],
                 positives=["Scheckheft"], negatives=[], inspection_checklist=["Kaltstart"], questions_for_seller=[],
                 suitability="passt", yearly_upkeep_eur=600, scam_risk="low", scam_signals=[], negotiation_tip="",
-                seller_message="Guten Tag",
+                seller_message="Guten Tag", photo_findings=[], odometer_km_in_photo=None,
             )
         else:
             parsed = TextScan(summary="ok", issues=[], red_flags=[], scam_risk="low", scam_signals=[],
@@ -85,10 +95,21 @@ class FakeClaude:
         return SimpleNamespace(stop_reason="end_turn", content=[SimpleNamespace(type="text", text="Kaltstart prüfen.")])
 
 
+class FakePhotos:
+    """The server's photo loader (server mode): records the URLs, returns a small JPEG for each."""
+
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, urls):
+        self.calls.append(list(urls))
+        return [Photo("image/jpeg", JPEG, url) for url in urls]
+
+
 def make_client(source=None, codes=None, ai=True, ai_limit=40, tmp_path=None):
     access = Access(codes, "test-secret", ai_daily_limit=ai_limit)
     service = CarService(str(tmp_path / "cache.sqlite3"), access, source=source or FakeKleinanzeigen(),
-                         ai_client=FakeClaude() if ai else None)
+                         ai_client=FakeClaude() if ai else None, photo_loader=FakePhotos())
     if not ai:
         service._ai_checked, service._ai_client = True, None
     app = create_app(service=service, access=access, jobs=JobManager())
@@ -106,8 +127,9 @@ def wait(client, job_id, timeout=10):
 
 
 def analyze(client, purpose="trade", **prefs):
-    job_id = client.post("/api/jobs/analyze", json={"url": AD, "prefs": {"purpose": purpose, **prefs}}).json()["job_id"]
-    return wait(client, job_id)
+    """An analysis as the app starts it (the app sends all its settings, ai_photos included)."""
+    body = {"url": AD, "prefs": {"purpose": purpose, "ai_photos": True, **prefs}}
+    return wait(client, client.post("/api/jobs/analyze", json=body).json()["job_id"])
 
 
 def test_health_and_meta(tmp_path):
@@ -134,7 +156,8 @@ def test_analysis_has_numbers_for_both_purposes_and_the_review_for_the_chosen_on
     trade = analyze(client, "trade")
     assert trade["status"] == "done", trade
     result = trade["result"]
-    assert [s["state"] for s in trade["steps"]] == ["done", "done", "done"]
+    assert [(s["key"], s["state"]) for s in trade["steps"]] == [
+        ("ad", "done"), ("market", "done"), ("photos", "done"), ("ai", "done")]
     assert result["listing"]["images"] and result["listing"]["distance_km"] > 0
     market = result["valuation"]["market_price"]
     assert 9_000 < market < 9_500 and result["valuation"]["comparables"] >= 8
@@ -150,6 +173,72 @@ def test_analysis_has_numbers_for_both_purposes_and_the_review_for_the_chosen_on
     assert personal["personal"]["verdict"] in ("buy", "check") and personal["personal"]["offer_max"] <= 6_000
     kinds = [r["output_format"].__name__ for r in service.ai_client.requests]
     assert kinds == ["ListingAnalysis", "PersonalAnalysis"]
+
+
+def test_the_ai_review_also_looks_at_the_photos(tmp_path):
+    client, service = make_client(tmp_path=tmp_path)
+    job = analyze(client)
+    assert job["steps"][2] == {"key": "photos", "state": "done", "count": 1}
+    assert job["result"]["photos_checked"] == 1 and job["result"]["photo_index"] == [0]
+    assert service.load_photos.calls == [[GOLF["images"][0]]]
+    content = service.ai_client.requests[0]["messages"][0]["content"]
+    assert [block["type"] for block in content] == ["text", "text", "image", "text"]
+    assert content[1]["text"] == "Photo 1:" and "VW Golf 1.4 TSI" in content[3]["text"]
+    assert content[2]["source"] == {"type": "base64", "media_type": "image/jpeg", "data": JPEG}
+
+
+def test_a_new_review_can_bring_the_photos_the_app_loaded(tmp_path):
+    client, service = make_client(tmp_path=tmp_path)
+    result = analyze(client, ai_enabled=False)["result"]
+    photo = {"url": GOLF["images"][0], "data": JPEG}
+    stranger = {"url": "https://img.kleinanzeigen.de/api/v1/prod-ads/images/zz/9?rule=$_59.AUTO", "data": JPEG}
+    body = {"listing": result["listing"], "valuation": result["valuation"], "prefs": {"purpose": "personal"},
+            "ai": True, "photos": [stranger, photo]}
+    again = client.post("/api/evaluate", json=body).json()
+    assert again["ai_status"] == "ok" and again["photos_checked"] == 1 and again["photo_index"] == [0]
+    content = service.ai_client.requests[-1]["messages"][0]["content"]
+    assert [block["type"] for block in content] == ["text", "text", "image", "text"]
+    without = client.post("/api/evaluate", json={**body, "prefs": {"purpose": "personal", "ai_photos": False}}).json()
+    assert without["photos_checked"] == 0
+    assert client.post("/api/evaluate", json={**body, "photos": [photo] * 7}).status_code == 422  # at most 6
+    assert service.load_photos.calls == []  # the server loaded none itself
+
+
+def test_photos_are_only_loaded_when_the_review_runs(tmp_path):
+    client, service = make_client(codes="Kha:x1", ai_limit=1, tmp_path=tmp_path)
+    client.post("/api/auth/login", json={"code": "x1"})
+    assert analyze(client)["result"]["photos_checked"] == 1
+    used_up = analyze(client)  # no AI allowance left today: no photos are loaded for nothing
+    assert used_up["result"]["ai_status"] == "quota"
+    assert [s["state"] for s in used_up["steps"] if s["key"] == "photos"] == ["skipped"]
+    off = analyze(client, ai_photos=False)
+    assert [s["key"] for s in off["steps"]] == ["ad", "market", "ai"]
+    assert len(service.load_photos.calls) == 1
+
+    # an app from before the photo check doesn't send ai_photos: it gets no photo step at all
+    old_app = wait(client, client.post("/api/jobs/analyze", json={"url": AD, "prefs": {"ai_enabled": False}}).json()["job_id"])
+    assert [s["key"] for s in old_app["steps"]] == ["ad", "market"]
+    old_app = wait(client, client.post("/api/jobs/analyze", json={"url": AD}).json()["job_id"])
+    assert [s["key"] for s in old_app["steps"]] == ["ad", "market", "ai"] and len(service.load_photos.calls) == 1
+
+    no_photos = {"kleinanzeigen:3546000001": {**GOLF, "images": []}}
+    client, service = make_client(source=FakeKleinanzeigen(details=no_photos), tmp_path=tmp_path)
+    job = analyze(client)
+    assert job["steps"][2]["state"] == "skipped" and job["result"]["ai_status"] == "ok"
+    assert service.load_photos.calls == []
+
+
+def test_photos_that_fail_to_load_leave_the_review_to_the_text(tmp_path):
+    client, service = make_client(tmp_path=tmp_path)
+
+    def broken(urls):
+        raise requests.ConnectionError("photo server down")
+
+    service.load_photos = broken
+    job = analyze(client)
+    assert job["status"] == "done" and job["result"]["ai_status"] == "ok"
+    assert job["result"]["photos_checked"] == 0 and job["steps"][2] == {"key": "photos", "state": "done", "count": 0}
+    assert isinstance(service.ai_client.requests[0]["messages"][0]["content"], str)  # the text alone
 
 
 def test_errors_come_back_as_codes(tmp_path):
@@ -256,6 +345,7 @@ def test_chat_and_text_scan(tmp_path):
     assert answer["answer"] == "Kaltstart prüfen."
     system = service.ai_client.requests[-1]["system"]
     assert "VW Golf 1.4 TSI" in system and f"Market price {result['valuation']['market_price']}" in system
+    assert "seen in photo 1: Delle hinten links (warn)" in system and "Odometer in a photo: 100400 km" in system
     scan = client.post("/api/ai/scan", json={"text": "Verkaufe Golf, Klima muss befüllt werden, TÜV neu."}).json()
     assert scan["scam_risk"] == "low"
 

@@ -11,6 +11,7 @@ The sources don't notice: they get a `DeviceSession` where they would get a `req
 
 from __future__ import annotations
 
+import json
 import re
 import time
 from dataclasses import dataclass, field
@@ -18,8 +19,10 @@ from typing import TYPE_CHECKING
 
 import requests
 
+from cardeal.analyzer import Photo
 from cardeal.config import ScraperSettings
 from cardeal.web.jobs import JobCancelled, UserFacingError
+from cardeal.web.photos import PHOTO_URL, photos_from_device
 
 if TYPE_CHECKING:
     from cardeal.web.jobs import Job
@@ -67,13 +70,36 @@ class DeviceLink:
         self.pages = 0
 
     def get(self, url: str) -> DeviceResponse:
-        """Asks the device for `url` and waits for it (called from the job's thread)."""
+        """Asks the device for the page `url` and waits for it (called from the job's thread)."""
         if not ALLOWED_URL.match(url):
             raise ValueError(f"not a marketplace page: {url}")
+        answer = self._ask({"url": url})
+        if answer.get("error"):
+            raise requests.ConnectionError(f"device could not load the page: {answer['error']}")
+        self.pages += 1
+        return DeviceResponse(int(answer.get("status") or 0), answer.get("body") or "", answer.get("url") or url)
+
+    def get_photos(self, urls: list[str]) -> list[Photo]:
+        """Asks the device for the ad's photos in one go (it loads them itself, makes them smaller
+        and sends them as base64 JPEGs). Photos it couldn't load are left out."""
+        urls = [url for url in urls if PHOTO_URL.match(url)]
+        if not urls:
+            return []
+        answer = self._ask({"kind": "photos", "urls": urls})
+        if answer.get("error"):
+            return []
+        try:
+            items = json.loads(answer.get("body") or "[]")
+        except ValueError:
+            return []
+        return photos_from_device(items, urls)
+
+    def _ask(self, request: dict) -> dict:
+        """Puts one request where the app sees it and waits for the device's answer."""
         job = self.job
         with job.cond:
             self._next_id += 1
-            self._pending, self._answer = {"id": self._next_id, "url": url}, None
+            self._pending, self._answer = {"id": self._next_id, **request}, None
             job.partial["fetch"] = dict(self._pending)
             job.touch()
             deadline = time.monotonic() + self.wait_seconds
@@ -85,15 +111,11 @@ class DeviceLink:
                     if remaining <= 0:
                         raise DeviceGone()
                     job.cond.wait(min(remaining, 1.0))
-                answer = self._answer
+                return self._answer
             finally:
                 self._pending = self._answer = None
                 job.partial.pop("fetch", None)
                 job.touch()
-        if answer.get("error"):
-            raise requests.ConnectionError(f"device could not load the page: {answer['error']}")
-        self.pages += 1
-        return DeviceResponse(int(answer.get("status") or 0), answer.get("body") or "", answer.get("url") or url)
 
     def deliver(self, fetch_id: int, status: int, body: str, url: str, error: str | None = None) -> bool:
         """The device's answer (called from the API thread). False if nothing waits for it."""

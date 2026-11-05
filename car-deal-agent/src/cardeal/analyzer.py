@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import Literal
 
 import anthropic
@@ -27,6 +28,23 @@ class Issue(BaseModel):
     cost_eur: int
 
 
+class PhotoFinding(BaseModel):
+    """Something the ad's photos show (photos numbered from 1, as attached)."""
+
+    photo: int
+    finding: str
+    severity: Literal["info", "warn", "bad"]
+
+
+@dataclass(frozen=True)
+class Photo:
+    """An ad photo for the AI review: base64 data, its media type and the URL it came from."""
+
+    media_type: str
+    data: str
+    url: str = ""
+
+
 class ListingAnalysis(BaseModel):
     verdict: Literal["buy", "check", "skip"]
     verdict_reason: str
@@ -38,6 +56,25 @@ class ListingAnalysis(BaseModel):
     questions_for_seller: list[str]
     negotiation_tip: str
     seller_message: str
+    photo_findings: list[PhotoFinding]
+    odometer_km_in_photo: int | None
+
+
+# Appended to both review prompts.
+PHOTO_GUIDE = """
+
+Photos: when the ad's photos are attached (numbered from 1, in the ad's order), look at what \
+they show about the condition: dents, scratches, rust (wheel arches, sills, door edges), panels \
+in a different shade or with uneven gaps (repaired accident damage), tyre wear, a worn or damaged \
+interior, warning lights on the dashboard, and the odometer if it is legible. Note anything that \
+contradicts the ad text (e.g. "unfallfrei" but a panel that looks repainted). photo_findings: up \
+to 6 findings, max 8 words each, with the photo number and a severity: "bad" needs repair or \
+contradicts the ad, "warn" is worth checking at the viewing, "info" is neutral or positive. Only \
+report what you can actually see: small, dark or blurry photos are no evidence, so say nothing \
+rather than guess. Judge only the car: don't describe people and don't read out number plates. \
+odometer_km_in_photo: the mileage on the dashboard if it is clearly legible, else null. Without \
+photos: photo_findings [] and odometer_km_in_photo null. Damage you only see in the photos goes \
+into photo_findings, not into issues (issues need the ad's own words)."""
 
 
 SYSTEM_PROMPT = """\
@@ -97,7 +134,7 @@ it, "check" when it needs an inspection or answers from the seller first, \
 (engine or gearbox damage, accident car, missing papers). verdict_reason names \
 what decides it (condition, risks, paperwork) and contains no prices, profit or \
 cost totals: the message shows the program's numbers, and different ones from \
-you would contradict them."""
+you would contradict them.""" + PHOTO_GUIDE
 
 
 class WeakPoint(BaseModel):
@@ -124,6 +161,8 @@ class PersonalAnalysis(BaseModel):
     scam_signals: list[str]
     negotiation_tip: str
     seller_message: str
+    photo_findings: list[PhotoFinding]
+    odometer_km_in_photo: int | None
 
 
 class TextScan(BaseModel):
@@ -180,7 +219,7 @@ a lower price; "check": promising but needs an inspection or answers first; \
 "avoid": likely scam, serious defects or a poor choice for this buyer.
 
 Keep it short, it is read on a phone: each list item max 12 words, at most 4 \
-positives, 4 negatives and 3 questions."""
+positives, 4 negatives and 3 questions.""" + PHOTO_GUIDE
 
 
 SCAN_SYSTEM_PROMPT = """\
@@ -332,8 +371,17 @@ class ListingAnalyzer:
             request.update(betas=[FALLBACK_BETA], fallbacks="default")
         return request
 
-    def _parse(self, system: str, prompt: str, output: type[BaseModel], what: str):
-        request = self._request(system, [{"role": "user", "content": prompt}])
+    def _parse(self, system: str, prompt: str, output: type[BaseModel], what: str, photos=()):
+        content: str | list[dict] = prompt
+        if photos:
+            # Photos first, each with its number, then the ad text and the task.
+            content = [{"type": "text", "text": f"The ad's {len(photos)} photos, in order:"}]
+            for number, photo in enumerate(photos, 1):
+                content.append({"type": "text", "text": f"Photo {number}:"})
+                content.append({"type": "image",
+                                "source": {"type": "base64", "media_type": photo.media_type, "data": photo.data}})
+            content.append({"type": "text", "text": prompt})
+        request = self._request(system, [{"role": "user", "content": content}])
         response = self.client.beta.messages.parse(**request, output_format=output)
         if response.stop_reason == "refusal":
             raise AnalysisError(f"model declined to analyse {what}")
@@ -343,15 +391,17 @@ class ListingAnalyzer:
             raise AnalysisError("model returned no structured analysis")
         return response.parsed_output
 
-    def analyze(self, listing: Listing, valuation: Valuation, flip: FlipEstimate) -> ListingAnalysis:
+    def analyze(self, listing: Listing, valuation: Valuation, flip: FlipEstimate,
+                photos: tuple[Photo, ...] | list[Photo] = ()) -> ListingAnalysis:
         return self._parse(SYSTEM_PROMPT, build_prompt(listing, valuation, flip, self.language), ListingAnalysis,
-                           listing.url)
+                           listing.url, photos)
 
-    def analyze_personal(self, listing: Listing, valuation: Valuation, estimate, buyer: str) -> PersonalAnalysis:
+    def analyze_personal(self, listing: Listing, valuation: Valuation, estimate, buyer: str,
+                         photos: tuple[Photo, ...] | list[Photo] = ()) -> PersonalAnalysis:
         """Review for someone buying the car to keep. `estimate` is a personal.PersonalEstimate,
         `buyer` describes their use (annual km, city/highway, budget)."""
         prompt = build_personal_prompt(listing, valuation, estimate, buyer, self.language)
-        return self._parse(PERSONAL_SYSTEM_PROMPT, prompt, PersonalAnalysis, listing.url)
+        return self._parse(PERSONAL_SYSTEM_PROMPT, prompt, PersonalAnalysis, listing.url, photos)
 
     def scan_text(self, text: str) -> TextScan:
         """Quick check of an ad text someone pasted: defects, scam signals, what to ask."""

@@ -1,12 +1,13 @@
 """Device mode: the job asks the app to load every marketplace page and keeps no ads."""
 
+import json
 import threading
 import time
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from test_web import AD, FakeClaude, FakeKleinanzeigen
+from test_web import AD, JPEG, FakeClaude, FakeKleinanzeigen, FakePhotos
 
 from cardeal.config import ScraperSettings
 from cardeal.web import device as device_module
@@ -32,19 +33,29 @@ def results_page(n=15) -> str:
     return f"<html><body>{ads}</body></html>"
 
 
-def marketplace(url: str) -> tuple[int, str]:
+def marketplace(url: str, detail: str = DETAIL) -> tuple[int, str]:
     if "s-ort-empfehlungen" in url:
         return 200, '{"_0":"Deutschland","_9668":"06108 Halle"}'
     if "/s-anzeige/" in url:
-        return 200, DETAIL
+        return 200, detail
     return 200, results_page()
 
 
 class Phone:
-    """Plays the user's device: loads every page the job asks for and posts it back (up to `limit`)."""
+    """Plays the user's device: loads every page the job asks for and posts it back (up to `limit`),
+    and the ad's photos when the job asks for them."""
 
-    def __init__(self, client, limit=None):
-        self.client, self.limit, self.urls = client, limit, []
+    def __init__(self, client, limit=None, detail=DETAIL):
+        self.client, self.limit, self.detail, self.urls, self.photo_requests = client, limit, detail, [], []
+
+    def answer(self, fetch: dict) -> dict:
+        if fetch.get("kind") == "photos":
+            self.photo_requests.append(fetch["urls"])
+            body = json.dumps([{"url": url, "data": JPEG} for url in fetch["urls"]])
+            return {"id": fetch["id"], "status": 200, "body": body}
+        self.urls.append(fetch["url"])
+        status, body = marketplace(fetch["url"], self.detail)
+        return {"id": fetch["id"], "status": status, "url": fetch["url"], "body": body}
 
     def run(self, job_id: str, timeout: float = 20) -> dict:
         since, deadline = -1, time.time() + timeout
@@ -53,11 +64,7 @@ class Phone:
             while job["status"] not in ("done", "error", "cancelled") and job["partial"].get("fetch"):
                 if self.limit is not None and len(self.urls) >= self.limit:
                     break  # the phone went away
-                fetch = job["partial"]["fetch"]
-                self.urls.append(fetch["url"])
-                status, body = marketplace(fetch["url"])
-                job = self.client.post(f"/api/jobs/{job_id}/fetch",
-                                       json={"id": fetch["id"], "status": status, "url": fetch["url"], "body": body}).json()
+                job = self.client.post(f"/api/jobs/{job_id}/fetch", json=self.answer(job["partial"]["fetch"])).json()
                 assert job["delivered"] is True
             if job["status"] in ("done", "error", "cancelled"):
                 return job
@@ -74,7 +81,8 @@ def device_client(tmp_path, monkeypatch=None, mode=None):
     if mode and monkeypatch:
         monkeypatch.setenv("FETCH_MODE", mode)
     server_source = FakeKleinanzeigen()
-    service = CarService(str(tmp_path / "cache.sqlite3"), Access(None, "s"), source=server_source, ai_client=FakeClaude())
+    service = CarService(str(tmp_path / "cache.sqlite3"), Access(None, "s"), source=server_source, ai_client=FakeClaude(),
+                         photo_loader=FakePhotos())
     client = TestClient(create_app(service=service, access=service.access, jobs=JobManager()))
     return client, service, server_source
 
@@ -94,6 +102,24 @@ def test_analysis_loads_every_page_on_the_device_and_keeps_no_ads(tmp_path, quic
     # the server itself loaded nothing and stored no ad
     assert server_source.searches == [] and server_source.detail_calls == []
     assert service.store.db.execute("SELECT COUNT(*) FROM listings").fetchone()[0] == 0
+
+
+def test_the_device_also_loads_the_photos_for_the_ai(tmp_path, quick):
+    photo = "https://img.kleinanzeigen.de/api/v1/prod-ads/images/aa/1?rule=$_59.AUTO"
+    detail = DETAIL.replace("</body>", f'<img src="{photo}"></body>', 1)
+    assert detail != DETAIL
+    client, service, _ = device_client(tmp_path)
+    started = client.post("/api/jobs/analyze", json={"url": AD, "device": True, "prefs": {"ai_photos": True}}).json()
+    phone = Phone(client, detail=detail)
+    job = phone.run(started["job_id"])
+
+    assert job["status"] == "done", job
+    assert [step["state"] for step in job["steps"]] == ["done", "done", "done", "done"]
+    assert phone.photo_requests == [[photo]] and job["result"]["photos_checked"] == 1
+    assert job["result"]["photo_index"] == [0]
+    assert service.load_photos.calls == []  # the server itself loaded no photo
+    content = service.ai_client.requests[-1]["messages"][0]["content"]
+    assert content[2] == {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": JPEG}}
 
 
 def test_a_closed_app_ends_the_job_with_a_clear_reason(tmp_path, quick, monkeypatch):

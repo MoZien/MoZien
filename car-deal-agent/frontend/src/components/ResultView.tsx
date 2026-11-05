@@ -12,6 +12,7 @@ import {
   SearchCheck,
   XCircle,
   Heart,
+  Camera,
   Loader2,
   MapPin,
   MoreHorizontal,
@@ -27,7 +28,8 @@ import { type TextKey, useT } from "../lib/i18n";
 import { discountOf, shareText, verdictOf } from "../lib/result";
 import { navigate } from "../lib/router";
 import { compareStore, garageStore, prefsStore, saveResult, savedStore, uid, updateSaved, useStore } from "../lib/store";
-import type { Purpose, Result } from "../lib/types";
+import { aiPhotoUrls, loadPhotos } from "../lib/photos";
+import type { Analysis, PhotoFinding, Purpose, Result } from "../lib/types";
 import { CarPhoto, toneText } from "./CarCard";
 import { Lightbox, photoSize } from "./Lightbox";
 import { ChatPanel } from "./ChatPanel";
@@ -54,11 +56,15 @@ export function ResultView({ result, onChange, onReanalyze }: { result: Result; 
   async function evaluate(withAi: boolean, purpose: Purpose = view) {
     setBusy(withAi ? "ai" : "recalc");
     try {
+      // A new review looks at the photos too: this device loads them (the server never does).
+      const photos = withAi && prefs.ai_photos ? await loadPhotos(aiPhotoUrls(result.listing.images)) : [];
       const next = await api<Result>("/api/evaluate", {
-        body: { listing: result.listing, valuation: result.valuation, prefs: { ...prefs, purpose }, ai: withAi },
+        body: { listing: result.listing, valuation: result.valuation, prefs: { ...prefs, purpose }, ai: withAi, photos },
       });
       // A recalculation keeps an earlier AI review of the other purpose if there is no new one.
-      const merged = withAi || next.analysis ? next : { ...next, analysis: result.analysis, analysis_kind: result.analysis_kind, ai_status: result.ai_status, costed_issues: result.costed_issues };
+      const merged = withAi || next.analysis
+        ? next
+        : { ...next, analysis: result.analysis, analysis_kind: result.analysis_kind, ai_status: result.ai_status, costed_issues: result.costed_issues, photos_checked: result.photos_checked, photo_index: result.photo_index };
       onChange?.(merged);
       if (entry) saveResult(merged);
       toast(t("updated"), "good");
@@ -554,6 +560,8 @@ function AiReview({ result, view, busy, onReview }: { result: Result; view: Purp
         )}
       </Card>
 
+      <PhotoCheck result={result} analysis={analysis} />
+
       <Card className="p-4 sm:p-5">
         <h3 className="mb-3 text-[15px] font-semibold">{t("issues")}</h3>
         {issues.length === 0 ? (
@@ -614,6 +622,67 @@ function AiReview({ result, view, busy, onReview }: { result: Result; view: Purp
       )}
       {analysis.seller_message && <SellerMessage text={analysis.seller_message} />}
     </div>
+  );
+}
+
+const findingTone: Record<PhotoFinding["severity"], string> = { bad: "bg-bad", warn: "bg-warn", info: "bg-muted" };
+
+/** What the AI saw in the ad's photos: each finding next to its photo (tap: full screen), and the
+ *  mileage on the dashboard against the ad's. Hidden for reviews without photos. */
+function PhotoCheck({ result, analysis }: { result: Result; analysis: Analysis }) {
+  const t = useT();
+  const [open, setOpen] = useState<number | null>(null);
+  const checked = result.photos_checked ?? 0;
+  if (!checked) return null;
+  const images = result.listing.images ?? [];
+  const order: Record<PhotoFinding["severity"], number> = { bad: 0, warn: 1, info: 2 };
+  const findings = [...(analysis.photo_findings ?? [])].sort((a, b) => order[a.severity] - order[b.severity]);
+  const odometer = analysis.odometer_km_in_photo;
+  const adKm = result.listing.km;
+  const odometerOff = odometer != null && adKm != null && Math.abs(odometer - adKm) > Math.max(5_000, adKm * 0.1);
+  return (
+    <Card className="p-4 sm:p-5 lg:col-span-2">
+      <h3 className="flex items-center gap-2 text-[15px] font-semibold">
+        <Camera className="size-4 text-muted" /> {t("photo_check")}
+      </h3>
+      <p className="mb-3 mt-0.5 text-xs text-muted">{t("photo_check_note", { n: checked })}</p>
+      {odometer != null && adKm != null && (
+        <div className="mb-3">
+          <Note tone={odometerOff ? "warn" : "good"}>
+            {t(odometerOff ? "odometer_differs" : "odometer_matches", { photo: km(odometer), ad: km(adKm) })}
+          </Note>
+        </div>
+      )}
+      {findings.length === 0 ? (
+        <p className="flex items-center gap-2 text-sm text-good">
+          <CheckCircle2 className="size-4" /> {t("photo_nothing")}
+        </p>
+      ) : (
+        <div className="divide-y divide-line">
+          {findings.map((finding, i) => {
+            const place = result.photo_index?.[finding.photo - 1] ?? -1;
+            const src = place >= 0 ? images[place] : undefined;
+            return (
+              <div key={i} className="flex items-center gap-3 py-2.5 first:pt-0">
+                {src ? (
+                  <button type="button" onClick={() => setOpen(place)} className="size-12 shrink-0 cursor-zoom-in overflow-hidden rounded-md bg-surface-2" aria-label={t("photos_open")}>
+                    <img src={photoSize(src, 2)} alt="" referrerPolicy="no-referrer" className="size-full object-cover" />
+                  </button>
+                ) : (
+                  <span className="num grid size-12 shrink-0 place-items-center rounded-md bg-surface-2 text-xs text-muted">{finding.photo}</span>
+                )}
+                <span className={cx("size-2 shrink-0 rounded-full", findingTone[finding.severity] ?? "bg-muted")} />
+                <span className="min-w-0 text-sm leading-snug" dir="auto">
+                  {finding.finding}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <p className="mt-3 text-xs text-faint">{t("photo_check_hint")}</p>
+      {open != null && <Lightbox images={images} start={open} onClose={() => setOpen(null)} />}
+    </Card>
   );
 }
 

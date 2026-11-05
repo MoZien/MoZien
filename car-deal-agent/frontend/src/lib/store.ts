@@ -147,7 +147,7 @@ export const DEFAULT_PREFS: Prefs = {
   annual_km: 12000, usage: "mixed", max_budget: null, inspection_cost: 120,
   year_window: 2, km_window: 0.4, min_comparables: 5, comparables_pages: 2, comparables_seller: "privat",
   local_radius_km: 150,
-  ai_enabled: true, ai_effort: "medium", ai_in_hunt: true,
+  ai_enabled: true, ai_effort: "medium", ai_in_hunt: true, ai_photos: true,
 };
 
 export type Theme = "system" | "dark" | "light";

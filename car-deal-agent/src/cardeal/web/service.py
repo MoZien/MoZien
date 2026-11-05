@@ -7,6 +7,7 @@ import logging
 import os
 import statistics
 import time
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, fields
 from datetime import datetime, timedelta
 from typing import Any
@@ -14,7 +15,13 @@ from typing import Any
 import anthropic
 import requests
 
-from cardeal.analyzer import AnalysisError, ListingAnalyzer, costed_issues, repair_costs
+from cardeal.analyzer import (
+    AnalysisError,
+    ListingAnalyzer,
+    Photo,
+    costed_issues,
+    repair_costs,
+)
 from cardeal.config import AISettings, ScraperSettings, ValuationSettings
 from cardeal.flip import decide, estimate_flip
 from cardeal.geo import road_km, zip_of
@@ -30,6 +37,7 @@ from cardeal.valuation import ad_flags, plausible_km
 from cardeal.web.auth import Access, Account
 from cardeal.web.device import DEVICE_SCRAPER, DeviceGone, DeviceSession
 from cardeal.web.jobs import Job, JobCancelled, UserFacingError
+from cardeal.web.photos import ai_photo_choice, ai_photo_urls, load_on_server
 from cardeal.web.prefs import HuntCriteria, ManualCar, Prefs
 
 log = logging.getLogger(__name__)
@@ -146,8 +154,9 @@ class Fetchers:
 class CarService:
     def __init__(self, store_path: str, access: Access, ai_model: str = "claude-sonnet-5-5",
                  scraper: ScraperSettings | None = None, source=None, ai_client=None, autoscout24=None,
-                 autohero=None):
+                 autohero=None, photo_loader: Callable[[list[str]], list[Photo]] | None = None):
         self.store = Store(store_path)
+        self.load_photos = photo_loader or load_on_server  # server mode only (device mode: the device)
         self._pruned_at = 0.0
         self._prune()
         self.source = source or KleinanzeigenSource(scraper or ScraperSettings())
@@ -239,7 +248,28 @@ class CarService:
         job.step("market", "active")
         valuation = self._value(hunter, listing)
         job.step("market", "done", comparables=valuation.comparables)
-        return self.evaluate(listing, valuation, prefs, account, job=job, ai=prefs.ai_enabled)
+        photos = self._photos(job, listing, valuation, account) if prefs.ai_enabled and prefs.ai_photos else []
+        return self.evaluate(listing, valuation, prefs, account, job=job, ai=prefs.ai_enabled, photos=photos)
+
+    def _photos(self, job: Job, listing: Listing, valuation: Valuation, account: Account) -> list[Photo]:
+        """The ad's photos for the AI: loaded by the device in device mode, else by the server. Only
+        when the review will run (no photos are loaded for nothing); a failure only means the AI
+        sees no photos."""
+        urls = ai_photo_urls(listing.images or [])
+        if (not urls or valuation.market_price is None or self.ai_client is None
+                or not self.access.has_allowance(account, "ai")):
+            job.step("photos", "skipped")
+            return []
+        job.step("photos", "active")
+        try:
+            photos = job.device.get_photos(urls) if job.device is not None else self.load_photos(urls)
+        except JobCancelled:
+            raise
+        except Exception as exc:  # incl. a device that went away: the review runs on the text
+            log.info("photos for %s not loaded: %r", listing.url, exc, exc_info=True)
+            photos = []
+        job.step("photos", "done", count=len(photos))
+        return photos
 
     def valuate(self, job: Job, car: ManualCar, prefs: Prefs, account: Account) -> dict:
         listing = Listing(
@@ -387,7 +417,7 @@ class CarService:
     # --- the evaluation itself ------------------------------------------------------------------------
 
     def evaluate(self, listing: Listing, valuation: Valuation, prefs: Prefs, account: Account,
-                 job: Job | None = None, ai: bool = True) -> dict:
+                 job: Job | None = None, ai: bool = True, photos: list[Photo] | tuple = ()) -> dict:
         """Numbers for both purposes (they are cheap), the AI review for the chosen one."""
         config = prefs.config(self.ai_model)
         deal, lang, today = config.deal, prefs.language, datetime.now().date()
@@ -403,7 +433,7 @@ class CarService:
 
         analysis, repairs = None, 0
         if ai:
-            result["ai_status"] = self._ai_review(listing, valuation, prefs, account, job, result)
+            result["ai_status"] = self._ai_review(listing, valuation, prefs, account, job, result, photos)
             analysis = result.pop("_analysis", None)
             if analysis is not None:
                 repairs = repair_costs(analysis, listing)
@@ -426,7 +456,7 @@ class CarService:
         return result
 
     def _ai_review(self, listing: Listing, valuation: Valuation, prefs: Prefs, account: Account,
-                   job: Job | None, result: dict) -> str:
+                   job: Job | None, result: dict, photos: list[Photo] | tuple = ()) -> str:
         analyzer = self.analyzer(prefs)
         if analyzer is None:
             return "unavailable"
@@ -438,10 +468,10 @@ class CarService:
         try:
             if prefs.purpose == "trade":
                 flip = estimate_flip(listing, valuation, config.deal, trip=config.trip)
-                analysis = analyzer.analyze(listing, valuation, flip)
+                analysis = analyzer.analyze(listing, valuation, flip, photos)
             else:
                 estimate = estimate_personal(listing, valuation, prefs.personal(), config.deal, trip=config.trip)
-                analysis = analyzer.analyze_personal(listing, valuation, estimate, prefs.buyer())
+                analysis = analyzer.analyze_personal(listing, valuation, estimate, prefs.buyer(), photos)
         except Exception as exc:  # the numbers stand without the AI; say why it is missing
             log.warning("AI review failed for %s: %r", listing.url, exc, exc_info=True)
             result["ai_error"] = ai_error_reason(exc)
@@ -452,6 +482,9 @@ class CarService:
             job.step("ai", "done")
         result["_analysis"] = analysis
         result["analysis"] = analysis.model_dump()
+        result["photos_checked"] = len(photos)
+        places = ai_photo_choice(listing.images or [])
+        result["photo_index"] = [places.get(photo.url, -1) for photo in photos]  # photo n is images[index[n-1]]
         result["analysis_kind"] = prefs.purpose
         return "ok"
 
@@ -561,6 +594,12 @@ def chat_context(result: dict) -> str:
         lines.append(f"AI review: {analysis.get('verdict')} - {analysis.get('verdict_reason')}")
         for issue in (analysis.get("issues") or [])[:6]:
             lines.append(f"- issue: {issue.get('issue')} ({issue.get('quote')}) ~{issue.get('cost_eur')} €")
+        for finding in (analysis.get("photo_findings") or [])[:6]:
+            if isinstance(finding, dict):
+                lines.append(f"- seen in photo {finding.get('photo')}: {finding.get('finding')} "
+                             f"({finding.get('severity')})")
+        if analysis.get("odometer_km_in_photo"):
+            lines.append(f"Odometer in a photo: {analysis.get('odometer_km_in_photo')} km")
     description = (listing.get("description") or "")[:3000]
     lines.append(f"Ad text (seller's words):\n{description}")
     return "\n".join(str(line) for line in lines)

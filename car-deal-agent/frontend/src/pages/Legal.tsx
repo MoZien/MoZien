@@ -123,7 +123,7 @@ function Privacy() {
           <li>Keine Werbung, kein Tracking, keine Analyse-Tools, keine Schriftarten oder Skripte von fremden Servern.</li>
           <li>Deine gespeicherten Autos, deine Garage und deine Suchen hält die App für dein Konto auf dem Server bereit, damit du sie auf allen deinen Geräten hast. Einstellungen bleiben nur auf deinem Gerät.</li>
           <li>Darüber hinaus speichert der Server über dich nur, was für Anmeldung, Missbrauchsschutz und die laufende Prüfung nötig ist – und das nur kurz.</li>
-          <li>Für die KI-Auswertung gehen Anzeigendaten und deine Chat-Fragen an Anthropic (USA). Du kannst die KI in den Einstellungen abschalten.</li>
+          <li>Für die KI-Auswertung gehen Anzeigendaten (Text und bis zu sechs Fotos der Anzeige) und deine Chat-Fragen an Anthropic (USA). Du kannst die KI – oder nur die Foto-Prüfung – in den Einstellungen abschalten.</li>
         </ul>
       </Section>
 
@@ -181,11 +181,16 @@ function Privacy() {
 
       <Section title="7. KI-Auswertung und Chat">
         <p>
-          Ist die KI eingeschaltet, schicken wir den Inhalt der Anzeige, die berechneten Werte und deine Fragen im Chat an Anthropic, PBC (USA), die
+          Ist die KI eingeschaltet, schicken wir den Inhalt der Anzeige (Text und bis zu sechs Fotos der Anzeige), die berechneten Werte und deine Fragen im Chat an Anthropic, PBC (USA), die
           Anbieterin des KI-Modells Claude. Anthropic verarbeitet die Daten in unserem Auftrag, um die Antwort zu erzeugen, und verwendet sie nach den
           geltenden Geschäftsbedingungen nicht zum Training seiner Modelle. Die Übermittlung in die USA stützt sich auf die Standardvertragsklauseln der
           EU-Kommission (Art. 46 Abs. 2 lit. c DSGVO). Rechtsgrundlage ist die Nutzung der Funktion, um die du bittest (Art. 6 Abs. 1 lit. b DSGVO).
           Bitte schreib keine persönlichen Daten in den Chat. Du kannst die KI in den Einstellungen abschalten.
+        </p>
+        <p>
+          Die Fotos lädt dein Gerät selbst von der Plattform, verkleinert sie und schickt sie für diese eine Prüfung über unseren Server an Anthropic;
+          unser Server speichert sie nicht. Auf Anzeigenfotos können Kennzeichen oder Personen zu sehen sein – die KI soll nur den Zustand des Autos
+          beurteilen. Die Foto-Prüfung lässt sich in den Einstellungen getrennt abschalten („KI prüft auch die Fotos“).
         </p>
         <p>
           Die Einschätzungen der App sind Empfehlungen. Es gibt keine automatisierte Entscheidung, die dir gegenüber rechtliche Wirkung entfaltet (Art. 22 DSGVO).

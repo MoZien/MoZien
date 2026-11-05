@@ -58,9 +58,8 @@ from cardeal.web.auth import (
 )
 from cardeal.web.device import MAX_PAGE_CHARS, wait_for_change
 from cardeal.web.jobs import JobManager, UserFacingError
-from cardeal.web.sync import COLLECTIONS as SYNC_COLLECTIONS
-from cardeal.web.sync import SyncError, SyncStore
 from cardeal.web.mail import MailError, login_email, mailer_from_env
+from cardeal.web.photos import MAX_PHOTOS, ai_photo_urls, photos_from_device
 from cardeal.web.prefs import HuntCriteria, ManualCar, Prefs
 from cardeal.web.service import (
     BODIES,
@@ -71,6 +70,8 @@ from cardeal.web.service import (
     listing_from_json,
     valuation_from_json,
 )
+from cardeal.web.sync import COLLECTIONS as SYNC_COLLECTIONS
+from cardeal.web.sync import SyncError, SyncStore
 
 log = logging.getLogger(__name__)
 
@@ -131,11 +132,19 @@ class DevicePage(BaseModel):
     error: str | None = Field(default=None, max_length=300)
 
 
+class SentPhoto(BaseModel):
+    """An ad photo the app loaded and shrank itself (base64 JPEG, ~100-300 KB), for a new AI review."""
+
+    url: str = Field(max_length=2000)
+    data: str = Field(max_length=1_500_000)
+
+
 class EvaluateRequest(BaseModel):
     listing: dict[str, Any]
     valuation: dict[str, Any]
     prefs: Prefs = Field(default_factory=Prefs)
     ai: bool = False
+    photos: list[SentPhoto] = Field(default_factory=list, max_length=MAX_PHOTOS)
 
 
 class ChatMessage(BaseModel):
@@ -293,9 +302,14 @@ def create_app(service: CarService | None = None, access: Access | None = None,
 
     @app.post("/api/jobs/analyze")
     def analyze(body: AnalyzeRequest, who: Account = Depends(account)):
-        steps = ["ad", "market", "ai"] if body.prefs.ai_enabled else ["ad", "market"]
-        return start("analyze", who, steps, lambda job: service.analyze_url(job, body.url, body.prefs, who),
-                     body.device)
+        prefs = body.prefs
+        if "ai_photos" not in prefs.model_fields_set:
+            # An app from before the photo check (an older native build) can't load photos.
+            prefs = prefs.model_copy(update={"ai_photos": False})
+        steps = ["ad", "market"]
+        if prefs.ai_enabled:
+            steps += ["photos", "ai"] if prefs.ai_photos else ["ai"]
+        return start("analyze", who, steps, lambda job: service.analyze_url(job, body.url, prefs, who), body.device)
 
     @app.post("/api/jobs/valuate")
     def valuate(body: ValuateRequest, who: Account = Depends(account)):
@@ -371,7 +385,10 @@ def create_app(service: CarService | None = None, access: Access | None = None,
             listing, valuation = listing_from_json(body.listing), valuation_from_json(body.valuation)
         except TypeError as exc:
             raise HTTPException(400, detail={"code": "bad_input", "message": str(exc)[:200]}) from None
-        return await run_in_threadpool(service.evaluate, listing, valuation, body.prefs, who, None, body.ai)
+        photos = []
+        if body.ai and body.prefs.ai_photos and body.photos:
+            photos = photos_from_device([photo.model_dump() for photo in body.photos], ai_photo_urls(listing.images or []))
+        return await run_in_threadpool(service.evaluate, listing, valuation, body.prefs, who, None, body.ai, photos)
 
     @app.post("/api/ai/chat")
     async def chat(body: ChatRequest, who: Account = Depends(account)):

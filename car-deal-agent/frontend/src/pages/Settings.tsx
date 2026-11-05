@@ -190,6 +190,7 @@ export function SettingsPage() {
             {meta && !meta.ai_available && <Note tone="warn">{t("ai_unavailable_note")}</Note>}
             {meta && (meta.account?.admin || !meta.auth_required) && <AiCheck />}
             <Toggle checked={prefs.ai_enabled} onChange={(ai_enabled) => set({ ai_enabled })} label={t("s_ai")} />
+            <Toggle checked={prefs.ai_photos} onChange={(ai_photos) => set({ ai_photos })} label={t("s_ai_photos")} hint={t("s_ai_photos_note")} />
             <Toggle checked={prefs.ai_in_hunt} onChange={(ai_in_hunt) => set({ ai_in_hunt })} label={t("s_ai_hunt")} />
             <Field label={t("s_ai_effort")}>
               <Segmented className="w-full" value={prefs.ai_effort} onChange={(ai_effort) => set({ ai_effort })} options={[{ value: "low", label: t("effort_low") }, { value: "medium", label: t("effort_medium") }, { value: "high", label: t("effort_high") }]} />

@@ -1,4 +1,5 @@
 import { canLoadPages, loadPage } from "./device";
+import { loadPhotos } from "./photos";
 import type { Job, Meta, Prefs, TextScan } from "./types";
 
 // The web app talks to the server it came from; the native app (bundled files) to the live server.
@@ -57,11 +58,17 @@ export const deleteAccount = () => api<{ deleted: boolean }>("/api/account/delet
 const finished = (job: Job) => job.status === "done" || job.status === "error" || job.status === "cancelled";
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+type Errand = { id: number; url: string; kind?: undefined } | { id: number; kind: "photos"; urls: string[] };
+
 /** The job's next state. In device mode this also does the job's errands: when the server asks
- *  for a page, this device loads it and hands it over (the answer is the job's next state);
- *  otherwise it waits on the server until something changes. */
+ *  for a page (or the ad's photos), this device loads it and hands it over (the answer is the
+ *  job's next state); otherwise it waits on the server until something changes. */
 export async function nextJobState<T>(jobId: string, last: Job<T> | null): Promise<Job<T>> {
-  const errand = last?.device && !finished(last) ? (last.partial?.fetch as { id: number; url: string } | undefined) : undefined;
+  const errand = last?.device && !finished(last) ? (last.partial?.fetch as Errand | undefined) : undefined;
+  if (errand?.kind === "photos") {
+    const photos = await loadPhotos(errand.urls ?? []);
+    return api<Job<T>>(`/api/jobs/${jobId}/fetch`, { body: { id: errand.id, status: 200, url: "", body: JSON.stringify(photos), error: null } });
+  }
   if (errand && canLoadPages()) {
     const page = await loadPage(errand.url);
     return api<Job<T>>(`/api/jobs/${jobId}/fetch`, { body: { id: errand.id, status: page.status, url: page.url, body: page.body, error: page.error ?? null } });
