@@ -296,6 +296,28 @@ def test_hunt_finds_cheap_cars_skips_seen_ones_and_stops(tmp_path):
     assert job["result"]["checked"] == 2 and "kleinanzeigen:h0" not in source.detail_calls
 
 
+def test_hunt_finds_get_the_photo_check_too(tmp_path):
+    cheap = [Listing(id=f"kleinanzeigen:h{i}", source="kleinanzeigen", url=f"https://k/h{i}", title="VW Golf",
+                     price=2_500 + i, year=2014, km=100_000, location="06108 Halle") for i in range(2)]
+    details = {c.id: {**GOLF, "price": c.price} for c in cheap}
+    client, service = make_client(source=FakeKleinanzeigen(details=details, hunt_results=cheap), tmp_path=tmp_path)
+    body = {"criteria": {"count": 2, "max_ads": 2, "max_price": 3_000, "min_year": 2010},
+            "prefs": {"purpose": "trade", "ai_in_hunt": True, "ai_photos": True}}
+    job = wait(client, client.post("/api/jobs/hunt", json=body).json()["job_id"])
+    assert job["status"] == "done", job
+    found = job["result"]["found"]
+    assert len(found) == 2 and all(r["photos_checked"] == 1 and r["photo_index"] == [0] for r in found)
+    assert service.load_photos.calls == [[GOLF["images"][0]]] * 2
+    assert all(isinstance(r["messages"][0]["content"], list) for r in service.ai_client.requests)
+
+    # without the AI in the hunt, or from an app that doesn't know the photo check: no photos
+    for prefs in ({"purpose": "trade", "ai_in_hunt": False, "ai_photos": True}, {"purpose": "trade", "ai_in_hunt": True}):
+        job = wait(client, client.post("/api/jobs/hunt", json={**body, "prefs": prefs}).json()["job_id"])
+        assert job["status"] == "done" and job["result"]["found"]
+        assert all(not r.get("photos_checked") for r in job["result"]["found"])
+    assert len(service.load_photos.calls) == 2
+
+
 class ThrottlingKleinanzeigen(FakeKleinanzeigen):
     """Says "too many requests" for the first `blocked` detail pages, then answers again."""
 

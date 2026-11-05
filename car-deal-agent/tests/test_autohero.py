@@ -22,6 +22,12 @@ def test_reads_a_real_autohero_ad():
     assert len(car.images) == len(set(car.images))
 
 
+def test_photos_of_other_cars_on_the_page_are_left_out():
+    other = "https://img-eu-c1.autohero.com/img/ffff0000aaaa/exterior/1/373x249-0123456789abcdef.jpg"
+    car = parse_ad(PAGE.replace("</body>", f'<img src="{other}"></body>', 1), URL)
+    assert car.images == parse_ad(PAGE, URL).images and not any("ffff0000aaaa" in image for image in car.images)
+
+
 def test_recognises_links_and_values():
     assert is_autohero(URL) and not is_autohero("https://www.autohero.com/de/search/?brand=opel")
     assert not is_autohero("https://www.kleinanzeigen.de/s-anzeige/x/123")

@@ -217,16 +217,19 @@ what is newer on either side (the latest change wins). Settings, the compare lis
 on the device; open mode (no accounts) doesn't sync. On Render's free plan the disk is wiped at
 every deploy: devices then simply send their data again; a Render disk (`DATA_DIR`) keeps it.
 
-**Photo check.** For a single check the AI also looks at up to six of the ad's photos (dents,
-rust, repainted panels, tyres, interior, warning lights, the odometer) and lists what it sees,
-each finding next to its photo; a mileage on the dashboard that doesn't match the ad is flagged.
+**Photo check.** In a check (and for a hunt's finds) the AI also looks at up to six of the ad's
+photos (dents, rust, repainted panels, tyres, interior, warning lights, the odometer) and lists
+what it sees, each finding next to its photo; a mileage on the dashboard that doesn't match the
+ad is flagged. Only the ad's own photos count: on a Kleinanzeigen page that is the gallery, not
+the thumbnails or the photos of "similar ads" below it.
 In device mode the server asks the device for them (`{"kind": "photos", "urls": [...]}` in
 `partial.fetch`): the app loads them as plain images – the platforms' photo servers allow that
 (CORS) – shrinks them to 1024 px JPEGs on a canvas (`frontend/src/lib/photos.ts`) and posts them
 back; a new review after switching the purpose sends them with `POST /api/evaluate`. In server
 mode the server loads them (`cardeal/web/photos.py`). They go to Claude with the ad and are not
-stored. Each photo adds about 1,000 input tokens (about 1 cent per check with Sonnet 5.5). It
-can be turned off in the settings ("KI prüft auch die Fotos"); hunts never send photos.
+stored. Each photo adds about 1,000 input tokens (about 1 cent per check with Sonnet 5.5). A
+hunt sends them too for each find the AI reviews (only cars that already pass the numbers). It
+can be turned off in the settings ("KI prüft auch die Fotos").
 
 Building the app:
 

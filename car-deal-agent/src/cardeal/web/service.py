@@ -252,9 +252,9 @@ class CarService:
         return self.evaluate(listing, valuation, prefs, account, job=job, ai=prefs.ai_enabled, photos=photos)
 
     def _photos(self, job: Job, listing: Listing, valuation: Valuation, account: Account) -> list[Photo]:
-        """The ad's photos for the AI: loaded by the device in device mode, else by the server. Only
-        when the review will run (no photos are loaded for nothing); a failure only means the AI
-        sees no photos."""
+        """The ad's photos for the AI (single checks, and finds of a hunt that the AI reviews):
+        loaded by the device in device mode, else by the server. Only when the review will run (no
+        photos are loaded for nothing); a failure only means the AI sees no photos."""
         urls = ai_photo_urls(listing.images or [])
         if (not urls or valuation.market_price is None or self.ai_client is None
                 or not self.access.has_allowance(account, "ai")):
@@ -366,7 +366,8 @@ class CarService:
         if not self._worth_it(quick, prefs):
             return None
         if prefs.ai_enabled and prefs.ai_in_hunt:
-            quick = self.evaluate(listing, valuation, prefs, account, ai=True)
+            photos = self._photos(job, listing, valuation, account) if prefs.ai_photos else []
+            quick = self.evaluate(listing, valuation, prefs, account, ai=True, photos=photos)
             if not self._worth_it(quick, prefs):
                 return None
         return quick

@@ -122,6 +122,23 @@ def test_the_device_also_loads_the_photos_for_the_ai(tmp_path, quick):
     assert content[2] == {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": JPEG}}
 
 
+def test_a_hunt_also_has_the_device_load_the_photos_of_its_finds(tmp_path, quick):
+    photo = "https://img.kleinanzeigen.de/api/v1/prod-ads/images/aa/1?rule=$_59.AUTO"
+    detail = DETAIL.replace("</body>", f'<div class="galleryimage-element"><img src="{photo}"></div></body>', 1)
+    client, service, server_source = device_client(tmp_path)
+    body = {"device": True, "criteria": {"count": 1, "max_ads": 3, "max_price": 10_000, "min_price": 500,
+                                         "min_year": 2010, "skip_ids": []},
+            "prefs": {"purpose": "trade", "ai_in_hunt": True, "ai_photos": True}}
+    started = client.post("/api/jobs/hunt", json=body).json()
+    phone = Phone(client, detail=detail)
+    job = phone.run(started["job_id"])
+
+    assert job["status"] == "done", job
+    found = job["result"]["found"]
+    assert len(found) == 1 and found[0]["photos_checked"] == 1 and found[0]["photo_index"] == [0]
+    assert phone.photo_requests == [[photo]] and service.load_photos.calls == [] and server_source.searches == []
+
+
 def test_a_closed_app_ends_the_job_with_a_clear_reason(tmp_path, quick, monkeypatch):
     monkeypatch.setattr(device_module, "DEVICE_WAIT_SECONDS", 0.3)
     client, _, _ = device_client(tmp_path)

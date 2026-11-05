@@ -132,6 +132,12 @@ class DevicePage(BaseModel):
     error: str | None = Field(default=None, max_length=300)
 
 
+def photo_check(prefs: Prefs) -> Prefs:
+    """An app from before the photo check (an older native build) doesn't send ai_photos and can't
+    load photos: its jobs run without."""
+    return prefs if "ai_photos" in prefs.model_fields_set else prefs.model_copy(update={"ai_photos": False})
+
+
 class SentPhoto(BaseModel):
     """An ad photo the app loaded and shrank itself (base64 JPEG, ~100-300 KB), for a new AI review."""
 
@@ -302,10 +308,7 @@ def create_app(service: CarService | None = None, access: Access | None = None,
 
     @app.post("/api/jobs/analyze")
     def analyze(body: AnalyzeRequest, who: Account = Depends(account)):
-        prefs = body.prefs
-        if "ai_photos" not in prefs.model_fields_set:
-            # An app from before the photo check (an older native build) can't load photos.
-            prefs = prefs.model_copy(update={"ai_photos": False})
+        prefs = photo_check(body.prefs)
         steps = ["ad", "market"]
         if prefs.ai_enabled:
             steps += ["photos", "ai"] if prefs.ai_photos else ["ai"]
@@ -318,8 +321,9 @@ def create_app(service: CarService | None = None, access: Access | None = None,
 
     @app.post("/api/jobs/hunt")
     def hunt(body: HuntRequest, who: Account = Depends(account)):
+        prefs = photo_check(body.prefs)
         return start("hunt", who, ["search", "check"],
-                     lambda job: service.hunt(job, body.criteria, body.prefs, who), body.device)
+                     lambda job: service.hunt(job, body.criteria, prefs, who), body.device)
 
     @app.get("/api/jobs/active")
     def active_jobs(who: Account = Depends(account)):

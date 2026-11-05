@@ -24,6 +24,7 @@ JSON_LD = re.compile(r'<script[^>]*type="application/ld\+json"[^>]*>(.*?)</scrip
 # Photos come in many sizes: .../img/<car>/<exterior|interior>/<n>/<width>x<height>-<photo>.jpg
 PHOTO = re.compile(r"(https://img-[a-z0-9-]+\.autohero\.com/img/[0-9a-f]+/[a-z]+/\d+/)\d+x\d+-([0-9a-f]+\.jpg)")
 PHOTO_SIZE = "1116x744"
+PHOTO_FOLDER = re.compile(r"\.autohero\.com/img/([0-9a-f]+)/")
 HU = re.compile(r"HU/AU gültig bis:\s*(\d{1,2})\.(\d{1,2})\.(\d{2,4})")
 MAX_PHOTOS = 12
 
@@ -92,7 +93,8 @@ def _body_slug(body: str) -> str | None:
 
 
 def _photos(page: str, first) -> list[str]:
-    """Every photo once, in page order, in one large size."""
+    """Every photo of this car once, in page order, in one large size. Each car has its own photo
+    folder (/img/<id>/): photos of other cars on the page (suggestions) are left out."""
     found = []
     for source in [*(first if isinstance(first, list) else [first] if first else []), *PHOTO.findall(page)]:
         if isinstance(source, str):
@@ -102,7 +104,10 @@ def _photos(page: str, first) -> list[str]:
                 continue
             source = match.groups()
         found.append(f"{source[0]}{PHOTO_SIZE}-{source[1]}")
-    return list(dict.fromkeys(found))[:MAX_PHOTOS]
+    folders = [match.group(1) for url in found if (match := PHOTO_FOLDER.search(url))]
+    own = folders[0] if folders else None
+    mine = [url for url in found if (match := PHOTO_FOLDER.search(url)) is None or match.group(1) == own]
+    return list(dict.fromkeys(mine))[:MAX_PHOTOS]
 
 
 def parse_ad(page: str, url: str) -> Listing:

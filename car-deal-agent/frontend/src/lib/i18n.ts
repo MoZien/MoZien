@@ -479,7 +479,7 @@ const dict = {
   effort_high: ["معمّق", "gründlich", "thorough"],
   s_ai_hunt: ["ذكاء اصطناعي بالصيد كمان", "KI auch bei der Jagd", "AI during hunts too"],
   s_ai_photos: ["الذكاء الاصطناعي يفحص صور الإعلان كمان", "KI prüft auch die Fotos", "AI also checks the photos"],
-  s_ai_photos_note: ["بيشوف لحد 6 صور: صدمات، صدأ، دهان مختلف، الفرش والعدّاد. بالفحص الواحد بس، مش بالصيد.", "Sieht sich bis zu 6 Fotos an: Dellen, Rost, andere Lackfarbe, Innenraum und Tacho. Nur bei einzelnen Prüfungen, nicht bei der Jagd.", "Looks at up to 6 photos: dents, rust, mismatched paint, interior and odometer. Single checks only, not hunts."],
+  s_ai_photos_note: ["بيشوف لحد 6 صور: صدمات، صدأ، دهان مختلف، الفرش والعدّاد. بالفحص وبالبحث عن لقطات.", "Sieht sich bis zu 6 Fotos an: Dellen, Rost, andere Lackfarbe, Innenraum und Tacho – bei der Prüfung und bei der Deal-Suche.", "Looks at up to 6 photos: dents, rust, mismatched paint, interior and odometer – in checks and in deal hunts."],
   export: ["تصدير نسخة احتياطية", "Backup exportieren", "Export backup"],
   import: ["استيراد نسخة احتياطية", "Backup importieren", "Import backup"],
   import_done: ["تم الاستيراد ✓", "Import fertig ✓", "Imported ✓"],

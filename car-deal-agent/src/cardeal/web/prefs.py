@@ -66,7 +66,7 @@ class Prefs(BaseModel):
     ai_enabled: bool = True
     ai_effort: Literal["low", "medium", "high"] = "medium"
     ai_in_hunt: bool = True
-    ai_photos: bool = True  # single checks: the AI also looks at the ad's photos
+    ai_photos: bool = True  # the AI also looks at the ad's photos (checks, and hunt finds it reviews)
 
     def config(self, ai_model: str, searches: list[SearchCriteria] | None = None) -> AppConfig:
         return AppConfig(

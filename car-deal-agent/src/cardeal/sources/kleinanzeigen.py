@@ -221,6 +221,25 @@ def parse_search_results(html: str) -> list[Listing]:
     return listings
 
 
+_OTHER_ADS = re.compile(r"^(?:aditem|ad-listitem)$")
+
+
+def _ad_photos(soup: BeautifulSoup) -> list[str]:
+    """The ad's own photos, each once, in the gallery's order. The page also shows them again as
+    small thumbnails (another size of the same file) and, further down, photos of "similar ads":
+    neither belongs to this car."""
+    images = soup.select(".galleryimage-element img")
+    if not images:  # another layout: every ad photo outside the lists of other ads
+        images = [img for img in soup.find_all("img", src=_AD_IMAGE_RE)
+                  if img.find_parent(class_=_OTHER_ADS) is None]
+    photos: dict[str, str] = {}
+    for img in images:
+        source = img.get("src") or ""
+        if _AD_IMAGE_RE.match(source):
+            photos.setdefault(source.split("?")[0], source)  # one file in two sizes counts once
+    return list(photos.values())[:MAX_PHOTOS]
+
+
 def parse_detail_page(html: str, listing: Listing) -> Listing:
     soup = BeautifulSoup(html, "html.parser")
 
@@ -275,9 +294,8 @@ def parse_detail_page(html: str, listing: Listing) -> Listing:
 
     if listing.hu_until is None:
         listing.hu_until = hu_from_text(f"{listing.title}\n{listing.description}")
-    photos = [img["src"] for img in soup.find_all("img", src=_AD_IMAGE_RE)]
-    if photos:
-        listing.images = list(dict.fromkeys(photos))[:MAX_PHOTOS]
+    if photos := _ad_photos(soup):
+        listing.images = photos
     listing.features = [_clean(li.get_text()) for li in soup.select("li.checktag")]
     if seller := soup.find(string=_SELLER_RE):
         listing.seller_type = "private" if seller.strip().startswith("Privat") else "dealer"

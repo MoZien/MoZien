@@ -249,3 +249,25 @@ def test_hu_from_the_text_when_the_field_is_empty():
     assert "HU bis" not in html
     listing = parse_detail_page(html, Listing(id="kleinanzeigen:2", source="kleinanzeigen", url="u", title="", price=None))
     assert listing.hu_until == "04/2028"  # "Fiat Panda TÜV bis 04/28 !!!"
+
+
+def ad_page(gallery: bool) -> str:
+    """An ad page as Kleinanzeigen builds it: the ad's gallery, the same photos again as small
+    thumbnails, and photos of "similar ads" further down."""
+    photo = "https://img.kleinanzeigen.de/api/v1/prod-ads/images/{}/{}?rule=$_{}.AUTO"
+    own = [("aa", "own-1"), ("bb", "own-2"), ("cc", "own-3")]
+    box = "galleryimage-element" if gallery else "slide"
+    main = "".join(f'<div class="{box}"><img src="{photo.format(d, name, 59)}"></div>' for d, name in own)
+    thumbs = "".join(f'<li class="imagebox-thumbnail"><img src="{photo.format(d, name, 1)}"></li>' for d, name in own)
+    others = "".join(f'<li class="ad-listitem"><article class="aditem"><div class="imagebox">'
+                     f'<img src="{photo.format("dd", f"other-{n}", 2)}"></div></article></li>' for n in range(2))
+    return (f'<html><body><article id="viewad-product">{main}</article>'
+            f'<ul id="viewad-lightbox-thumbnail-list">{thumbs}</ul><ul class="itemlist">{others}</ul></body></html>')
+
+
+@pytest.mark.parametrize("gallery", [True, False])
+def test_only_the_ads_own_photos(gallery):
+    listing = Listing(id="kleinanzeigen:1", source="kleinanzeigen", url="u", title="", price=None)
+    parse_detail_page(ad_page(gallery), listing)
+    assert [url.rsplit("/", 1)[1] for url in listing.images] == [
+        "own-1?rule=$_59.AUTO", "own-2?rule=$_59.AUTO", "own-3?rule=$_59.AUTO"]
