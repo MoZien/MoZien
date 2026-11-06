@@ -55,8 +55,8 @@ export function ValuatePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{t("valuate_title")}</h1>
-        <p className="mt-1 text-sm text-muted">{t("valuate_sub")}</p>
+        <h1 className="text-[28px] font-semibold leading-tight">{t("valuate_title")}</h1>
+        <p className="mt-1.5 text-[15px] leading-relaxed text-muted">{t("valuate_sub")}</p>
       </div>
       <DeviceHint />
       <Card className="p-5">

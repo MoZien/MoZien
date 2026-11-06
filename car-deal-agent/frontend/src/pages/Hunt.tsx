@@ -48,8 +48,8 @@ export function HuntPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{t("hunt_title")}</h1>
-        <p className="mt-1 text-sm text-muted">{t("hunt_sub")}</p>
+        <h1 className="text-[28px] font-semibold leading-tight">{t("hunt_title")}</h1>
+        <p className="mt-1.5 text-[15px] leading-relaxed text-muted">{t("hunt_sub")}</p>
       </div>
       <DeviceHint />
 
@@ -196,34 +196,30 @@ export function HuntPage() {
       </Card>
 
       {running && (
-        <Card className="overflow-hidden p-5">
-          <div className="flex items-center gap-4">
-            {/* radar: a sweeping beam and pulsing rings while ads are checked */}
-            <div className="relative size-20 shrink-0" aria-hidden="true">
-              <span className="absolute inset-0 rounded-full border-2 border-accent/25" />
-              <span className="absolute inset-3 rounded-full border-2 border-accent/30" />
-              <span className="absolute inset-0 animate-ping rounded-full bg-accent/10" />
-              <span className="radar-beam absolute inset-0 rounded-full" />
-              <span className="absolute left-1/2 top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent" />
+        <Card className="overflow-hidden">
+          <div className="h-0.5 bg-surface-2" dir="ltr">
+            <div className="h-full bg-accent transition-all duration-700" style={{ width: `${progress.total ? Math.max(4, ((progress.checked ?? 0) / progress.total) * 100) : 4}%` }} />
+          </div>
+          <div className="p-4 sm:p-5">
+            <div className="flex items-center gap-2.5">
+              <span className="relative flex size-2.5 shrink-0">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent/50" />
+                <span className="relative inline-flex size-2.5 rounded-full bg-accent" />
+              </span>
+              <span className="text-[15px] font-semibold">{t("hunting")}</span>
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[15px] font-semibold">{t("hunting")}</div>
-              <p className="num mt-1 text-sm text-muted">{t("hunt_progress", { checked: progress.checked ?? 0, total: progress.total ?? "…", found: progress.found ?? 0 })}</p>
-              <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-2">
-                <div className="h-full rounded-full bg-accent transition-all duration-700" style={{ width: `${progress.total ? Math.max(4, ((progress.checked ?? 0) / progress.total) * 100) : 4}%` }} />
-              </div>
-              {job?.device && !job?.partial?.paused && <p className="mt-2 text-xs font-medium text-muted">{t("hunt_keep_open")}</p>}
-              {Boolean(job?.partial?.paused) && (
-                <p className="mt-2 flex items-start gap-1.5 text-xs font-medium leading-relaxed text-warn">
-                  <Coffee className="mt-px size-3.5 shrink-0" /> {t("hunt_paused")}
-                </p>
-              )}
-              {job?.partial?.current && !job?.partial?.paused && (
-                <p className="mt-1.5 truncate text-xs text-faint rtl:text-right" dir="auto">
-                  {String(job.partial.current)}
-                </p>
-              )}
-            </div>
+            <p className="num mt-1.5 text-sm text-muted">{t("hunt_progress", { checked: progress.checked ?? 0, total: progress.total ?? "…", found: progress.found ?? 0 })}</p>
+            {job?.partial?.current && !job?.partial?.paused && (
+              <p className="mt-1 truncate text-[13px] text-faint rtl:text-right" dir="auto">
+                {String(job.partial.current)}
+              </p>
+            )}
+            {job?.device && !job?.partial?.paused && <p className="mt-3 border-t border-line pt-3 text-[13px] text-muted">{t("hunt_keep_open")}</p>}
+            {Boolean(job?.partial?.paused) && (
+              <p className="mt-3 flex items-start gap-1.5 border-t border-line pt-3 text-[13px] font-medium leading-relaxed text-warn">
+                <Coffee className="mt-px size-3.5 shrink-0" /> {t("hunt_paused")}
+              </p>
+            )}
           </div>
         </Card>
       )}

@@ -26,7 +26,7 @@ export function LegalPage({ kind, back }: { kind: LegalKind; back?: string }) {
       <a href={back ?? href("settings")} className="flex items-center gap-1.5 text-sm text-muted hover:text-text">
         <Back className="size-4" /> {t("back")}
       </a>
-      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+      <h1 className="text-[28px] font-semibold leading-tight">{title}</h1>
       {t.lang !== "de" && <Note>{t("legal_german_only")}</Note>}
       {missing && owner && (
         <Note tone="warn">

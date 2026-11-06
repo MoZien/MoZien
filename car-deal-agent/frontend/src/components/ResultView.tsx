@@ -3,14 +3,8 @@ import {
   BadgeEuro,
   CheckCircle2,
   Columns3,
-  BadgeCheck,
   Expand,
   ExternalLink,
-  Flame,
-  Handshake,
-  MinusCircle,
-  SearchCheck,
-  XCircle,
   Heart,
   Camera,
   Loader2,
@@ -21,7 +15,7 @@ import {
   Share2,
   ShieldAlert,
 } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { decimal, euro, isolateNumbers, km, number, pct, place, registration, signedPct } from "../lib/format";
 import { type TextKey, useT } from "../lib/i18n";
@@ -35,7 +29,7 @@ import { Lightbox, photoSize } from "./Lightbox";
 import { ChatPanel } from "./ChatPanel";
 import { PurposeSwitch } from "./PurposeSwitch";
 import { Meter, PriceRange, Scatter } from "./charts";
-import { Badge, Button, Card, Modal, Note, Num, Row, Segmented, Tabs, type Tone, copyText, cx, useToast } from "./ui";
+import { Badge, Button, Card, IconButton, Modal, Note, Num, Row, Segmented, Tabs, type Tone, copyText, cx, useToast } from "./ui";
 
 type Tab = "summary" | "ai" | "market" | "chat";
 
@@ -140,11 +134,21 @@ export function ResultView({ result, onChange, onReanalyze }: { result: Result; 
     <div className="animate-fade-up space-y-4">
       <Header result={result} />
 
-      <div className="no-print grid grid-cols-4 gap-2">
-        <Action icon={<Heart className={cx("size-5", entry?.favorite && "fill-current")} />} label={entry?.favorite ? t("saved") : t("save")} onClick={toggleFavorite} active={entry?.favorite} />
-        <Action icon={<Share2 className="size-5" />} label={t("share")} onClick={share} />
-        {result.listing.url ? <Action icon={<ExternalLink className="size-5" />} label={t("the_ad")} href={result.listing.url} /> : <span />}
-        <Action icon={busy === "recalc" ? <Loader2 className="size-5 animate-spin" /> : <MoreHorizontal className="size-5" />} label={t("nav_more")} onClick={() => setMenuOpen(true)} />
+      <div className="no-print flex items-center gap-2">
+        <Button className="flex-1" variant={entry?.favorite ? "primary" : "secondary"} onClick={toggleFavorite} icon={<Heart className={cx("size-4", entry?.favorite && "fill-current")} />}>
+          {entry?.favorite ? t("saved") : t("save")}
+        </Button>
+        {result.listing.url && (
+          <a href={result.listing.url} target="_blank" rel="noopener noreferrer" className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-[10px] border border-line-strong bg-surface px-4 text-sm font-medium transition hover:bg-surface-2">
+            <ExternalLink className="size-4" /> {t("the_ad")}
+          </a>
+        )}
+        <IconButton label={t("share")} onClick={share} className="size-10 border border-line-strong bg-surface text-text">
+          <Share2 className="size-4" />
+        </IconButton>
+        <IconButton label={t("nav_more")} onClick={() => setMenuOpen(true)} className="size-10 border border-line-strong bg-surface text-text">
+          {busy === "recalc" ? <Loader2 className="size-4 animate-spin" /> : <MoreHorizontal className="size-4" />}
+        </IconButton>
       </div>
 
       {noMarket ? (
@@ -182,29 +186,6 @@ export function ResultView({ result, onChange, onReanalyze }: { result: Result; 
         </div>
       </Modal>
     </div>
-  );
-}
-
-/** A square action: icon over a short label, four always fit on one phone row. */
-function Action({ icon, label, onClick, href, active }: { icon: ReactNode; label: string; onClick?: () => void; href?: string; active?: boolean }) {
-  const className = cx(
-    "flex h-16 min-w-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border px-1 text-xs font-medium transition hover:bg-surface-2",
-    active ? "border-text bg-surface-2" : "border-line bg-surface",
-  );
-  const body = (
-    <>
-      {icon}
-      <span className="max-w-full truncate">{label}</span>
-    </>
-  );
-  return href ? (
-    <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
-      {body}
-    </a>
-  ) : (
-    <button type="button" onClick={onClick} className={className}>
-      {body}
-    </button>
   );
 }
 
@@ -312,7 +293,8 @@ function NoMarket({ result, onReanalyze }: { result: Result; onReanalyze?: () =>
   );
 }
 
-/** The answer in one place: verdict, the three numbers that matter and where the price sits. */
+/** The answer in one place: verdict and reason, the score, the three numbers that matter and
+ *  where the price sits among the comparable cars. */
 function VerdictCard({ result, view, onView }: { result: Result; view: Purpose; onView: (p: Purpose) => void }) {
   const t = useT();
   const verdict = verdictOf(result, view, t)!;
@@ -320,101 +302,61 @@ function VerdictCard({ result, view, onView }: { result: Result; view: Purpose; 
   const discount = discountOf(result);
   const ai = result.analysis && result.analysis_kind === view ? result.analysis : null;
   const reason = ai?.verdict_reason ?? verdict.reasons[0];
-  const style = VERDICT_STYLE[verdict.key] ?? VERDICT_STYLE.low_profit;
-  const celebrate = verdict.key === "deal" || verdict.key === "buy";
   return (
-    <Card className={cx("relative overflow-hidden p-0", style.border)}>
-      {celebrate && <Confetti key={view} />}
-      <div className={cx("p-4 sm:p-5", style.band)}>
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-[13px] font-medium text-muted">{t("result_for")}</span>
-          <PurposeSwitch tiny value={view} onChange={onView} />
-        </div>
-        <div className="mt-3 flex items-center gap-3">
-          <span className={cx("grid size-12 shrink-0 place-items-center rounded-2xl", style.icon)}>{style.symbol}</span>
+    <Card className="overflow-hidden">
+      <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5 sm:px-5">
+        <span className="eyebrow">{t("result_for")}</span>
+        <PurposeSwitch tiny value={view} onChange={onView} />
+      </div>
+      <div className="p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <div className={cx("font-bold leading-tight tracking-tight", verdict.label.length > 16 ? "text-[22px]" : "text-[26px]", toneText[verdict.tone])}>{verdict.label}</div>
-            <ScoreBar score={verdict.score} tone={verdict.tone} />
+            <div className={cx("flex items-center gap-2.5 text-[22px] font-semibold leading-tight", toneText[verdict.tone])}>
+              <span className={cx("size-2.5 shrink-0 rounded-full", DOT[verdict.tone])} />
+              {verdict.label}
+            </div>
+            {reason && <p className="mt-2 text-[15px] leading-relaxed text-muted">{isolateNumbers(reason)}</p>}
           </div>
+          <ScoreRing score={verdict.score} tone={verdict.tone} label={t("score")} />
         </div>
-      </div>
-      <div className="px-4 pb-4 sm:px-5 sm:pb-5">
-      {reason && (
-        <p className="pt-3 text-[15px] leading-relaxed text-muted">{isolateNumbers(reason)}</p>
-      )}
-      <div className="mt-4 grid grid-cols-3 gap-3 border-t border-line pt-4">
-        <Metric label={t("market_price")} value={euro(valuation.market_price)} sub={<><Num>{valuation.comparables}</Num> {t("comparables")}</>} />
-        <Metric
-          label={discount != null && discount < 0 ? t("above_market") : t("below_market")}
-          value={discount == null ? "–" : pct(Math.abs(discount))}
-          tone={discount == null ? undefined : discount >= 0.05 ? "good" : discount <= -0.05 ? "bad" : undefined}
-        />
-        {view === "trade" && trade ? (
-          <Metric label={t("profit")} value={trade.priced ? euro(trade.profit) : "–"} tone={trade.profit >= 0 ? "good" : "bad"} sub={trade.priced ? <>{t("roi")} <Num>{pct(trade.roi)}</Num></> : undefined} />
-        ) : personal ? (
-          <Metric label={t("offer_max")} value={euro(personal.offer_max)} sub={<>{t("offer_start")} <Num>{euro(personal.offer_start)}</Num></>} />
-        ) : null}
-      </div>
-      {valuation.range && valuation.market_price && (
-        <PriceRange low={valuation.range[0]} high={valuation.range[1]} market={valuation.market_price} price={trade?.priced === false ? null : listing.price} labels={{ market: t("market_price"), price: t("this_car") }} />
-      )}
+        <div className="mt-5 grid grid-cols-3 gap-3 border-t border-line pt-4">
+          <Metric label={t("market_price")} value={euro(valuation.market_price)} sub={<><Num>{valuation.comparables}</Num> {t("comparables")}</>} />
+          <Metric
+            label={discount != null && discount < 0 ? t("above_market") : t("below_market")}
+            value={discount == null ? "–" : pct(Math.abs(discount))}
+            tone={discount == null ? undefined : discount >= 0.05 ? "good" : discount <= -0.05 ? "bad" : undefined}
+          />
+          {view === "trade" && trade ? (
+            <Metric label={t("profit")} value={trade.priced ? euro(trade.profit) : "–"} tone={trade.profit >= 0 ? "good" : "bad"} sub={trade.priced ? <>{t("roi")} <Num>{pct(trade.roi)}</Num></> : undefined} />
+          ) : personal ? (
+            <Metric label={t("offer_max")} value={euro(personal.offer_max)} sub={<>{t("offer_start")} <Num>{euro(personal.offer_start)}</Num></>} />
+          ) : null}
+        </div>
+        {valuation.range && valuation.market_price && (
+          <PriceRange low={valuation.range[0]} high={valuation.range[1]} market={valuation.market_price} price={trade?.priced === false ? null : listing.price} labels={{ market: t("market_price"), price: t("this_car") }} />
+        )}
       </div>
     </Card>
   );
 }
 
-const VERDICT_STYLE: Record<string, { band: string; border: string; icon: string; symbol: ReactNode }> = {
-  deal: { band: "bg-good/10", border: "border-good/40", icon: "bg-good text-white", symbol: <Flame className="size-6" /> },
-  buy: { band: "bg-good/10", border: "border-good/40", icon: "bg-good text-white", symbol: <BadgeCheck className="size-6" /> },
-  check: { band: "bg-warn/10", border: "border-warn/40", icon: "bg-warn text-white", symbol: <SearchCheck className="size-6" /> },
-  negotiate: { band: "bg-warn/10", border: "border-warn/40", icon: "bg-warn text-white", symbol: <Handshake className="size-6" /> },
-  low_profit: { band: "bg-surface-2", border: "border-line", icon: "bg-slate-500 text-white", symbol: <MinusCircle className="size-6" /> },
-  skip: { band: "bg-bad/10", border: "border-bad/40", icon: "bg-bad text-white", symbol: <XCircle className="size-6" /> },
-  avoid: { band: "bg-bad/10", border: "border-bad/40", icon: "bg-bad text-white", symbol: <XCircle className="size-6" /> },
-};
+const DOT: Record<Tone, string> = { good: "bg-good", warn: "bg-warn", bad: "bg-bad", neutral: "bg-faint", accent: "bg-accent" };
+const RING: Record<Tone, string> = { good: "stroke-good", warn: "stroke-warn", bad: "stroke-bad", neutral: "stroke-faint", accent: "stroke-accent" };
 
-/** The score as a short coloured bar with its number. */
-function ScoreBar({ score, tone }: { score: number; tone: Tone }) {
-  const fill = { good: "bg-good", warn: "bg-warn", bad: "bg-bad", neutral: "bg-slate-400", accent: "bg-accent" }[tone];
+/** The score (0–100) as a ring with its number, like a credit score. */
+function ScoreRing({ score, tone, label }: { score: number; tone: Tone; label: string }) {
+  const r = 22;
+  const length = 2 * Math.PI * r;
   return (
-    <div className="mt-1.5 flex items-center gap-2" dir="ltr">
-      <div className="h-1.5 w-28 overflow-hidden rounded-full bg-line">
-        <div className={cx("h-full rounded-full transition-all duration-700", fill)} style={{ width: `${Math.max(4, score)}%` }} />
+    <div className="flex shrink-0 flex-col items-center" title={`${label}: ${score}/100`}>
+      <div className="relative size-14">
+        <svg viewBox="0 0 52 52" className="size-14 -rotate-90">
+          <circle cx="26" cy="26" r={r} fill="none" className="stroke-line" strokeWidth="4" />
+          <circle cx="26" cy="26" r={r} fill="none" className={cx(RING[tone], "transition-all duration-700")} strokeWidth="4" strokeLinecap="round" strokeDasharray={`${(Math.max(2, score) / 100) * length} ${length}`} />
+        </svg>
+        <span className="num absolute inset-0 grid place-items-center text-[15px] font-semibold">{score}</span>
       </div>
-      <span className="num text-xs font-semibold text-muted">{score}/100</span>
-    </div>
-  );
-}
-
-/** A short burst of confetti for a good find. */
-function Confetti() {
-  const pieces = useMemo(
-    () =>
-      Array.from({ length: 36 }, (_, i) => ({
-        left: Math.random() * 100,
-        delay: Math.random() * 0.25,
-        duration: 1.1 + Math.random() * 0.9,
-        rotate: Math.random() * 360,
-        color: ["#ff5a1f", "#12a150", "#2f6bff", "#f5b23d", "#9f7aff"][i % 5],
-        drift: (Math.random() - 0.5) * 80,
-      })),
-    [],
-  );
-  const [show, setShow] = useState(true);
-  useEffect(() => {
-    const timer = setTimeout(() => setShow(false), 2400);
-    return () => clearTimeout(timer);
-  }, []);
-  if (!show) return null;
-  return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-72 overflow-hidden" aria-hidden="true">
-      {pieces.map((piece, i) => (
-        <span
-          key={i}
-          className="confetti absolute top-0 block h-2.5 w-1.5 rounded-sm"
-          style={{ left: `${piece.left}%`, background: piece.color, animationDelay: `${piece.delay}s`, animationDuration: `${piece.duration}s`, transform: `rotate(${piece.rotate}deg)`, ["--drift" as string]: `${piece.drift}px` }}
-        />
-      ))}
+      <span className="mt-1 text-[11px] text-faint">{label}</span>
     </div>
   );
 }
@@ -422,9 +364,9 @@ function Confetti() {
 function Metric({ label, value, sub, tone }: { label: string; value: string; sub?: ReactNode; tone?: Tone }) {
   return (
     <div className="min-w-0">
-      <div className="truncate text-xs text-muted">{label}</div>
-      <div className={cx("num mt-0.5 truncate text-base font-semibold sm:text-lg", tone && toneText[tone])}>{value}</div>
-      {sub && <div className="text-xs leading-snug text-faint">{sub}</div>}
+      <div className="truncate text-[12px] text-muted">{label}</div>
+      <div className={cx("num mt-1 truncate text-[17px] font-semibold sm:text-lg", tone && toneText[tone])}>{value}</div>
+      {sub && <div className="mt-0.5 text-[12px] leading-snug text-faint">{sub}</div>}
     </div>
   );
 }

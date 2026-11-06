@@ -1,11 +1,10 @@
 import { LogOut, Trash2 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { Button, Card, Disclosure, Field, Input, Note, NumberInput, Segmented, Select, Toggle, cx, useToast } from "../components/ui";
+import { Button, Card, Disclosure, Field, Input, Note, NumberInput, Segmented, Select, Toggle, useToast } from "../components/ui";
 import { ApiError, api, deleteAccount, logout } from "../lib/api";
 import { useApp } from "../lib/app";
 import { type TextKey, useT } from "../lib/i18n";
 import {
-  type Accent,
   DEFAULT_PREFS,
   DEFAULT_UI,
   type Theme,
@@ -25,12 +24,6 @@ import { href, navigate } from "../lib/router";
 import type { Lang, Prefs } from "../lib/types";
 import { LEGAL_PAGES } from "./Legal";
 
-const ACCENTS: { value: Accent; color: string }[] = [
-  { value: "orange", color: "#ff5a1f" },
-  { value: "blue", color: "#2f6bff" },
-  { value: "green", color: "#12a150" },
-  { value: "mono", color: "#0f172a" },
-];
 
 const LEGAL_LABEL = { impressum: "legal_imprint", datenschutz: "legal_privacy", nutzungsbedingungen: "legal_terms" } as const;
 
@@ -107,7 +100,7 @@ export function SettingsPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">{t("settings_title")}</h1>
+        <h1 className="text-[28px] font-semibold leading-tight">{t("settings_title")}</h1>
         <span className="text-xs text-faint">{t("settings_saved")}</span>
       </div>
       <Card className="space-y-4 p-4 sm:p-5">
@@ -198,19 +191,6 @@ export function SettingsPage() {
           </Group>
 
           <Group title={t("sec_display")}>
-            <Field label={t("accent")}>
-              <div className="flex flex-wrap gap-2">
-                {ACCENTS.map((accent) => (
-                  <button
-                    key={accent.value}
-                    aria-label={accent.value}
-                    onClick={() => setUi({ accent: accent.value })}
-                    className={cx("size-9 cursor-pointer rounded-full ring-offset-2 ring-offset-surface transition", ui.accent === accent.value ? "ring-2 ring-text" : "")}
-                    style={{ background: accent.color }}
-                  />
-                ))}
-              </div>
-            </Field>
             <Field label={t("start_page")}>
               <Select value={ui.startPage} onChange={(e) => setUi({ startPage: e.target.value })}>
                 {(["analyze", "hunt", "saved", "garage"] as const).map((page) => (

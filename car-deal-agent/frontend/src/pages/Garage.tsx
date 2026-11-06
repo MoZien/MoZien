@@ -48,8 +48,8 @@ export function GaragePage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t("garage_title")}</h1>
-          <p className="mt-1 text-sm text-muted">{t("garage_sub")}</p>
+          <h1 className="text-[28px] font-semibold leading-tight">{t("garage_title")}</h1>
+          <p className="mt-1.5 text-[15px] leading-relaxed text-muted">{t("garage_sub")}</p>
         </div>
         <div className="flex gap-2">
           {cars.length > 0 && (

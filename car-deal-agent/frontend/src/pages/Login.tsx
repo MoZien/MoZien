@@ -118,10 +118,7 @@ export function LoginPage() {
     <div className="safe-top flex min-h-dvh flex-col items-center justify-center p-4">
       <Card className="login-card animate-fade-up w-full max-w-sm p-6">
         <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <Logo />
-            <span className="text-[15px] font-semibold">{meta?.app_name ?? "AutoHalle"}</span>
-          </div>
+          <Logo />
           <Segmented size="sm" value={t.lang} onChange={(language: Lang) => prefsStore.set((p) => ({ ...p, language }))} options={[{ value: "ar", label: "ع" }, { value: "de", label: "DE" }, { value: "en", label: "EN" }]} />
         </div>
 

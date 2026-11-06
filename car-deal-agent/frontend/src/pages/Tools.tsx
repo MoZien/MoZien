@@ -39,7 +39,7 @@ export function ToolsPage({ route }: { route: Route }) {
   return (
     <OpenTool.Provider value={{ open, toggle: (id) => setOpen((current) => (current === id ? null : id)) }}>
       <div className="mx-auto max-w-2xl space-y-5">
-        <h1 className="text-2xl font-semibold tracking-tight">{t("tools_title")}</h1>
+        <h1 className="text-[28px] font-semibold leading-tight">{t("tools_title")}</h1>
         <div className="space-y-3">
           <ScanTool />
           <ProfitTool />

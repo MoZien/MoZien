@@ -55,7 +55,7 @@ The TÜV date comes from the ad's "HU bis" field, or from the title and text ("T
 
 **Repair costs.** The AI lists problems it sees in the ad, and every cost must come with the exact words from the ad (`quote`). The program checks that those words really are in the ad; costs without a matching quote, and typical-for-the-model risks the ad doesn't mention, count as 0 € and become questions for the seller instead. The Telegram message shows each counted cost with its quote, or "No defects mentioned in the ad".
 
-**Verdict.** `deal` ("Schnäppchen") when profit and ROI pass your minimums and nothing speaks against it; `check` ("Lohnt sich – vorher prüfen") when the numbers work but the market data is thin, the price is suspiciously low (≥ 40 % below market), the ad mentions damage or a defect, or the AI review says skip; `low_profit` ("Zu wenig Gewinn") for a profit under your minimums; `skip` ("Finger weg") only for a loss or a high scam risk. The AI review is a reason to read, not a veto: its caution is listed ("KI rät zur Vorsicht: …") without turning good numbers bad. For buying to keep: `buy` up to 5 % above the market price, `negotiate` 5–15 % above (or over budget), `avoid` beyond that, `check` for the same warnings as above.
+**Verdict.** `deal` ("Lohnt sich") when profit and ROI pass your minimums and nothing speaks against it; `check` ("Lohnt sich – vorher prüfen") when the numbers work but the market data is thin, the price is suspiciously low (≥ 40 % below market), the ad mentions damage or a defect, or the AI review says skip; `low_profit` ("Zu wenig Gewinn") for a profit under your minimums; `skip` ("Nicht kaufen") only for a loss or a high scam risk. The AI review is a reason to read, not a veto: its caution is listed ("KI rät zur Vorsicht: …") without turning good numbers bad. For buying to keep: `buy` up to 5 % above the market price, `negotiate` 5–15 % above (or over budget), `avoid` beyond that, `check` for the same warnings as above.
 
 **First run.** The first run of a search only collects market data. Alerts start with ads posted after that, which is what you want for being first to call. Set `deal.alert_existing: true` to also rate the ads already online.
 
@@ -230,6 +230,12 @@ mode the server loads them (`cardeal/web/photos.py`). They go to Claude with the
 stored. Each photo adds about 1,000 input tokens (about 1 cent per check with Sonnet 5.5). A
 hunt sends them too for each find the AI reviews (only cars that already pass the numbers). It
 can be turned off in the settings ("KI prüft auch die Fotos").
+
+**Look.** A neutral base (warm paper, ink text) so that photos and the verdict colours carry the
+screen; the main action is ink, one brand blue marks what can be tapped (links, switches, focus),
+green, amber and red only rate cars. The logo is a roof over a road – a car hall, and an A; all
+icons and splash images are drawn from it by `frontend/scripts/render-icons.mjs`. Texts are
+plain and neutral in all three languages (Arabic in Modern Standard Arabic).
 
 Building the app:
 

@@ -4,15 +4,15 @@ import {
   Columns3,
   Gauge,
   Heart,
+  LayoutGrid,
   Loader2,
-  Menu,
   Radar,
   ScanSearch,
   Settings as SettingsIcon,
   Wrench,
 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
-import { Modal, ToastProvider, cx } from "./components/ui";
+import { List, ListLink, Modal, ToastProvider, cx } from "./components/ui";
 import { useApp } from "./lib/app";
 import { huntStore, resumeHunt } from "./lib/hunt";
 import { type TextKey, translate, useT } from "./lib/i18n";
@@ -35,23 +35,23 @@ interface NavItem {
   page: string;
   label: TextKey;
   icon: (className: string) => ReactNode;
-  /** colour of the tile in the "More" sheet (full class names, so Tailwind keeps them) */
-  tint?: string;
+  /** one line under the label in the "More" list */
+  sub?: TextKey;
 }
 
 // What people use every time, and the rest behind "More".
 const MAIN: NavItem[] = [
-  { page: "analyze", label: "nav_analyze", icon: (c) => <ScanSearch className={c} /> },
-  { page: "hunt", label: "nav_hunt", icon: (c) => <Radar className={c} /> },
-  { page: "saved", label: "nav_saved", icon: (c) => <Heart className={c} /> },
+  { page: "analyze", label: "nav_analyze", icon: (c) => <ScanSearch className={c} strokeWidth={1.75} /> },
+  { page: "hunt", label: "nav_hunt", icon: (c) => <Radar className={c} strokeWidth={1.75} /> },
+  { page: "saved", label: "nav_saved", icon: (c) => <Heart className={c} strokeWidth={1.75} /> },
 ];
 const MORE: NavItem[] = [
-  { page: "valuate", label: "nav_valuate", icon: (c) => <Gauge className={c} />, tint: "bg-info/12 text-info" },
-  { page: "compare", label: "nav_compare", icon: (c) => <Columns3 className={c} />, tint: "bg-violet/12 text-violet" },
-  { page: "garage", label: "nav_garage", icon: (c) => <BadgeEuro className={c} />, tint: "bg-good/12 text-good" },
-  { page: "tools", label: "nav_tools", icon: (c) => <Wrench className={c} />, tint: "bg-warn/15 text-warn" },
-  { page: "settings", label: "nav_settings", icon: (c) => <SettingsIcon className={c} />, tint: "bg-surface-2 text-muted" },
-  { page: "help", label: "nav_help", icon: (c) => <CircleHelp className={c} />, tint: "bg-accent/12 text-accent" },
+  { page: "valuate", label: "nav_valuate", sub: "nav_valuate_sub", icon: (c) => <Gauge className={c} strokeWidth={1.75} /> },
+  { page: "compare", label: "nav_compare", sub: "nav_compare_sub", icon: (c) => <Columns3 className={c} strokeWidth={1.75} /> },
+  { page: "garage", label: "nav_garage", sub: "nav_garage_sub", icon: (c) => <BadgeEuro className={c} strokeWidth={1.75} /> },
+  { page: "tools", label: "nav_tools", sub: "nav_tools_sub", icon: (c) => <Wrench className={c} strokeWidth={1.75} /> },
+  { page: "settings", label: "nav_settings", icon: (c) => <SettingsIcon className={c} strokeWidth={1.75} /> },
+  { page: "help", label: "nav_help", icon: (c) => <CircleHelp className={c} strokeWidth={1.75} /> },
 ];
 const PAGES = new Set<string>([...MAIN, ...MORE].map((item) => item.page));
 const isLegal = (page: string): page is LegalKind => (LEGAL_PAGES as string[]).includes(page);
@@ -65,10 +65,8 @@ function useApplyUi() {
     const apply = () => root.classList.toggle("dark", ui.theme === "dark" || (ui.theme === "system" && media.matches));
     apply();
     media.addEventListener("change", apply);
-    if (ui.accent === "blue" || ui.accent === "green" || ui.accent === "mono") root.dataset.accent = ui.accent;
-    else delete root.dataset.accent;
     return () => media.removeEventListener("change", apply);
-  }, [ui.theme, ui.accent]);
+  }, [ui.theme]);
   useEffect(() => {
     document.documentElement.lang = prefs.language;
     document.querySelector('meta[name="description"]')?.setAttribute("content", translate(prefs.language, "meta_description"));
@@ -92,7 +90,7 @@ function StatusPill() {
   if (!waking && !updateReady) return null;
   return (
     <div className="no-print pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+64px)] z-50 flex justify-center px-4 lg:top-4">
-      <div className="animate-fade-up pointer-events-auto flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-2 text-sm shadow-lg">
+      <div className="animate-fade-up pointer-events-auto flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm text-on-ink shadow-lg">
         {waking ? (
           <>
             <Loader2 className="size-4 animate-spin text-muted" />
@@ -185,8 +183,8 @@ function Shell() {
       href={href(item.page)}
       onClick={item.page === "analyze" ? home : undefined}
       className={cx(
-        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition",
-        page === item.page ? "bg-accent/10 font-semibold text-accent" : "text-muted hover:bg-surface-2 hover:text-text",
+        "flex items-center gap-3 rounded-[8px] px-3 py-2 text-sm transition",
+        page === item.page ? "bg-surface-2 font-medium text-text" : "text-muted hover:bg-surface-2 hover:text-text",
       )}
     >
       {item.icon("size-4")}
@@ -200,9 +198,8 @@ function Shell() {
     <div className="min-h-dvh lg:flex">
       {/* Sidebar (desktop) */}
       <aside className="no-print sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-e border-line bg-surface px-3 py-5 lg:flex">
-        <a href={href("analyze")} onClick={home} className="mb-7 flex items-center gap-2.5 px-3">
+        <a href={href("analyze")} onClick={home} className="mb-8 px-3" aria-label={appName}>
           <Logo />
-          <span className="text-[15px] font-semibold tracking-tight">{appName}</span>
         </a>
         <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto">
           {MAIN.map(sideLink)}
@@ -217,30 +214,29 @@ function Shell() {
 
       <div className="min-w-0 flex-1">
         {/* Top bar (mobile) */}
-        <header className="no-print safe-top sticky top-0 z-30 border-b border-line bg-bg lg:hidden">
+        <header className="no-print safe-top sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur lg:hidden">
           <div className="flex h-13 items-center justify-between gap-3 px-4">
-            <a href={href("analyze")} onClick={home} className="flex items-center gap-2">
+            <a href={href("analyze")} onClick={home} aria-label={appName}>
               <Logo small />
-              <span className="text-[15px] font-semibold tracking-tight">{appName}</span>
             </a>
-            <a href={href("settings")} aria-label={t("nav_settings")} className="grid size-10 place-items-center rounded-full text-muted hover:bg-surface-2 hover:text-text">
-              <SettingsIcon className="size-5" />
+            <a href={href("settings")} aria-label={t("nav_settings")} className="-me-2 grid size-10 place-items-center rounded-full text-muted hover:text-text">
+              <SettingsIcon className="size-[21px]" strokeWidth={1.75} />
             </a>
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-5xl px-4 pb-28 pt-5 sm:px-6 lg:px-10 lg:pb-12 lg:pt-10">{content}</main>
+        <main className="mx-auto w-full max-w-5xl px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-12 lg:pt-10">{content}</main>
       </div>
 
       {/* Bottom tabs (mobile) */}
-      <nav className="no-print safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface lg:hidden">
+      <nav className="no-print safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 backdrop-blur lg:hidden">
         <div className="mx-auto grid max-w-md grid-cols-4">
           {MAIN.map((item) => (
-            <a key={item.page} href={href(item.page)} onClick={item.page === "analyze" ? home : undefined} className={cx("flex min-w-0 flex-col items-center gap-0.5 pb-2 pt-2 text-[11px] transition", page === item.page ? "font-semibold text-accent" : "text-muted")}>
-              <span className={cx("relative grid h-7 w-12 place-items-center rounded-full transition", page === item.page && "bg-accent/12")}>
-                {item.icon("size-5")}
+            <a key={item.page} href={href(item.page)} onClick={item.page === "analyze" ? home : undefined} className={cx("flex min-w-0 flex-col items-center gap-1 pb-2 pt-2.5 text-[11px] transition", page === item.page ? "font-medium text-text" : "text-faint")}>
+              <span className="relative">
+                {item.icon("size-[22px]")}
                 {item.page === "hunt" && hunting && (
-                  <span className="absolute -end-1.5 -top-1">
+                  <span className="absolute -end-2 -top-1">
                     <RunningDot count={hunt.found.length} />
                   </span>
                 )}
@@ -248,29 +244,19 @@ function Shell() {
               <span className="max-w-full truncate px-1">{t(item.label)}</span>
             </a>
           ))}
-          <button onClick={() => setMoreOpen(true)} className={cx("flex min-w-0 cursor-pointer flex-col items-center gap-0.5 pb-2 pt-2 text-[11px] transition", MORE.some((n) => n.page === page) ? "font-semibold text-accent" : "text-muted")}>
-            <span className={cx("grid h-7 w-12 place-items-center rounded-full transition", MORE.some((n) => n.page === page) && "bg-accent/12")}>
-              <Menu className="size-5" />
-            </span>
+          <button onClick={() => setMoreOpen(true)} className={cx("flex min-w-0 cursor-pointer flex-col items-center gap-1 pb-2 pt-2.5 text-[11px] transition", MORE.some((n) => n.page === page) ? "font-medium text-text" : "text-faint")}>
+            <LayoutGrid className="size-[22px]" strokeWidth={1.75} />
             <span className="max-w-full truncate px-1">{t("nav_more")}</span>
           </button>
         </div>
       </nav>
 
       <Modal open={moreOpen} onClose={() => setMoreOpen(false)} title={t("nav_more")}>
-        <div className="grid grid-cols-3 gap-2.5">
+        <List>
           {MORE.map((item) => (
-            <a
-              key={item.page}
-              href={href(item.page)}
-              onClick={() => setMoreOpen(false)}
-              className={cx("flex flex-col items-center gap-2 rounded-2xl border p-3.5 text-center text-[13px] font-medium transition active:scale-95", page === item.page ? "border-accent/40 bg-accent/5" : "border-line hover:bg-surface-2")}
-            >
-              <span className={cx("grid size-11 place-items-center rounded-xl", item.tint)}>{item.icon("size-5")}</span>
-              {t(item.label)}
-            </a>
+            <ListLink key={item.page} href={href(item.page)} onClick={() => setMoreOpen(false)} active={page === item.page} icon={item.icon("size-5")} title={t(item.label)} sub={item.sub && t(item.sub)} />
           ))}
-        </div>
+        </List>
         <div className="mt-3">
           <AiStatus />
         </div>
@@ -284,9 +270,9 @@ function Shell() {
 /** The hunt is running: a pulsing dot, with the number of cars found so far. */
 function RunningDot({ count }: { count: number }) {
   return count > 0 ? (
-    <span className="num grid h-4 min-w-4 place-items-center rounded-full bg-good px-1 text-[10px] font-semibold text-white">{count}</span>
+    <span className="num grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-semibold text-on-accent">{count}</span>
   ) : (
-    <span className="block size-2.5 animate-pulse rounded-full bg-good ring-2 ring-surface" />
+    <span className="block size-2 animate-pulse rounded-full bg-accent ring-2 ring-surface" />
   );
 }
 
@@ -310,14 +296,25 @@ function AiStatus() {
   );
 }
 
+/** The mark: a roof over a road (a car hall, and an A). Ink, with the road in brand blue. */
+export function LogoMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 64 64" className={className} fill="none" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M14 44 L32 15 L50 44" stroke="currentColor" strokeWidth="7.5" />
+      <path d="M14 53 H50" className="stroke-accent" strokeWidth="6.5" />
+    </svg>
+  );
+}
+
+/** Mark and name: "Auto" set heavier than "Halle". */
 export function Logo({ small }: { small?: boolean }) {
   return (
-    <span className={cx("grid place-items-center rounded-lg bg-accent text-on-accent shadow-md shadow-accent/30", small ? "size-8" : "size-9")}>
-      <svg viewBox="0 0 512 512" className={small ? "size-5" : "size-6"} fill="none" stroke="currentColor" strokeWidth="32" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M126 292 L156 212 Q165 190 190 190 H322 Q347 190 356 212 L386 292" />
-        <path d="M112 292 H400 Q414 292 414 306 V344 Q414 358 400 358 H112 Q98 358 98 344 V306 Q98 292 112 292 Z" />
-        <path d="M150 358 V386 M362 358 V386" />
-      </svg>
+    <span dir="ltr" className={cx("inline-flex items-center text-text", small ? "gap-2" : "gap-2.5")}>
+      <LogoMark className={small ? "size-6" : "size-7"} />
+      <span className={cx("leading-none tracking-[-0.02em]", small ? "text-[18px]" : "text-[20px]")}>
+        <span className="font-semibold">Auto</span>
+        <span className="font-normal">Halle</span>
+      </span>
     </span>
   );
 }

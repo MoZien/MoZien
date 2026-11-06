@@ -36,11 +36,11 @@ def test_short_report_in_arabic_with_quoted_repair():
     text = format_report(report(analysis), "ar")
     assert "\u2066(−30 %)\u2069" in text  # numbers isolated, so right-to-left can't scramble them
     lines = text.replace("\u2066", "").replace("\u2069", "").split("\n")
-    assert lines[0] == "<b>🔥 لقطة · Golf &lt;GTI&gt; &amp; more</b>"
+    assert lines[0] == "<b>✅ صفقة مربحة · Golf &lt;GTI&gt; &amp; more</b>"
     assert lines[1] == "📍 10115 Mitte · 72.500 km · EZ 08/2014 · TÜV 03/2027"
     assert lines[2] == "💶 <b>6.200 €</b> قابل للتفاوض ← السوق ~8.900 € (−30 %)"
-    assert lines[3] == "📈 الربح ~1.895 € = بيع ~8.455 € (95 % من السوق) − شراء ~5.890 € (−5 % تفاوض) − مصاريف 670 €"
-    assert lines[4] == "🧾 المصاريف: تصليح 300 € · غيرها 370 €"
+    assert lines[3] == "📈 الربح ~1.895 € = البيع ~8.455 € (95 % من السوق) − الشراء ~5.890 € (−5 % تفاوض) − التكاليف 670 €"
+    assert lines[4] == "🧾 التكاليف: إصلاح 300 € · أخرى 370 €"
     assert lines[5] == "🔧 المكيف بحاجة تعبئة ~300 € – “Klima muss befüllt werden”"
     assert "Motorschaden" not in text  # an invented quote never shows up as a cost
     assert lines[6] == "🧠 سيارة نظيفة وسعرها منيح"
@@ -169,7 +169,7 @@ def test_details_link_each_comparable_and_fit_telegram():
     html_text = format_details(r, "ar", "06108", 150)
     assert len(html_text) <= TELEGRAM_LIMIT
     assert '<a href="https://k/0">Leipzig</a>' in html_text
-    assert "… و110 غيرهم" in html_text  # ten shown
+    assert "… و110 أخرى" in html_text  # ten shown
 
 
 def test_report_explains_resale_and_purchase_and_marks_unknown_tuv():

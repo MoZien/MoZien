@@ -101,7 +101,7 @@ function Bubble({ role, text }: { role: "user" | "assistant"; text: string }) {
       <span className={cx("grid size-8 shrink-0 place-items-center rounded-full", mine ? "bg-surface-2 text-muted" : "bg-text text-bg")}>
         {mine ? <User className="size-4" /> : <Bot className="size-4" />}
       </span>
-      <div className={cx("max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm leading-relaxed", mine ? "bg-accent text-on-accent" : "bg-surface-2")} dir="auto">
+      <div className={cx("max-w-[85%] whitespace-pre-wrap rounded-[14px] px-4 py-2.5 text-sm leading-relaxed", mine ? "bg-ink text-on-ink" : "bg-surface-2")} dir="auto">
         {text}
       </div>
     </div>

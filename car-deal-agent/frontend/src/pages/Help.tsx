@@ -16,8 +16,8 @@ function HelperCard() {
   return (
     <Card className="p-5">
       <div className="flex items-start gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-accent/12 text-accent">
-          <Puzzle className="size-5" />
+        <span className="mt-0.5 shrink-0 text-muted">
+          <Puzzle className="size-5" strokeWidth={1.75} />
         </span>
         <div className="min-w-0 flex-1">
           <h2 className="font-semibold">{t("helper_title")}</h2>
@@ -37,7 +37,7 @@ function HelperCard() {
               <a
                 href={`${API_BASE}/autohalle-helfer.zip`}
                 download
-                className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent"
+                className="mt-4 inline-flex h-10 items-center gap-2 rounded-[10px] bg-ink px-4 text-sm font-medium text-on-ink hover:opacity-90"
               >
                 <Download className="size-4" /> {t("helper_download")}
               </a>
@@ -57,7 +57,7 @@ export function HelpPage() {
   const [open, setOpen] = useState<number | null>(1);
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">{t("help_title")}</h1>
+      <h1 className="text-[28px] font-semibold leading-tight">{t("help_title")}</h1>
       <HelperCard />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {STEPS.map((n) => (

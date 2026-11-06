@@ -76,7 +76,7 @@ export function SavedPage({ route }: { route: Route }) {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">{t("nav_saved")}</h1>
+        <h1 className="text-[28px] font-semibold leading-tight">{t("nav_saved")}</h1>
         {compare.length > 0 && (
           <Button size="sm" icon={<Columns3 className="size-4" />} onClick={() => navigate("compare")}>
             {t("nav_compare")} ({compare.length})
@@ -127,12 +127,12 @@ export function SavedPage({ route }: { route: Route }) {
         {(onlyGood || sort !== "date") && (
           <div className="flex flex-wrap gap-2 pt-1">
             {onlyGood && (
-              <button onClick={() => setOnlyGood(false)} className="flex cursor-pointer items-center gap-1.5 rounded-full bg-good/12 px-3 py-1.5 text-[13px] font-semibold text-good">
+              <button onClick={() => setOnlyGood(false)} className="flex cursor-pointer items-center gap-1.5 rounded-full border border-line-strong bg-surface px-3 py-1.5 text-[13px] font-medium">
                 <Flame className="size-3.5" /> {t("only_good")} <X className="size-3.5" aria-label={t("remove_filter")} />
               </button>
             )}
             {sort !== "date" && (
-              <button onClick={() => setSort("date")} className="flex cursor-pointer items-center gap-1.5 rounded-full bg-accent/12 px-3 py-1.5 text-[13px] font-semibold text-accent">
+              <button onClick={() => setSort("date")} className="flex cursor-pointer items-center gap-1.5 rounded-full border border-line-strong bg-surface px-3 py-1.5 text-[13px] font-medium">
                 <TrendingDown className="size-3.5" /> {t(`sort_${sort}` as TextKey)} <X className="size-3.5" aria-label={t("remove_filter")} />
               </button>
             )}
@@ -218,7 +218,7 @@ function EditSaved({ car, onDone }: { car: SavedCar; onDone: () => void }) {
           <button
             key={s}
             onClick={() => setStatus(s)}
-            className={cx("cursor-pointer rounded-full border px-3 py-1.5 text-sm font-medium transition", status === s ? "border-accent bg-accent text-on-accent" : "border-line bg-surface hover:bg-surface-2")}
+            className={cx("cursor-pointer rounded-full border px-3 py-1.5 text-sm font-medium transition", status === s ? "border-ink bg-ink text-on-ink" : "border-line-strong bg-surface hover:bg-surface-2")}
           >
             {t(`status_${s}` as TextKey)}
           </button>

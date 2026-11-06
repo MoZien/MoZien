@@ -13,8 +13,8 @@
   link.textContent = "Mit AutoHalle prüfen";
   Object.assign(link.style, {
     position: "fixed", right: "18px", bottom: "18px", zIndex: "2147483647", padding: "12px 18px",
-    borderRadius: "14px", background: "#ff5a1f", color: "#fff", font: "600 15px/1.2 system-ui, sans-serif",
-    textDecoration: "none", boxShadow: "0 8px 24px rgba(255, 90, 31, 0.35)",
+    borderRadius: "10px", background: "#16181b", color: "#fff", font: "500 15px/1.2 system-ui, sans-serif",
+    textDecoration: "none", boxShadow: "0 6px 20px rgba(22, 24, 27, 0.25)",
   });
   document.body.appendChild(link);
 })();

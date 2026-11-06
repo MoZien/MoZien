@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Info, Loader2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Info, Loader2, X } from "lucide-react";
 import {
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
@@ -22,7 +22,7 @@ export function Num({ children, className }: { children: ReactNode; className?: 
 
 export function Card({ className, children, ...rest }: { className?: string; children: ReactNode } & React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div {...rest} className={cx("rounded-2xl border border-line bg-surface", className)}>
+    <div {...rest} className={cx("rounded-xl border border-line bg-surface", className)}>
       {children}
     </div>
   );
@@ -32,7 +32,7 @@ export function CardHeader({ title, icon, action, sub }: { title: ReactNode; ico
   return (
     <div className="flex items-start justify-between gap-3 px-5 pt-5">
       <div className="flex min-w-0 items-center gap-2.5">
-        {icon && <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-accent/10 text-accent">{icon}</span>}
+        {icon && <span className="shrink-0 text-muted">{icon}</span>}
         <div className="min-w-0">
           <h3 className="truncate text-[15px] font-semibold">{title}</h3>
           {sub && <p className="text-xs text-muted">{sub}</p>}
@@ -45,13 +45,13 @@ export function CardHeader({ title, icon, action, sub }: { title: ReactNode; ico
 
 type Variant = "primary" | "secondary" | "ghost" | "danger" | "soft";
 const variants: Record<Variant, string> = {
-  primary: "bg-accent text-on-accent shadow-lg shadow-accent/25 hover:brightness-105",
-  secondary: "border border-line bg-surface hover:bg-surface-2",
+  primary: "bg-ink text-on-ink hover:opacity-90",
+  secondary: "border border-line-strong bg-surface hover:bg-surface-2",
   ghost: "hover:bg-surface-2 text-muted hover:text-text",
-  danger: "bg-bad/10 text-bad hover:bg-bad/15",
-  soft: "bg-accent/10 text-accent hover:bg-accent/15",
+  danger: "border border-bad/30 bg-surface text-bad hover:bg-bad/5",
+  soft: "bg-surface-2 text-text hover:bg-line",
 };
-const sizes = { sm: "h-8 px-3 text-xs gap-1.5", md: "h-10 px-4 text-sm gap-2", lg: "h-12 px-6 text-[15px] gap-2" };
+const sizes = { sm: "h-8 px-3 text-[13px] gap-1.5", md: "h-10 px-4 text-sm gap-2", lg: "h-12 px-5 text-[15px] gap-2" };
 
 export function Button({
   variant = "secondary",
@@ -67,7 +67,7 @@ export function Button({
       {...rest}
       disabled={rest.disabled || loading}
       className={cx(
-        "inline-flex shrink-0 cursor-pointer select-none items-center justify-center rounded-xl font-medium transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex shrink-0 cursor-pointer select-none items-center justify-center rounded-[10px] font-medium transition disabled:cursor-not-allowed disabled:opacity-40",
         variants[variant],
         sizes[size],
         className,
@@ -85,7 +85,7 @@ export function IconButton({ label, children, className, ...rest }: ButtonHTMLAt
       {...rest}
       aria-label={label}
       title={label}
-      className={cx("grid size-9 cursor-pointer place-items-center rounded-xl text-muted transition hover:bg-surface-2 hover:text-text", className)}
+      className={cx("grid size-9 cursor-pointer place-items-center rounded-[10px] text-muted transition hover:bg-surface-2 hover:text-text", className)}
     >
       {children}
     </button>
@@ -94,16 +94,16 @@ export function IconButton({ label, children, className, ...rest }: ButtonHTMLAt
 
 export type Tone = "good" | "warn" | "bad" | "neutral" | "accent";
 const tones: Record<Tone, string> = {
-  good: "bg-good/12 text-good border-good/25",
-  warn: "bg-warn/12 text-warn border-warn/25",
-  bad: "bg-bad/12 text-bad border-bad/25",
+  good: "bg-good/8 text-good border-good/20",
+  warn: "bg-warn/8 text-warn border-warn/20",
+  bad: "bg-bad/8 text-bad border-bad/20",
   neutral: "bg-surface-2 text-muted border-line",
-  accent: "bg-accent/10 text-accent border-accent/25",
+  accent: "bg-accent/8 text-accent border-accent/20",
 };
 
 export function Badge({ tone = "neutral", children, className }: { tone?: Tone; children: ReactNode; className?: string }) {
   return (
-    <span className={cx("inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium", tones[tone], className)}>
+    <span className={cx("inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-medium", tones[tone], className)}>
       {children}
     </span>
   );
@@ -112,7 +112,7 @@ export function Badge({ tone = "neutral", children, className }: { tone?: Tone; 
 export function Field({ label, hint, children, className }: { label: ReactNode; hint?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <label className={cx("block", className)}>
-      <span className="mb-1.5 block text-[13px] font-medium text-muted">{label}</span>
+      <span className="mb-1.5 block text-[13px] font-medium text-text">{label}</span>
       {children}
       {hint && <span className="mt-1 block text-xs text-faint">{hint}</span>}
     </label>
@@ -120,7 +120,7 @@ export function Field({ label, hint, children, className }: { label: ReactNode; 
 }
 
 const inputClass =
-  "h-11 w-full rounded-xl border border-line bg-surface px-3.5 text-sm outline-none transition placeholder:text-faint focus:border-accent focus:ring-4 focus:ring-accent/15";
+  "h-11 w-full rounded-[10px] border border-line-strong bg-surface px-3.5 text-sm outline-none transition placeholder:text-faint focus:border-accent focus:ring-3 focus:ring-accent/15";
 
 export function Input({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...rest} className={cx(inputClass, className)} />;
@@ -211,14 +211,14 @@ export function Toggle({ checked, onChange, label, hint }: { checked: boolean; o
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className="flex w-full cursor-pointer items-center justify-between gap-4 rounded-xl py-1.5 text-start"
+      className="flex w-full cursor-pointer items-center justify-between gap-4 py-1.5 text-start"
     >
       <span>
         <span className="block text-sm font-medium">{label}</span>
         {hint && <span className="block text-xs text-faint">{hint}</span>}
       </span>
-      <span className={cx("relative h-6 w-11 shrink-0 rounded-full transition", checked ? "bg-accent" : "bg-line")}>
-        <span className={cx("absolute top-0.5 size-5 rounded-full shadow transition-all", checked ? "start-5.5 bg-on-accent" : "start-0.5 bg-white")} />
+      <span className={cx("relative h-6 w-10 shrink-0 rounded-full transition", checked ? "bg-accent" : "bg-line-strong")}>
+        <span className={cx("absolute top-0.5 size-5 rounded-full bg-white shadow-sm transition-all", checked ? "start-4.5" : "start-0.5")} />
       </span>
     </button>
   );
@@ -238,7 +238,7 @@ export function Segmented<V extends string>({
   size?: "sm" | "md";
 }) {
   return (
-    <div role="radiogroup" className={cx("inline-flex rounded-xl bg-surface-2 p-1", className)}>
+    <div role="radiogroup" className={cx("inline-flex rounded-[10px] bg-surface-2 p-0.5 ring-1 ring-line", className)}>
       {options.map((option) => (
         <button
           key={option.value}
@@ -247,9 +247,9 @@ export function Segmented<V extends string>({
           aria-checked={value === option.value}
           onClick={() => onChange(option.value)}
           className={cx(
-            "flex flex-1 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-lg font-medium transition",
+            "flex flex-1 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-[8px] font-medium transition",
             size === "sm" ? "h-7 px-2.5 text-xs" : "h-9 px-3.5 text-sm",
-            value === option.value ? "bg-surface font-semibold text-text shadow-sm ring-1 ring-line" : "text-muted hover:text-text",
+            value === option.value ? "bg-surface text-text shadow-sm ring-1 ring-line" : "text-muted hover:text-text",
           )}
         >
           {option.icon}
@@ -271,7 +271,7 @@ export function Tabs<V extends string>({ value, onChange, tabs }: { value: V; on
           onClick={() => onChange(tab.value)}
           className={cx(
             "-mb-px flex shrink-0 cursor-pointer items-center gap-1.5 border-b-2 pb-2.5 pt-1 text-sm font-medium transition",
-            value === tab.value ? "border-accent font-semibold text-accent" : "border-transparent text-muted hover:text-text",
+            value === tab.value ? "border-ink text-text" : "border-transparent text-muted hover:text-text",
           )}
         >
           {tab.icon}
@@ -296,12 +296,12 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
   }, [open, onClose]);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-6" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-6" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
         onClick={(event) => event.stopPropagation()}
-        className={cx("animate-fade-up safe-bottom max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl border border-line bg-surface p-5 shadow-xl sm:rounded-2xl", wide ? "sm:max-w-3xl" : "sm:max-w-lg")}
+        className={cx("animate-fade-up safe-bottom max-h-[92dvh] w-full overflow-y-auto rounded-t-[18px] bg-surface p-5 shadow-xl sm:rounded-2xl", wide ? "sm:max-w-3xl" : "sm:max-w-lg")}
       >
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-base font-semibold">{title}</h2>
@@ -329,6 +329,25 @@ export function Disclosure({ title, children, defaultOpen = false, className }: 
   );
 }
 
+/** A grouped list (settings style): rows with dividers in one bordered box. */
+export function List({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cx("divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface", className)}>{children}</div>;
+}
+
+/** A row in a List that leads somewhere: icon, title, one line below, chevron. */
+export function ListLink({ href, icon, title, sub, onClick, active }: { href: string; icon?: ReactNode; title: ReactNode; sub?: ReactNode; onClick?: () => void; active?: boolean }) {
+  return (
+    <a href={href} onClick={onClick} className={cx("flex items-center gap-3.5 px-4 py-3.5 transition hover:bg-surface-2", active ? "bg-surface-2" : "bg-surface")}>
+      {icon && <span className="shrink-0 text-muted">{icon}</span>}
+      <span className="min-w-0 flex-1">
+        <span className="block text-[15px] font-medium">{title}</span>
+        {sub && <span className="block text-[13px] leading-snug text-muted">{sub}</span>}
+      </span>
+      <ChevronRight className="size-4 shrink-0 text-faint rtl:rotate-180" />
+    </a>
+  );
+}
+
 export function Spinner({ className }: { className?: string }) {
   return <Loader2 className={cx("size-5 animate-spin text-muted", className)} />;
 }
@@ -336,7 +355,7 @@ export function Spinner({ className }: { className?: string }) {
 export function EmptyState({ icon, title, text, action }: { icon: ReactNode; title: ReactNode; text?: ReactNode; action?: ReactNode }) {
   return (
     <div className="flex flex-col items-center px-6 py-12 text-center">
-      <div className="mb-3 grid size-14 place-items-center rounded-2xl bg-accent/10 text-accent">{icon}</div>
+      <div className="mb-4 grid size-12 place-items-center rounded-full border border-line bg-surface text-muted">{icon}</div>
       <h3 className="text-base font-semibold">{title}</h3>
       {text && <p className="mt-1.5 max-w-sm text-sm text-muted">{text}</p>}
       {action && <div className="mt-5">{action}</div>}
@@ -360,7 +379,7 @@ export function Stat({ label, value, sub, tone, icon }: { label: ReactNode; valu
 
 export function Note({ children, tone = "neutral", icon }: { children: ReactNode; tone?: Tone; icon?: ReactNode }) {
   return (
-    <div className={cx("flex gap-2.5 rounded-xl border px-3.5 py-3 text-sm", tones[tone])}>
+    <div className={cx("flex gap-2.5 rounded-[10px] border px-3.5 py-3 text-sm", tones[tone])}>
       <span className="mt-0.5 shrink-0">{icon ?? <Info className="size-4" />}</span>
       <div className="min-w-0 leading-relaxed">{children}</div>
     </div>
@@ -368,7 +387,7 @@ export function Note({ children, tone = "neutral", icon }: { children: ReactNode
 }
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cx("animate-pulse-soft rounded-xl bg-surface-2", className)} />;
+  return <div className={cx("animate-pulse-soft rounded-[10px] bg-surface-2", className)} />;
 }
 
 export function Row({ label, value, strong, tone }: { label: ReactNode; value: ReactNode; strong?: boolean; tone?: Tone }) {
@@ -402,7 +421,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[60] flex flex-col items-center gap-2 px-4 lg:bottom-6">
         {toasts.map((toast) => (
-          <div key={toast.id} className="animate-fade-up pointer-events-auto flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-sm font-medium shadow-lg">
+          <div key={toast.id} className="animate-fade-up pointer-events-auto flex items-center gap-2 rounded-[10px] bg-ink px-4 py-3 text-sm font-medium text-on-ink shadow-lg">
             {toast.tone === "good" && <Check className="size-4 text-good" />}
             {toast.tone === "bad" && <X className="size-4 text-bad" />}
             {toast.text}

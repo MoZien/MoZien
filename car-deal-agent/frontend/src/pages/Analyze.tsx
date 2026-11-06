@@ -1,17 +1,16 @@
-import { AlertTriangle, ArrowLeft, ArrowRight, BadgeEuro, ChevronRight, ClipboardPaste, Columns3, FileSearch, Flame, Gauge, Heart, Home, Loader2, Radar, ScanSearch, TrendingDown } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CarPhoto } from "../components/CarCard";
+import { AlertTriangle, ArrowLeft, ArrowRight, ChevronRight, ClipboardPaste, Columns3, FileSearch, Gauge, Radar } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { CarPhoto, VerdictLabel } from "../components/CarCard";
 import { DeviceHint, useNeedsDevice } from "../components/DeviceHint";
 import { ShareSetup } from "../components/ShareSetup";
 import { JobProgress } from "../components/JobProgress";
 import { ResultView } from "../components/ResultView";
-import { Button, Note, cx } from "../components/ui";
+import { Button, List, ListLink, Note, Segmented } from "../components/ui";
 import { ApiError, runJob } from "../lib/api";
-import { useApp } from "../lib/app";
-import { euro, km, pct } from "../lib/format";
+import { euro, km } from "../lib/format";
 import { huntStore } from "../lib/hunt";
 import { type TextKey, useT } from "../lib/i18n";
-import { discountOf, isGood, photoOf, verdictOf } from "../lib/result";
+import { photoOf, verdictOf } from "../lib/result";
 import { type Route, href, navigate } from "../lib/router";
 import { type SavedCar, prefsStore, saveResult, savedStore, uiStore, useStore } from "../lib/store";
 import type { Job, Result } from "../lib/types";
@@ -41,16 +40,17 @@ export function AnalyzePage({ route }: { route: Route }) {
   const started = useRef<string | null>(null);
   const Back = t.lang === "ar" ? ArrowRight : ArrowLeft;
 
-  // A saved analysis opened from the list: #/analyze/<id>
+  // A saved analysis opened from the list: #/analyze/<id>. Right after the app starts the saved
+  // cars of the account may load a moment later, so this also runs when they arrive.
   useEffect(() => {
     if (!route.param) return;
     const car = saved.find((c) => c.id === route.param);
-    if (car) {
+    if (car && result?.listing.id !== car.id) {
       setResult(car.result);
       setUrl(car.result.listing.url);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [route.param]);
+  }, [route.param, saved]);
 
   const needsDevice = useNeedsDevice();
   const start = useCallback(async (target: string) => {
@@ -147,25 +147,15 @@ export function AnalyzePage({ route }: { route: Route }) {
   }
 
   const running = job != null;
+  // The progress sits below the form: bring it into view when a check starts.
+  const progressBox = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (running) progressBox.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [running]);
   const preview = job?.partial?.listing as Result["listing"] | undefined;
   const recent = saved.slice(0, 5);
 
-  const { meta } = useApp();
   const hunt = useStore(huntStore);
-  const stats = useMemo(() => {
-    let best: SavedCar | null = null;
-    for (const car of saved) {
-      const discount = discountOf(car.result);
-      if (discount != null && discount > 0 && (best == null || discount > (discountOf(best.result) ?? 0))) best = car;
-    }
-    return {
-      checked: saved.length,
-      good: saved.filter((car) => isGood(car.result, car.result.purpose)).length,
-      best: best ? discountOf(best.result) : null,
-      bestId: best?.id ?? null,
-    };
-  }, [saved]);
-  const Forward = t.lang === "ar" ? ArrowLeft : ArrowRight;
 
   if (result && !running) {
     return (
@@ -183,79 +173,61 @@ export function AnalyzePage({ route }: { route: Route }) {
     );
   }
 
-  const name = (meta?.account?.email || meta?.account?.name || "").split("@")[0].split(/[._-]/)[0];
-  const hello = name ? t("hello", { name: name.charAt(0).toUpperCase() + name.slice(1) }) : t("hello_plain");
-
   return (
-    <div className="space-y-7">
-      {/* The start card: everything to check a car, in the brand colour */}
-      <section className="relative overflow-hidden rounded-3xl bg-accent p-5 text-on-accent shadow-xl shadow-accent/25 sm:p-7">
-        <HeroArt />
-        <div className="relative">
-          <p className="text-sm font-medium opacity-90">{hello}</p>
-          <h1 className="mt-1 text-[26px] font-semibold leading-tight tracking-tight sm:text-3xl">{t("hero_question")}</h1>
-          <p className="mt-1.5 max-w-md text-[15px] leading-relaxed opacity-90">{t("hero_line")}</p>
-          <form
-            className="mt-5 space-y-3"
-            onSubmit={(event) => {
-              event.preventDefault();
-              start(url);
-            }}
-          >
-            <div className="relative" dir="ltr">
-              <input
-                id="ad-url"
-                name="url"
-                value={url}
-                onChange={(event) => setUrl(event.target.value)}
-                placeholder={t("url_hint")}
-                aria-label={t("ad_link")}
-                inputMode="url"
-                autoComplete="off"
-                className="h-13 w-full rounded-2xl border-0 bg-white pl-4 pr-24 text-sm text-slate-900 shadow-lg shadow-black/10 outline-none placeholder:text-slate-400 focus:ring-4 focus:ring-white/40"
-              />
-              <button type="button" onClick={paste} className="absolute inset-y-2 right-2 flex cursor-pointer items-center gap-1 rounded-xl bg-orange-50 px-3 text-xs font-semibold text-[#ff5a1f] hover:bg-orange-100">
-                <ClipboardPaste className="size-3.5" /> {t("paste")}
-              </button>
-            </div>
-            <div role="radiogroup" aria-label={t("purpose_question")} className="grid grid-cols-2 gap-1 rounded-2xl bg-black/15 p-1">
-              {(["personal", "trade"] as const).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  role="radio"
-                  aria-checked={prefs.purpose === value}
-                  onClick={() => prefsStore.set((p) => ({ ...p, purpose: value }))}
-                  className={cx(
-                    "flex h-10 cursor-pointer items-center justify-center gap-1.5 rounded-xl text-sm font-semibold transition",
-                    prefs.purpose === value ? "bg-white text-slate-900 shadow" : "text-white/85 hover:text-white",
-                  )}
-                >
-                  {value === "personal" ? <Home className="size-4" /> : <BadgeEuro className="size-4" />}
-                  {t(value === "personal" ? "purpose_personal" : "purpose_trade")}
-                </button>
-              ))}
-            </div>
-            <p className="text-[13px] leading-relaxed opacity-90">{t(prefs.purpose === "personal" ? "purpose_personal_hint" : "purpose_trade_hint")}</p>
-            <button
-              type="submit"
-              disabled={running}
-              className="flex h-13 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-slate-900 text-[15px] font-semibold text-white shadow-lg shadow-black/20 transition hover:bg-slate-800 active:scale-[0.99] disabled:opacity-70"
-            >
-              {running ? <Loader2 className="size-5 animate-spin" /> : <ScanSearch className="size-5" />}
-              {running ? t("analyzing") : t("analyze")}
+    <div className="space-y-9">
+      <section>
+        <h1 className="text-[28px] font-semibold leading-[1.15] sm:text-[34px]">{t("home_title")}</h1>
+        <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-muted">{t("home_sub")}</p>
+        <form
+          className="mt-6 rounded-xl border border-line bg-surface p-4 shadow-card sm:p-5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            start(url);
+          }}
+        >
+          <label htmlFor="ad-url" className="mb-1.5 block text-[13px] font-medium">
+            {t("ad_link")}
+          </label>
+          <div className="relative" dir="ltr">
+            <input
+              id="ad-url"
+              name="url"
+              value={url}
+              onChange={(event) => setUrl(event.target.value)}
+              placeholder={t("url_hint")}
+              inputMode="url"
+              autoComplete="off"
+              className="h-12 w-full rounded-[10px] border border-line-strong bg-surface pl-3.5 pr-28 text-[15px] outline-none transition placeholder:text-faint focus:border-accent focus:ring-3 focus:ring-accent/15"
+            />
+            <button type="button" onClick={paste} className="absolute inset-y-1.5 right-1.5 flex cursor-pointer items-center gap-1.5 rounded-[8px] px-3 text-[13px] font-medium text-accent hover:bg-accent/8">
+              <ClipboardPaste className="size-4" /> {t("paste")}
             </button>
-          </form>
-          <p className="mt-3 text-center text-xs opacity-85">
-            {t("works_with")} <b>Kleinanzeigen</b> · <b>AutoScout24</b> · <b>Autohero</b>
-          </p>
-        </div>
+          </div>
+          <div className="mb-1.5 mt-4 text-[13px] font-medium">{t("purpose_question")}</div>
+          <Segmented
+            className="w-full"
+            value={prefs.purpose}
+            onChange={(purpose) => prefsStore.set((p) => ({ ...p, purpose }))}
+            options={[
+              { value: "personal", label: t("purpose_personal") },
+              { value: "trade", label: t("purpose_trade") },
+            ]}
+          />
+          <p className="mt-2 text-[13px] leading-relaxed text-muted">{t(prefs.purpose === "personal" ? "purpose_personal_hint" : "purpose_trade_hint")}</p>
+          <Button type="submit" variant="primary" size="lg" className="mt-5 w-full" loading={running}>
+            {running ? t("analyzing") : t("analyze")}
+          </Button>
+        </form>
+        <p className="mt-3 text-center text-[13px] text-faint">
+          {t("works_with")} Kleinanzeigen · AutoScout24 · Autohero
+        </p>
       </section>
 
       <DeviceHint />
       <ShareSetup />
 
       {running && (
+        <div ref={progressBox} className="scroll-mt-20">
         <JobProgress
           job={job}
           onCancel={() => {
@@ -264,10 +236,10 @@ export function AnalyzePage({ route }: { route: Route }) {
           }}
           extra={
             preview && (
-              <div className="mt-4 flex items-center gap-3 rounded-xl bg-surface-2 p-3">
-                <CarPhoto src={preview.images?.[0] ?? ""} className="size-14 shrink-0 rounded-lg" />
+              <div className="mt-4 flex items-center gap-3 border-t border-line pt-4">
+                <CarPhoto src={preview.images?.[0] ?? ""} className="h-12 w-16 shrink-0 rounded-[8px]" />
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold rtl:text-right" dir="auto">
+                  <div className="truncate text-sm font-medium rtl:text-right" dir="auto">
                     {preview.title}
                   </div>
                   <div className="num text-sm text-muted">{euro(preview.price)}</div>
@@ -276,6 +248,7 @@ export function AnalyzePage({ route }: { route: Route }) {
             )
           }
         />
+        </div>
       )}
 
       {error && !running && (
@@ -294,134 +267,86 @@ export function AnalyzePage({ route }: { route: Route }) {
       {!running && (
         <>
           {hunt.jobId && (
-            <a href={href("hunt")} className="flex items-center gap-3 rounded-2xl border border-good/30 bg-good/8 p-4">
-              <span className="relative grid size-11 shrink-0 place-items-center rounded-xl bg-good text-white">
-                <Radar className="size-5" />
-                <span className="absolute inset-0 animate-ping rounded-xl bg-good/40" />
+            <a href={href("hunt")} className="flex items-center gap-3.5 rounded-xl border border-line bg-surface px-4 py-3.5 transition hover:bg-surface-2">
+              <span className="relative flex size-2.5 shrink-0">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent/50" />
+                <span className="relative inline-flex size-2.5 rounded-full bg-accent" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-semibold">{t("hunt_running")}</span>
-                <span className="block text-sm text-muted">{t("hunt_running_sub", { n: hunt.found.length })}</span>
+                <span className="block text-[15px] font-medium">{t("hunt_running")}</span>
+                <span className="block text-[13px] text-muted">{t("hunt_running_sub", { n: hunt.found.length })}</span>
               </span>
-              <Forward className="size-5 text-good" />
+              <ChevronRight className="size-4 text-faint rtl:rotate-180" />
             </a>
           )}
 
-          {stats.checked > 0 && (
-            <section className="grid grid-cols-3 gap-2.5">
-              <StatTile href={href("saved", null, { tab: "history" })} tint="bg-info/12 text-info" icon={<ScanSearch className="size-4" />} value={String(stats.checked)} label={t("stat_checked")} />
-              <StatTile href={href("saved", null, { tab: "history", only: "good" })} tint="bg-good/12 text-good" icon={<Flame className="size-4" />} value={String(stats.good)} label={t("stat_good")} />
-              <StatTile
-                href={stats.bestId ? href("analyze", stats.bestId) : href("saved", null, { tab: "history", sort: "discount" })}
-                tint="bg-accent/12 text-accent"
-                icon={<TrendingDown className="size-4" />}
-                value={stats.best == null ? "–" : pct(stats.best)}
-                label={t("stat_best")}
-              />
-            </section>
-          )}
-
-          <section>
-            <h2 className="mb-3 text-[15px] font-semibold">{t("quick_title")}</h2>
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-              <QuickTile href={href("hunt")} tint="bg-accent/12 text-accent" icon={<Radar className="size-5" />} label={t("qa_hunt")} />
-              <QuickTile href={href("valuate")} tint="bg-info/12 text-info" icon={<Gauge className="size-5" />} label={t("qa_valuate")} />
-              <QuickTile href={href("tools", null, { tool: "scan" })} tint="bg-violet/12 text-violet" icon={<FileSearch className="size-5" />} label={t("qa_scan")} />
-              <QuickTile href={href("compare")} tint="bg-good/12 text-good" icon={<Columns3 className="size-5" />} label={t("qa_compare")} />
-            </div>
-          </section>
-
           {recent.length > 0 ? (
             <section>
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-[15px] font-semibold">{t("recent")}</h2>
+              <div className="mb-3 flex items-baseline justify-between">
+                <h2 className="text-[17px] font-semibold">{t("recent")}</h2>
                 <a href={href("saved")} className="text-sm font-medium text-accent">
                   {t("see_all")}
                 </a>
               </div>
-              <div className="no-scrollbar -mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+              <List>
                 {recent.map((car) => (
-                  <RecentCard key={car.id} car={car} onClick={() => navigate("analyze", car.id)} />
+                  <RecentRow key={car.id} car={car} onClick={() => navigate("analyze", car.id)} />
                 ))}
-              </div>
+              </List>
             </section>
           ) : (
             <section>
-              <h2 className="mb-3 text-[15px] font-semibold">{t("how_title")}</h2>
-              <ol className="space-y-2.5">
+              <h2 className="mb-4 text-[17px] font-semibold">{t("how_title")}</h2>
+              <ol className="space-y-4">
                 {(["how_1", "how_2", "how_3"] as const).map((key, i) => (
-                  <li key={key} className="flex items-start gap-3 rounded-2xl border border-line bg-surface p-3.5 text-sm leading-relaxed">
-                    <span className={cx("num grid size-8 shrink-0 place-items-center rounded-xl text-sm font-bold", ["bg-accent/12 text-accent", "bg-info/12 text-info", "bg-good/12 text-good"][i])}>{i + 1}</span>
-                    <span className="pt-1">{t(key)}</span>
+                  <li key={key} className="flex gap-3.5">
+                    <span className="num grid size-7 shrink-0 place-items-center rounded-full border border-line-strong text-[13px] font-semibold text-muted">{i + 1}</span>
+                    <span className="pt-0.5 text-[15px] leading-relaxed">{t(key)}</span>
                   </li>
                 ))}
               </ol>
             </section>
           )}
+
+          <section>
+            <h2 className="mb-3 text-[17px] font-semibold">{t("quick_title")}</h2>
+            <List>
+              <ListLink href={href("hunt")} icon={<Radar className="size-5" strokeWidth={1.75} />} title={t("qa_hunt")} sub={t("qa_hunt_sub")} />
+              <ListLink href={href("valuate")} icon={<Gauge className="size-5" strokeWidth={1.75} />} title={t("qa_valuate")} sub={t("qa_valuate_sub")} />
+              <ListLink href={href("tools", null, { tool: "scan" })} icon={<FileSearch className="size-5" strokeWidth={1.75} />} title={t("qa_scan")} sub={t("qa_scan_sub")} />
+              <ListLink href={href("compare")} icon={<Columns3 className="size-5" strokeWidth={1.75} />} title={t("qa_compare")} sub={t("qa_compare_sub")} />
+            </List>
+          </section>
         </>
       )}
     </div>
   );
 }
 
-/** Road lines and a car outline behind the start card's text. */
-function HeroArt() {
-  return (
-    <svg className="pointer-events-none absolute -top-3 end-0 h-28 w-48 opacity-[0.16]" viewBox="0 0 512 300" fill="none" stroke="white" strokeWidth="18" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M126 192 L156 112 Q165 90 190 90 H322 Q347 90 356 112 L386 192" />
-      <path d="M112 192 H400 Q414 192 414 206 V244 Q414 258 400 258 H112 Q98 258 98 244 V206 Q98 192 112 192 Z" />
-      <path d="M150 258 V286 M362 258 V286" />
-      <path d="M0 296 H80 M140 296 H240 M300 296 H400 M460 296 H512" strokeWidth="8" />
-    </svg>
-  );
-}
-
-/** A number on the start page; tapping it opens the cars behind it. */
-function StatTile({ href: to, icon, value, label, tint }: { href: string; icon: ReactNode; value: string; label: string; tint: string }) {
-  return (
-    <a href={to} className="group block rounded-2xl border border-line bg-surface p-3 transition hover:-translate-y-0.5 hover:shadow-md active:scale-[0.97]">
-      <span className="flex items-start justify-between">
-        <span className={cx("grid size-8 place-items-center rounded-lg", tint)}>{icon}</span>
-        <ChevronRight className="size-4 text-faint transition group-hover:text-muted rtl:rotate-180" />
-      </span>
-      <span className="num mt-2 block text-xl font-bold leading-none">{value}</span>
-      <span className="mt-1 block truncate text-xs text-muted">{label}</span>
-    </a>
-  );
-}
-
-function QuickTile({ href: to, icon, label, tint }: { href: string; icon: ReactNode; label: string; tint: string }) {
-  return (
-    <a href={to} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3 transition hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98]">
-      <span className={cx("grid size-10 shrink-0 place-items-center rounded-xl", tint)}>{icon}</span>
-      <span className="text-[13px] font-semibold leading-snug">{label}</span>
-    </a>
-  );
-}
-
-const CHIP: Record<string, string> = { good: "bg-good text-white", warn: "bg-warn text-white", bad: "bg-bad text-white", neutral: "bg-slate-700 text-white", accent: "bg-accent text-white" };
-
-/** A recent check as a photo card in the carousel. */
-function RecentCard({ car, onClick }: { car: SavedCar; onClick: () => void }) {
+/** A recent check as a row: photo, title, mileage and year, verdict; the price on the side. */
+function RecentRow({ car, onClick }: { car: SavedCar; onClick: () => void }) {
   const t = useT();
   const verdict = verdictOf(car.result, car.result.purpose, t, true);
   const { listing } = car.result;
   return (
-    <button onClick={onClick} className="w-56 shrink-0 cursor-pointer snap-start overflow-hidden rounded-2xl border border-line bg-surface text-start transition hover:shadow-md active:scale-[0.98]">
-      <div className="relative">
-        <CarPhoto src={photoOf(car.result)} className="h-32 w-full" />
-        {verdict && <span className={cx("absolute start-2 top-2 rounded-full px-2.5 py-1 text-[11px] font-semibold shadow", CHIP[verdict.tone])}>{verdict.label}</span>}
-        {car.favorite && <Heart className="absolute end-2 top-2 size-5 fill-white text-white drop-shadow" />}
-      </div>
-      <div className="p-3">
-        <div className="truncate text-sm font-semibold rtl:text-right" dir="auto">
+    <button onClick={onClick} className="flex w-full cursor-pointer items-center gap-3.5 bg-surface px-3.5 py-3 text-start transition hover:bg-surface-2">
+      <CarPhoto src={photoOf(car.result)} className="h-14 w-[76px] shrink-0 rounded-[8px]" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[15px] font-medium rtl:text-right" dir="auto">
           {listing.title}
-        </div>
-        <div className="mt-1 flex items-baseline justify-between gap-2">
-          <span className="num text-base font-bold">{euro(listing.price)}</span>
-          <span className="num truncate text-xs text-muted">{km(listing.km)}</span>
-        </div>
-      </div>
+        </span>
+        <span className="mt-0.5 block text-[13px] text-muted">
+          <span className="num">{km(listing.km)}</span>
+          {listing.year ? (
+            <>
+              {" · "}
+              <span className="num">{listing.year}</span>
+            </>
+          ) : null}
+        </span>
+        {verdict && <VerdictLabel tone={verdict.tone} label={verdict.label} className="mt-1" />}
+      </span>
+      <span className="num shrink-0 self-start pt-0.5 text-[15px] font-semibold">{euro(listing.price)}</span>
     </button>
   );
 }

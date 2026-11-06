@@ -1,12 +1,12 @@
 {
   "name": "AutoHalle – Gebrauchtwagen-Check",
   "short_name": "AutoHalle",
-  "description": "Gebrauchtwagen von Kleinanzeigen prüfen: Marktpreis, Empfehlung und KI-Bericht.",
+  "description": "Gebrauchtwagen vor dem Kauf prüfen: Marktwert aus vergleichbaren Angeboten, Risiken und eine klare Empfehlung.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#0a0e15",
-  "theme_color": "#ff5a1f",
+  "background_color": "#16181b",
+  "theme_color": "#16181b",
   "icons": [
     {
       "src": "/icon-192.png",

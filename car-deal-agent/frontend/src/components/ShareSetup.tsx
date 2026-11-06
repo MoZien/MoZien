@@ -14,8 +14,8 @@ export function ShareSetup() {
   if (state === "hidden") return null;
   return (
     <Card className="flex items-start gap-3 p-4">
-      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-info/12 text-info">
-        <Share className="size-5" />
+      <span className="mt-0.5 shrink-0 text-muted">
+        <Share className="size-5" strokeWidth={1.75} />
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-[15px] font-semibold">{t("share_title")}</p>

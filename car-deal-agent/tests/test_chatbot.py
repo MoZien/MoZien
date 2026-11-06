@@ -93,7 +93,7 @@ def test_link_gets_evaluated_and_answered():
     assert hunter.urls == [AD]
     assert [chat_id for chat_id, _ in telegram.sent] == [OWNER, OWNER]
     assert telegram.sent[0][1].startswith("⏳")
-    assert "Schnäppchen" in telegram.sent[1][1] and "3.500 €" in telegram.sent[1][1]
+    assert "Lohnt sich" in telegram.sent[1][1] and "3.500 €" in telegram.sent[1][1]
     chat.poll(timeout=0)
     assert telegram.offsets == [None, 8]  # confirms the handled update
 
@@ -117,7 +117,7 @@ def test_allowed_friend_gets_the_answer_in_their_own_chat():
     chat.poll(timeout=0)
     assert hunter.urls == [AD]
     assert [chat_id for chat_id, _ in telegram.sent] == [FRIEND, FRIEND]
-    assert "Schnäppchen" in telegram.sent[1][1]
+    assert "Lohnt sich" in telegram.sent[1][1]
 
 
 def test_text_without_link_gets_help():
@@ -189,7 +189,7 @@ def test_hunt_sends_each_find_and_a_summary_to_the_asker():
     texts = [text for chat_id, text in telegram.sent if chat_id == FRIEND]
     assert len(telegram.sent) == len(texts) == 4
     assert texts[0].startswith("🔎") and "2 lohnende Autos" in texts[0]
-    assert "Schnäppchen" in texts[1] and "Schnäppchen" in texts[2]
+    assert "Lohnt sich" in texts[1] and "Lohnt sich" in texts[2]
     assert texts[3] == "✅ Fertig: 2 von 2 gefunden, 17 Anzeigen geprüft."
 
 
@@ -201,7 +201,7 @@ def test_hunt_without_finds_or_with_a_block_still_answers():
     chat, telegram = bot([message(1, "suche 3")], HuntingHunter([report()], 5, error=SourceBlockedError("403")))
     chat.poll(timeout=0)
     texts = [text for _, text in telegram.sent]
-    assert "Schnäppchen" in texts[1] and "blockt" in texts[2] and texts[3].startswith("✅ Fertig: 1 von 3")
+    assert "Lohnt sich" in texts[1] and "blockt" in texts[2] and texts[3].startswith("✅ Fertig: 1 von 3")
 
 
 class QueueTelegram(FakeTelegram):
@@ -232,11 +232,11 @@ def test_stop_ends_the_search_and_waiting_messages_are_answered_after():
     to_owner = [text for chat_id, text in telegram.sent if chat_id == OWNER]
     to_friend = [text for chat_id, text in telegram.sent if chat_id == FRIEND]
     assert to_owner[0].startswith("🔎") and "stop" in to_owner[0]
-    assert "Schnäppchen" in to_owner[1]  # the one find before the stop
+    assert "Lohnt sich" in to_owner[1]  # the one find before the stop
     assert to_owner[2].startswith("⏹️ Okay")
     assert to_owner[3] == "⏹️ Suche gestoppt: 1 gefunden, 5 Anzeigen geprüft."
     assert len(to_owner) == 4
-    assert to_friend[0].startswith("⏳") and "Schnäppchen" in to_friend[1]  # answered after the search
+    assert to_friend[0].startswith("⏳") and "Lohnt sich" in to_friend[1]  # answered after the search
 
 
 def test_messages_are_never_handled_twice():
@@ -277,7 +277,7 @@ def test_details_after_a_report_show_the_calculation():
 def test_details_without_a_report_and_in_arabic():
     chat, telegram = bot([message(1, "تفاصيل")], FakeHunter())
     chat.poll(timeout=0)
-    assert "ابعتلي رابط إعلان أول" not in telegram.sent[-1][1]  # German bot
+    assert "أرسل رابط إعلان أولاً" not in telegram.sent[-1][1]  # German bot
     assert "Noch kein Bericht" in telegram.sent[-1][1]
 
     telegram = FakeTelegram([message(1, AD), message(2, "تفاصيل")])
