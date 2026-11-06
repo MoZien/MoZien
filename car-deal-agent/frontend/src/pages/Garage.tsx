@@ -45,10 +45,10 @@ export function GaragePage() {
   const blank = (): GarageCar => ({ id: uid(), title: "", url: "", image: "", boughtPrice: 0, boughtAt: new Date().toISOString().slice(0, 10), costs: [], askingPrice: null, soldPrice: null, soldAt: null, notes: "" });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-[28px] font-semibold leading-tight">{t("garage_title")}</h1>
+          <h1 className="text-[24px] font-semibold leading-tight lg:text-[28px]">{t("garage_title")}</h1>
           <p className="mt-1.5 text-[15px] leading-relaxed text-muted">{t("garage_sub")}</p>
         </div>
         <div className="flex gap-2">

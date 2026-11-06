@@ -9,8 +9,10 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useId,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 
 export function cx(...classes: (string | false | null | undefined)[]) {
   return classes.filter(Boolean).join(" ");
@@ -283,7 +285,9 @@ export function Tabs<V extends string>({ value, onChange, tabs }: { value: V; on
   );
 }
 
-export function Modal({ open, onClose, title, children, wide }: { open: boolean; onClose: () => void; title: ReactNode; children: ReactNode; wide?: boolean }) {
+/** A sheet from the bottom on phones, a dialog in the middle on larger screens. The body scrolls;
+ *  `footer` (the sheet's main button) stays at the bottom. */
+export function Modal({ open, onClose, title, children, wide, footer }: { open: boolean; onClose: () => void; title: ReactNode; children: ReactNode; wide?: boolean; footer?: ReactNode }) {
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
@@ -295,23 +299,84 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
     };
   }, [open, onClose]);
   if (!open) return null;
-  return (
+  const bottom = "pb-[max(1.25rem,env(safe-area-inset-bottom))]";
+  // On <body>: an animated parent (fade-in) would otherwise hold the fixed layer inside itself.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-6" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
         onClick={(event) => event.stopPropagation()}
-        className={cx("animate-fade-up safe-bottom max-h-[92dvh] w-full overflow-y-auto rounded-t-[18px] bg-surface p-5 shadow-xl sm:rounded-2xl", wide ? "sm:max-w-3xl" : "sm:max-w-lg")}
+        className={cx("animate-sheet flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[18px] bg-surface shadow-xl sm:rounded-2xl", wide ? "sm:max-w-3xl" : "sm:max-w-lg")}
       >
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-base font-semibold">{title}</h2>
-          <IconButton label="close" onClick={onClose}>
+        <span aria-hidden="true" className="mx-auto mt-2 block h-1 w-9 shrink-0 rounded-full bg-line-strong sm:hidden" />
+        <div className="flex shrink-0 items-center justify-between gap-3 px-5 pb-3 pt-2.5 sm:pt-5">
+          <h2 className="min-w-0 truncate text-base font-semibold">{title}</h2>
+          <IconButton label="close" onClick={onClose} className="-me-2">
             <X className="size-5" />
           </IconButton>
         </div>
+        <div className={cx("min-h-0 flex-1 overflow-y-auto px-5", footer ? "pb-4" : bottom)}>{children}</div>
+        {footer && <div className={cx("shrink-0 border-t border-line px-5 pt-3", bottom)}>{footer}</div>}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/** The title of a page, the same size everywhere, with one line below and an action at the side. */
+export function PageTitle({ title, sub, action }: { title: ReactNode; sub?: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <h1 className="text-[24px] font-semibold leading-tight lg:text-[28px]">{title}</h1>
+        {sub && <p className="mt-1 text-sm leading-relaxed text-muted">{sub}</p>}
+      </div>
+      {action && <div className="shrink-0">{action}</div>}
+    </div>
+  );
+}
+
+/** A card that opens and closes on tap. The header says what is inside (a sum, a count), so a
+ *  closed card still answers the question. Printing shows every card open. */
+export function Fold({
+  title,
+  summary,
+  icon,
+  defaultOpen = false,
+  flush,
+  className,
+  children,
+}: {
+  title: ReactNode;
+  summary?: ReactNode;
+  icon?: ReactNode;
+  defaultOpen?: boolean;
+  /** the body has no padding of its own (lists with their own rows) */
+  flush?: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const id = useId();
+  return (
+    <Card className={cx("overflow-hidden", className)}>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={() => setOpen(!open)}
+        className="flex min-h-12 w-full cursor-pointer items-center gap-3 px-4 py-3 text-start transition hover:bg-surface-2/60 sm:px-5"
+      >
+        {icon && <span className="shrink-0 text-muted">{icon}</span>}
+        <span className="min-w-0 flex-1 text-[15px] font-semibold">{title}</span>
+        {summary != null && summary !== "" && <span className="max-w-[55%] shrink-0 truncate text-end text-[13px] text-muted">{summary}</span>}
+        <ChevronDown className={cx("size-4 shrink-0 text-faint transition", open && "rotate-180")} />
+      </button>
+      <div id={id} className={cx(open ? "animate-fade-up" : "hidden print:block", flush ? "border-t border-line" : "px-4 pb-4 sm:px-5 sm:pb-5")}>
         {children}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -419,7 +484,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={show}>
       {children}
-      <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[60] flex flex-col items-center gap-2 px-4 lg:bottom-6">
+      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--tabbar)+4.75rem)] z-[60] flex flex-col items-center gap-2 px-4 lg:bottom-6">
         {toasts.map((toast) => (
           <div key={toast.id} className="animate-fade-up pointer-events-auto flex items-center gap-2 rounded-[10px] bg-ink px-4 py-3 text-sm font-medium text-on-ink shadow-lg">
             {toast.tone === "good" && <Check className="size-4 text-good" />}

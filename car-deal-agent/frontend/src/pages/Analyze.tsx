@@ -1,18 +1,17 @@
-import { AlertTriangle, ArrowLeft, ArrowRight, ChevronRight, ClipboardPaste, Columns3, FileSearch, Gauge, Radar } from "lucide-react";
+import { AlertTriangle, ChevronRight, ClipboardPaste } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CarPhoto, VerdictLabel } from "../components/CarCard";
+import { CarListRow, CarPhoto } from "../components/CarCard";
 import { DeviceHint, useNeedsDevice } from "../components/DeviceHint";
 import { ShareSetup } from "../components/ShareSetup";
 import { JobProgress } from "../components/JobProgress";
 import { ResultView } from "../components/ResultView";
-import { Button, List, ListLink, Note, Segmented } from "../components/ui";
+import { Button, List, Note, Segmented } from "../components/ui";
 import { ApiError, runJob } from "../lib/api";
-import { euro, km } from "../lib/format";
+import { euro } from "../lib/format";
 import { huntStore } from "../lib/hunt";
 import { type TextKey, useT } from "../lib/i18n";
-import { photoOf, verdictOf } from "../lib/result";
 import { type Route, href, navigate } from "../lib/router";
-import { type SavedCar, prefsStore, saveResult, savedStore, uiStore, useStore } from "../lib/store";
+import { prefsStore, saveResult, savedStore, uiStore, useStore } from "../lib/store";
 import type { Job, Result } from "../lib/types";
 
 // Ads from Kleinanzeigen, AutoScout24 (any of its country sites) and Autohero.
@@ -38,7 +37,6 @@ export function AnalyzePage({ route }: { route: Route }) {
   const [error, setError] = useState<{ code: string; [k: string]: unknown } | null>(null);
   const abort = useRef<AbortController | null>(null);
   const started = useRef<string | null>(null);
-  const Back = t.lang === "ar" ? ArrowRight : ArrowLeft;
 
   // A saved analysis opened from the list: #/analyze/<id>. Right after the app starts the saved
   // cars of the account may load a moment later, so this also runs when they arrive.
@@ -74,6 +72,8 @@ export function AnalyzePage({ route }: { route: Route }) {
       const done = await runJob<Result>("analyze", { url: adUrl, prefs: prefsStore.get() }, setJob, controller.signal);
       if (done.status === "done" && done.result) {
         setResult(done.result);
+        // The progress was scrolled into view: the answer starts at the top.
+        if (mounted.current) window.scrollTo({ top: 0 });
         if (uiStore.get().autoSave || !mounted.current) saveResult(done.result);
       } else if (done.error) {
         setError(done.error);
@@ -153,33 +153,30 @@ export function AnalyzePage({ route }: { route: Route }) {
     if (running) progressBox.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [running]);
   const preview = job?.partial?.listing as Result["listing"] | undefined;
-  const recent = saved.slice(0, 5);
+  const recent = saved.slice(0, 4);
 
   const hunt = useStore(huntStore);
 
   if (result && !running) {
     return (
-      <div className="space-y-4">
-        <button onClick={reset} className="no-print flex cursor-pointer items-center gap-1.5 text-sm text-muted hover:text-text">
-          <Back className="size-4" /> {t("new_check")}
-        </button>
-        <ResultView
-          key={result.listing.id + result.created_at}
-          result={result}
-          onChange={setResult}
-          onReanalyze={result.listing.url ? () => (route.param ? navigate("analyze", null, { url: result.listing.url }) : start(result.listing.url)) : undefined}
-        />
-      </div>
+      <ResultView
+        key={result.listing.id + result.created_at}
+        result={result}
+        onChange={setResult}
+        onBack={reset}
+        onReanalyze={result.listing.url ? () => (route.param ? navigate("analyze", null, { url: result.listing.url }) : start(result.listing.url)) : undefined}
+      />
     );
   }
 
   return (
-    <div className="space-y-9">
+    <div className="space-y-5">
+      {/* The whole form fits the first screen: a short headline, one line, the form. */}
       <section>
-        <h1 className="text-[28px] font-semibold leading-[1.15] sm:text-[34px]">{t("home_title")}</h1>
-        <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-muted">{t("home_sub")}</p>
+        <h1 className="text-[24px] font-semibold leading-tight lg:text-[32px]">{t("home_title")}</h1>
+        <p className="mt-1 text-sm text-muted sm:text-[15px]">{t("home_sub")}</p>
         <form
-          className="mt-6 rounded-xl border border-line bg-surface p-4 shadow-card sm:p-5"
+          className="mt-4 rounded-xl border border-line bg-surface p-4 shadow-card sm:p-5"
           onSubmit={(event) => {
             event.preventDefault();
             start(url);
@@ -203,7 +200,7 @@ export function AnalyzePage({ route }: { route: Route }) {
               <ClipboardPaste className="size-4" /> {t("paste")}
             </button>
           </div>
-          <div className="mb-1.5 mt-4 text-[13px] font-medium">{t("purpose_question")}</div>
+          <div className="mb-1.5 mt-3.5 text-[13px] font-medium">{t("purpose_question")}</div>
           <Segmented
             className="w-full"
             value={prefs.purpose}
@@ -213,12 +210,12 @@ export function AnalyzePage({ route }: { route: Route }) {
               { value: "trade", label: t("purpose_trade") },
             ]}
           />
-          <p className="mt-2 text-[13px] leading-relaxed text-muted">{t(prefs.purpose === "personal" ? "purpose_personal_hint" : "purpose_trade_hint")}</p>
-          <Button type="submit" variant="primary" size="lg" className="mt-5 w-full" loading={running}>
+          <p className="mt-1.5 text-[13px] leading-snug text-muted">{t(prefs.purpose === "personal" ? "purpose_personal_hint" : "purpose_trade_hint")}</p>
+          <Button type="submit" variant="primary" size="lg" className="mt-4 w-full" loading={running}>
             {running ? t("analyzing") : t("analyze")}
           </Button>
         </form>
-        <p className="mt-3 text-center text-[13px] text-faint">
+        <p className="mt-2.5 text-center text-xs text-faint">
           {t("works_with")} Kleinanzeigen · AutoScout24 · Autohero
         </p>
       </section>
@@ -282,21 +279,21 @@ export function AnalyzePage({ route }: { route: Route }) {
 
           {recent.length > 0 ? (
             <section>
-              <div className="mb-3 flex items-baseline justify-between">
-                <h2 className="text-[17px] font-semibold">{t("recent")}</h2>
+              <div className="mb-2.5 flex items-baseline justify-between">
+                <h2 className="text-[15px] font-semibold">{t("recent")}</h2>
                 <a href={href("saved")} className="text-sm font-medium text-accent">
                   {t("see_all")}
                 </a>
               </div>
               <List>
                 {recent.map((car) => (
-                  <RecentRow key={car.id} car={car} onClick={() => navigate("analyze", car.id)} />
+                  <CarListRow key={car.id} result={car.result} favorite={car.favorite} onClick={() => navigate("analyze", car.id)} />
                 ))}
               </List>
             </section>
           ) : (
             <section>
-              <h2 className="mb-4 text-[17px] font-semibold">{t("how_title")}</h2>
+              <h2 className="mb-3 text-[15px] font-semibold">{t("how_title")}</h2>
               <ol className="space-y-4">
                 {(["how_1", "how_2", "how_3"] as const).map((key, i) => (
                   <li key={key} className="flex gap-3.5">
@@ -307,46 +304,8 @@ export function AnalyzePage({ route }: { route: Route }) {
               </ol>
             </section>
           )}
-
-          <section>
-            <h2 className="mb-3 text-[17px] font-semibold">{t("quick_title")}</h2>
-            <List>
-              <ListLink href={href("hunt")} icon={<Radar className="size-5" strokeWidth={1.75} />} title={t("qa_hunt")} sub={t("qa_hunt_sub")} />
-              <ListLink href={href("valuate")} icon={<Gauge className="size-5" strokeWidth={1.75} />} title={t("qa_valuate")} sub={t("qa_valuate_sub")} />
-              <ListLink href={href("tools", null, { tool: "scan" })} icon={<FileSearch className="size-5" strokeWidth={1.75} />} title={t("qa_scan")} sub={t("qa_scan_sub")} />
-              <ListLink href={href("compare")} icon={<Columns3 className="size-5" strokeWidth={1.75} />} title={t("qa_compare")} sub={t("qa_compare_sub")} />
-            </List>
-          </section>
         </>
       )}
     </div>
-  );
-}
-
-/** A recent check as a row: photo, title, mileage and year, verdict; the price on the side. */
-function RecentRow({ car, onClick }: { car: SavedCar; onClick: () => void }) {
-  const t = useT();
-  const verdict = verdictOf(car.result, car.result.purpose, t, true);
-  const { listing } = car.result;
-  return (
-    <button onClick={onClick} className="flex w-full cursor-pointer items-center gap-3.5 bg-surface px-3.5 py-3 text-start transition hover:bg-surface-2">
-      <CarPhoto src={photoOf(car.result)} className="h-14 w-[76px] shrink-0 rounded-[8px]" />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[15px] font-medium rtl:text-right" dir="auto">
-          {listing.title}
-        </span>
-        <span className="mt-0.5 block text-[13px] text-muted">
-          <span className="num">{km(listing.km)}</span>
-          {listing.year ? (
-            <>
-              {" · "}
-              <span className="num">{listing.year}</span>
-            </>
-          ) : null}
-        </span>
-        {verdict && <VerdictLabel tone={verdict.tone} label={verdict.label} className="mt-1" />}
-      </span>
-      <span className="num shrink-0 self-start pt-0.5 text-[15px] font-semibold">{euro(listing.price)}</span>
-    </button>
   );
 }

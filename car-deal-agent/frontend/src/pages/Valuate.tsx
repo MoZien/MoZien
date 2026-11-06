@@ -53,9 +53,9 @@ export function ValuatePage() {
 
   const years = Array.from({ length: new Date().getFullYear() - 1989 }, (_, i) => new Date().getFullYear() - i);
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-[28px] font-semibold leading-tight">{t("valuate_title")}</h1>
+        <h1 className="text-[24px] font-semibold leading-tight lg:text-[28px]">{t("valuate_title")}</h1>
         <p className="mt-1.5 text-[15px] leading-relaxed text-muted">{t("valuate_sub")}</p>
       </div>
       <DeviceHint />

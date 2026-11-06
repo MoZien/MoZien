@@ -98,9 +98,9 @@ export function SettingsPage() {
   const confirm = (fn: () => void) => () => window.confirm(t("confirm_delete")) && fn();
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-2">
-        <h1 className="text-[28px] font-semibold leading-tight">{t("settings_title")}</h1>
+        <h1 className="text-[24px] font-semibold leading-tight lg:text-[28px]">{t("settings_title")}</h1>
         <span className="text-xs text-faint">{t("settings_saved")}</span>
       </div>
       <Card className="space-y-4 p-4 sm:p-5">

@@ -1,15 +1,16 @@
-import { AlertTriangle, Bookmark, CheckCircle2, Coffee, RotateCcw, Square, Trash2 } from "lucide-react";
+import { AlertTriangle, Bookmark, CheckCircle2, Coffee, RotateCcw, SlidersHorizontal, Square, Trash2 } from "lucide-react";
 import { DeviceHint } from "../components/DeviceHint";
 import { useState } from "react";
-import { CarCard } from "../components/CarCard";
+import { CarListRow } from "../components/CarCard";
 import { PurposeSwitch } from "../components/PurposeSwitch";
-import { Button, Card, Disclosure, Field, Input, Note, NumberInput, Select, Toggle } from "../components/ui";
+import { Button, Card, Disclosure, Field, Input, List, Modal, Note, NumberInput, PageTitle, Select, Toggle } from "../components/ui";
 import { useApp } from "../lib/app";
-import { useT } from "../lib/i18n";
+import { type T, useT } from "../lib/i18n";
+import { euro, km } from "../lib/format";
 import { navigate } from "../lib/router";
 import { huntStore, startHunt, stopHunt } from "../lib/hunt";
 import { createScopedStore, prefsStore, saveResult, searchesStore, seenStore, uid, useStore } from "../lib/store";
-import type { HuntCriteria } from "../lib/types";
+import type { HuntCriteria, Meta } from "../lib/types";
 import { errorText } from "./Analyze";
 
 export const DEFAULT_CRITERIA: HuntCriteria = {
@@ -30,6 +31,7 @@ export function HuntPage() {
   const seen = useStore(seenStore);
   const hunt = useStore(huntStore);
   const [placesText, setPlacesText] = useState(criteria.exclude_places.join(", "));
+  const [editing, setEditing] = useState(false);
   const set = (patch: Partial<HuntCriteria>) => criteriaStore.set((c) => ({ ...c, ...patch }));
 
   function start() {
@@ -45,33 +47,84 @@ export function HuntPage() {
   const progress = job?.progress ?? {};
   const makes = Object.entries(meta?.makes ?? {});
 
+  function saveSearch() {
+    const name = window.prompt(t("search_name"), criteria.query || criteria.make || `≤ ${criteria.max_price ?? ""} €`);
+    if (name) searchesStore.set((list) => [{ id: uid(), name, criteria: { ...criteria, exclude_places: placesText.split(",").map((p) => p.trim()).filter(Boolean) } }, ...list]);
+  }
+
+  const parts = criteriaSummary(criteria, t, meta);
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-[28px] font-semibold leading-tight">{t("hunt_title")}</h1>
-        <p className="mt-1.5 text-[15px] leading-relaxed text-muted">{t("hunt_sub")}</p>
-      </div>
+    <div className="space-y-5">
+      <PageTitle title={t("hunt_title")} sub={t("hunt_sub")} />
       <DeviceHint />
 
+      {/* The criteria as one summary line; they are changed in a sheet. */}
       <Card className="p-4 sm:p-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <PurposeSwitch />
-          {searches.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-muted">{t("saved_searches")}:</span>
-              {searches.map((search) => (
-                <span key={search.id} className="inline-flex items-center gap-1 rounded-full border border-line bg-surface-2 ps-3 text-xs">
-                  <button className="cursor-pointer py-1 font-medium" onClick={() => { criteriaStore.set(search.criteria); setPlacesText(search.criteria.exclude_places.join(", ")); }}>
-                    {search.name}
-                  </button>
-                  <button aria-label={t("delete")} className="cursor-pointer px-2 py-1 text-faint hover:text-bad" onClick={() => searchesStore.set((list) => list.filter((s) => s.id !== search.id))}>
-                    <Trash2 className="size-3" />
-                  </button>
+        <div className="flex items-start justify-between gap-3">
+          <button type="button" onClick={() => setEditing(true)} className="min-w-0 flex-1 cursor-pointer text-start">
+            <span className="eyebrow block">{t("criteria_title")}</span>
+            <span className="mt-1 block text-sm font-medium leading-relaxed sm:text-[15px]">
+              {parts.map((part, i) => (
+                <span key={i}>
+                  <span className="whitespace-nowrap">
+                    {part}
+                    {i < parts.length - 1 && <span className="text-faint"> ·</span>}
+                  </span>{" "}
                 </span>
               ))}
-            </div>
+            </span>
+          </button>
+          <Button size="sm" icon={<SlidersHorizontal className="size-4" />} onClick={() => setEditing(true)} disabled={running}>
+            {t("edit")}
+          </Button>
+        </div>
+        {searches.length > 0 && (
+          <div className="no-scrollbar -mx-4 mt-3 flex items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
+            <span className="shrink-0 text-xs text-muted">{t("saved_searches")}:</span>
+            {searches.map((search) => (
+              <span key={search.id} className="inline-flex shrink-0 items-center gap-1 rounded-full border border-line bg-surface-2 ps-3 text-xs">
+                <button className="cursor-pointer py-1 font-medium" onClick={() => { criteriaStore.set(search.criteria); setPlacesText(search.criteria.exclude_places.join(", ")); }}>
+                  {search.name}
+                </button>
+                <button aria-label={t("delete")} className="cursor-pointer px-2 py-1 text-faint hover:text-bad" onClick={() => searchesStore.set((list) => list.filter((s) => s.id !== search.id))}>
+                  <Trash2 className="size-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-center">
+          <PurposeSwitch compact />
+          {running ? (
+            <Button variant="danger" size="lg" className="w-full sm:ms-auto sm:w-auto" icon={<Square className="size-4" />} loading={hunt.stopping} onClick={stopHunt}>
+              {t("stop")}
+            </Button>
+          ) : (
+            <Button variant="primary" size="lg" className="w-full sm:ms-auto sm:w-auto" onClick={start}>
+              {t("start_hunt")}
+            </Button>
           )}
         </div>
+        <p className="mt-3 text-xs leading-relaxed text-faint">{t("hunt_time")}</p>
+      </Card>
+
+      <Modal
+        open={editing}
+        onClose={() => setEditing(false)}
+        title={t("criteria_title")}
+        wide
+        footer={
+          <div className="flex gap-2">
+            <Button icon={<Bookmark className="size-4" />} onClick={saveSearch}>
+              {t("save_search")}
+            </Button>
+            <Button variant="primary" className="flex-1" onClick={() => setEditing(false)}>
+              {t("done")}
+            </Button>
+          </div>
+        }
+      >
         <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
           <Field label={t("budget")}>
             <NumberInput value={criteria.max_price} onChange={(v) => set({ max_price: v })} suffix="€" allowEmpty />
@@ -166,34 +219,13 @@ export function HuntPage() {
             <Toggle checked={skipSeen} onChange={(v) => skipStore.set(v)} label={t("skip_seen")} hint={seen.length ? `${seen.length}` : undefined} />
             <Toggle checked={prefs.ai_in_hunt} onChange={(ai_in_hunt) => prefsStore.set((p) => ({ ...p, ai_in_hunt }))} label={t("s_ai_hunt")} />
           </div>
-        </Disclosure>
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          {running ? (
-            <Button variant="danger" size="lg" className="flex-1 sm:flex-none" icon={<Square className="size-4" />} loading={hunt.stopping} onClick={stopHunt}>
-              {t("stop")}
-            </Button>
-          ) : (
-            <Button variant="primary" size="lg" className="flex-1 sm:flex-none" onClick={start}>
-              {t("start_hunt")}
-            </Button>
-          )}
-          <Button
-            icon={<Bookmark className="size-4" />}
-            onClick={() => {
-              const name = window.prompt(t("search_name"), criteria.query || criteria.make || `≤ ${criteria.max_price ?? ""} €`);
-              if (name) searchesStore.set((list) => [{ id: uid(), name, criteria: { ...criteria, exclude_places: placesText.split(",").map((p) => p.trim()).filter(Boolean) } }, ...list]);
-            }}
-          >
-            {t("save_search")}
-          </Button>
           {seen.length > 0 && (
-            <Button variant="ghost" onClick={() => seenStore.set([])}>
+            <Button variant="ghost" size="sm" className="mt-2" onClick={() => seenStore.set([])}>
               {t("reset_seen")}
             </Button>
           )}
-        </div>
-        <p className="mt-3 text-xs leading-relaxed text-faint">{t("hunt_time")}</p>
-      </Card>
+        </Disclosure>
+      </Modal>
 
       {running && (
         <Card className="overflow-hidden">
@@ -254,12 +286,34 @@ export function HuntPage() {
       )}
 
       {found.length > 0 && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <List>
           {found.map((result) => (
-            <CarCard key={result.listing.id} result={result} onClick={() => { saveResult(result); navigate("analyze", result.listing.id); }} />
+            <CarListRow key={result.listing.id} result={result} onClick={() => { saveResult(result); navigate("analyze", result.listing.id); }} />
           ))}
-        </div>
+        </List>
       )}
     </div>
   );
+}
+
+/** The criteria in a few words: "VW Golf · bis 3.000 € · ab 2002 · bis 200.000 km · 200 km um 06108 · nur privat". */
+function criteriaSummary(c: HuntCriteria, t: T, meta: Meta | null): string[] {
+  const parts: string[] = [];
+  const make = c.make ? (meta?.makes?.[c.make] ?? c.make) : "";
+  const model = [make, c.query.trim()].filter(Boolean).join(" ");
+  if (model) parts.push(model);
+  // Ranges read left to right in Arabic too.
+  const ltr = (text: string) => `\u2066${text}\u2069`;
+  if (c.max_price != null) parts.push(c.min_price ? ltr(`${euro(c.min_price)} – ${euro(c.max_price)}`) : t("sum_up_to", { v: euro(c.max_price) }));
+  else if (c.min_price) parts.push(t("sum_from", { v: euro(c.min_price) }));
+  if (c.min_year && c.max_year) parts.push(ltr(`${c.min_year} – ${c.max_year}`));
+  else if (c.min_year) parts.push(t("sum_from", { v: c.min_year }));
+  else if (c.max_year) parts.push(t("sum_up_to", { v: c.max_year }));
+  if (c.max_km != null) parts.push(t("sum_up_to", { v: km(c.max_km) }));
+  if (c.zip_code) parts.push(c.radius_km ? t("sum_radius", { r: c.radius_km, zip: c.zip_code }) : c.zip_code);
+  if (c.fuel) parts.push(meta?.fuels?.[c.fuel] ?? c.fuel);
+  if (c.gearbox) parts.push(c.gearbox === "automatik" ? "Automatik" : "Manuell");
+  parts.push(t(c.seller === "privat" ? "sellers_private" : c.seller === "gewerblich" ? "sellers_dealer" : "sellers_all"));
+  parts.push(t("sum_count", { n: c.count }));
+  return parts;
 }

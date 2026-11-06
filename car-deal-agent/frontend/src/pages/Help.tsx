@@ -56,8 +56,8 @@ export function HelpPage() {
   const t = useT();
   const [open, setOpen] = useState<number | null>(1);
   return (
-    <div className="space-y-6">
-      <h1 className="text-[28px] font-semibold leading-tight">{t("help_title")}</h1>
+    <div className="space-y-5">
+      <h1 className="text-[24px] font-semibold leading-tight lg:text-[28px]">{t("help_title")}</h1>
       <HelperCard />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {STEPS.map((n) => (

@@ -225,14 +225,14 @@ function Shell() {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-5xl px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-12 lg:pt-10">{content}</main>
+        <main className="mx-auto w-full max-w-5xl px-4 pb-28 pt-4 sm:px-6 sm:pt-6 lg:px-10 lg:pb-12 lg:pt-8">{content}</main>
       </div>
 
       {/* Bottom tabs (mobile) */}
       <nav className="no-print safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 backdrop-blur lg:hidden">
         <div className="mx-auto grid max-w-md grid-cols-4">
           {MAIN.map((item) => (
-            <a key={item.page} href={href(item.page)} onClick={item.page === "analyze" ? home : undefined} className={cx("flex min-w-0 flex-col items-center gap-1 pb-2 pt-2.5 text-[11px] transition", page === item.page ? "font-medium text-text" : "text-faint")}>
+            <a key={item.page} href={href(item.page)} onClick={item.page === "analyze" ? home : undefined} className={cx("flex h-14 min-w-0 flex-col items-center justify-center gap-1 text-[11px] transition", page === item.page ? "font-medium text-text" : "text-faint")}>
               <span className="relative">
                 {item.icon("size-[22px]")}
                 {item.page === "hunt" && hunting && (
@@ -244,7 +244,7 @@ function Shell() {
               <span className="max-w-full truncate px-1">{t(item.label)}</span>
             </a>
           ))}
-          <button onClick={() => setMoreOpen(true)} className={cx("flex min-w-0 cursor-pointer flex-col items-center gap-1 pb-2 pt-2.5 text-[11px] transition", MORE.some((n) => n.page === page) ? "font-medium text-text" : "text-faint")}>
+          <button onClick={() => setMoreOpen(true)} className={cx("flex h-14 min-w-0 cursor-pointer flex-col items-center justify-center gap-1 text-[11px] transition", MORE.some((n) => n.page === page) ? "font-medium text-text" : "text-faint")}>
             <LayoutGrid className="size-[22px]" strokeWidth={1.75} />
             <span className="max-w-full truncate px-1">{t("nav_more")}</span>
           </button>

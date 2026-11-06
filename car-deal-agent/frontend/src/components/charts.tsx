@@ -246,7 +246,7 @@ export function Sparkline({ values, className }: { values: number[]; className?:
     .join(" ");
   const falling = values[values.length - 1] < values[0];
   return (
-    <svg viewBox="0 0 100 30" preserveAspectRatio="none" className={cx("h-8 w-24", className)}>
+    <svg viewBox="0 0 100 30" preserveAspectRatio="none" className={className ?? "h-8 w-24"}>
       <path d={path} fill="none" stroke={falling ? "var(--good)" : "var(--bad)"} strokeWidth="2" vectorEffect="non-scaling-stroke" />
     </svg>
   );

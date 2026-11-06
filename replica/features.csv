@@ -1,0 +1,15 @@
+feature,area,priority,original,clone,notes
+P01 Home form fully above the fold with a one-line intro,home,must,yes,no,
+P01 Remove the duplicate "More tools" list from home,home,must,yes,no,the same links stay under More
+P02 Result order: photos / title+price / verdict / facts / tabs,result,must,yes,no,
+P03 Smaller swipeable gallery with counter and full-screen on tap,result,must,yes,no,
+P04 Fixed bottom bar with Save and Ad,result,must,yes,no,share and more move to the top row
+P05 Sticky result tabs,result,must,yes,no,
+P06 Folding sections for reasons / money / market / AI lists,result,must,yes,no,
+P07 Compact rows for saved cars,saved,must,yes,no,all actions kept: status / notes / favourite / compare / delete / price drop
+P07 Compact rows for deal-hunt results,hunt,must,yes,no,
+P07 Compact rows for recent checks,home,should,yes,no,
+P08 Hunt criteria as a summary line with a bottom-sheet editor,hunt,must,yes,no,
+P08 Saved-cars sort and filter in a bottom sheet,saved,should,yes,no,
+P09 Two-column result on desktop with a sticky side column,result,must,yes,no,
+P10 One title size and spacing scale on every page,all,must,yes,no,
