@@ -22,11 +22,11 @@ export function LegalPage({ kind, back }: { kind: LegalKind; back?: string }) {
   const title = { impressum: t("legal_imprint"), datenschutz: t("legal_privacy"), nutzungsbedingungen: t("legal_terms") }[kind];
 
   return (
-    <div className="space-y-4" dir="ltr" lang="de">
-      <a href={back ?? href("settings")} className="flex items-center gap-1.5 text-sm text-muted hover:text-text">
+    <div className="mx-auto max-w-3xl space-y-4" dir="ltr" lang="de">
+      <a href={back ?? href("settings")} className="inline-flex h-10 items-center gap-1.5 rounded-full bg-surface pe-4 ps-3 text-sm font-medium text-muted shadow-card ring-1 ring-line transition hover:text-text active:scale-95">
         <Back className="size-4" /> {t("back")}
       </a>
-      <h1 className="text-[24px] font-semibold leading-tight lg:text-[28px]">{title}</h1>
+      <h1 className="text-[26px] font-bold leading-tight lg:text-[32px]">{title}</h1>
       {t.lang !== "de" && <Note>{t("legal_german_only")}</Note>}
       {missing && owner && (
         <Note tone="warn">
@@ -166,12 +166,22 @@ function Privacy() {
       </Section>
 
       <Section title="6. Prüfen von Anzeigen">
-        <p>
-          Wenn du einen Link prüfst oder Schnäppchen suchen lässt, ruft der Server die öffentlichen Anzeigenseiten bei Kleinanzeigen, AutoScout24 oder
-          Autohero und vergleichbare Anzeigen ab. Anzeigen können Angaben über die Verkäufer enthalten (z. B. Vorname, Ort). Für die Marktpreise speichert
-          der Server Anzeigendaten (Titel, Preis, Kilometerstand, Baujahr, Ort, Link) und löscht sie, wenn die Anzeige 60 Tage nicht mehr gesehen wurde – ohne Verbindung zu deinem Konto.
-          Rechtsgrundlage ist unser berechtigtes Interesse, Marktpreise zuverlässig zu ermitteln (Art. 6 Abs. 1 lit. f DSGVO).
-        </p>
+        {meta?.market_source === "ai" ? (
+          <p>
+            Wenn du einen Link prüfst, lädt dein Gerät die eine Anzeigenseite bei Kleinanzeigen, AutoScout24 oder Autohero, die du ausgewählt hast,
+            und schickt ihren Inhalt für diese Prüfung an unseren Server. Weitere Anzeigen werden nicht abgerufen. Anzeigen können Angaben über die
+            Verkäufer enthalten (z. B. Vorname, Ort). Für die Schätzung des Marktwerts gehen nur die Fahrzeugdaten (Marke, Modell, Baujahr, Kilometerstand,
+            Motor, Getriebe) an Anthropic (siehe 7.); der Server merkt sich das Ergebnis bis zu 24 Stunden ohne Verbindung zu deinem Konto.
+            Rechtsgrundlage ist die Nutzung der App (Art. 6 Abs. 1 lit. b DSGVO).
+          </p>
+        ) : (
+          <p>
+            Wenn du einen Link prüfst oder Schnäppchen suchen lässt, ruft der Server die öffentlichen Anzeigenseiten bei Kleinanzeigen, AutoScout24 oder
+            Autohero und vergleichbare Anzeigen ab. Anzeigen können Angaben über die Verkäufer enthalten (z. B. Vorname, Ort). Für die Marktpreise speichert
+            der Server Anzeigendaten (Titel, Preis, Kilometerstand, Baujahr, Ort, Link) und löscht sie, wenn die Anzeige 60 Tage nicht mehr gesehen wurde – ohne Verbindung zu deinem Konto.
+            Rechtsgrundlage ist unser berechtigtes Interesse, Marktpreise zuverlässig zu ermitteln (Art. 6 Abs. 1 lit. f DSGVO).
+          </p>
+        )}
         <p>
           Laufende Prüfungen und ihre Ergebnisse liegen im Arbeitsspeicher und werden zwei Stunden nach ihrem Ende, spätestens beim nächsten Neustart,
           gelöscht. Pro Konto zählt der Server, wie oft am Tag die KI genutzt wurde (Tageslimit); auch diese Zahlen liegen nur im
@@ -225,8 +235,9 @@ function Terms() {
 
       <Section title="2. Was die App macht">
         <p>
-          {app} schätzt anhand öffentlicher Anzeigen ein, was ein Gebrauchtwagen wert ist, ob sich ein Kauf zum Weiterverkauf lohnt und worauf du achten
-          solltest, und sucht auf Wunsch nach günstigen Angeboten. Die Nutzung ist derzeit kostenlos (Testphase). Es besteht kein Anspruch darauf, dass
+          {meta?.market_source === "ai"
+            ? `${app} schätzt für eine Anzeige, die du auswählst, was der Gebrauchtwagen wert ist, ob sich ein Kauf zum Weiterverkauf lohnt und worauf du achten solltest. Den Marktwert schätzt eine KI aus den Fahrzeugdaten; ${app} durchsucht keine Plattformen.`
+            : `${app} schätzt anhand öffentlicher Anzeigen ein, was ein Gebrauchtwagen wert ist, ob sich ein Kauf zum Weiterverkauf lohnt und worauf du achten solltest, und sucht auf Wunsch nach günstigen Angeboten.`} Die Nutzung ist derzeit kostenlos (Testphase). Es besteht kein Anspruch darauf, dass
           die App jederzeit verfügbar ist oder bestimmte Funktionen dauerhaft anbietet.
         </p>
       </Section>

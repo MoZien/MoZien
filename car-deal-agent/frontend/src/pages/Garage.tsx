@@ -1,8 +1,9 @@
-import { BadgeEuro, Download, Pencil, Plus, Trash2, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { BadgeEuro, Download, Pencil, Percent, Plus, Target, Timer, Trash2, TrendingUp, Wallet, X } from "lucide-react";
+import { type ReactNode, useMemo, useState } from "react";
 import { CarPhoto } from "../components/CarCard";
 import { Bars } from "../components/charts";
-import { Badge, Button, Card, CardHeader, EmptyState, Field, IconButton, Input, Modal, NumberInput, Stat, Textarea, cx } from "../components/ui";
+import { CountUp, Reveal, Stagger, StaggerItem } from "../components/motion";
+import { Badge, Button, Card, CardHeader, EmptyState, Field, type Hue, IconButton, IconTile, Input, Modal, NumberInput, PageTitle, Textarea, cx } from "../components/ui";
 import { euro, pct } from "../lib/format";
 import { useT } from "../lib/i18n";
 import { type GarageCar, garageStore, uiStore, uid, useStore } from "../lib/store";
@@ -45,84 +46,107 @@ export function GaragePage() {
   const blank = (): GarageCar => ({ id: uid(), title: "", url: "", image: "", boughtPrice: 0, boughtAt: new Date().toISOString().slice(0, 10), costs: [], askingPrice: null, soldPrice: null, soldAt: null, notes: "" });
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-[24px] font-semibold leading-tight lg:text-[28px]">{t("garage_title")}</h1>
-          <p className="mt-1.5 text-[15px] leading-relaxed text-muted">{t("garage_sub")}</p>
-        </div>
-        <div className="flex gap-2">
-          {cars.length > 0 && (
-            <Button icon={<Download className="size-4" />} onClick={exportCsv}>
-              {t("export_csv")}
+    <div className="space-y-5 lg:space-y-6">
+      <PageTitle
+        icon={<BadgeEuro className="size-6" />}
+        hue="good"
+        title={t("garage_title")}
+        sub={t("garage_sub")}
+        action={
+          <div className="flex gap-2">
+            {cars.length > 0 && (
+              <Button icon={<Download className="size-4" />} onClick={exportCsv} aria-label={t("export_csv")}>
+                <span className="hidden sm:inline">{t("export_csv")}</span>
+              </Button>
+            )}
+            <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setEditing(blank())}>
+              <span className="hidden sm:inline">{t("garage_add")}</span>
             </Button>
-          )}
-          <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setEditing(blank())}>
-            {t("garage_add")}
-          </Button>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5 [&>*:last-child]:col-span-2 lg:[&>*:last-child]:col-span-1">
-        <Card className="p-4"><Stat label={t("realized")} value={<span className="num">{euro(stats.realized)}</span>} tone={stats.realized >= 0 ? "good" : "bad"} /></Card>
-        <Card className="p-4"><Stat label={t("expected_profit")} value={<span className="num">{euro(stats.expected)}</span>} tone="accent" /></Card>
-        <Card className="p-4"><Stat label={t("invested")} value={<span className="num">{euro(stats.invested)}</span>} /></Card>
-        <Card className="p-4"><Stat label={t("avg_roi")} value={<span className="num">{stats.roi == null ? "–" : pct(stats.roi)}</span>} /></Card>
-        <Card className="p-4"><Stat label={t("avg_days")} value={<span className="num">{stats.days == null ? "–" : `${stats.days} ${t("days")}`}</span>} /></Card>
-      </div>
+      <Stagger className="grid grid-cols-2 gap-3 lg:grid-cols-5 [&>*:last-child]:col-span-2 lg:[&>*:last-child]:col-span-1" delay={0.05}>
+        <Kpi hue="good" icon={<TrendingUp className="size-[18px]" />} label={t("realized")} value={<CountUp value={stats.realized} format={euro} />} tone={stats.realized >= 0 ? "text-good" : "text-bad"} />
+        <Kpi hue="accent" icon={<Target className="size-[18px]" />} label={t("expected_profit")} value={<CountUp value={stats.expected} format={euro} />} tone="text-accent" />
+        <Kpi hue="neutral" icon={<Wallet className="size-[18px]" />} label={t("invested")} value={<CountUp value={stats.invested} format={euro} />} />
+        <Kpi hue="violet" icon={<Percent className="size-[18px]" />} label={t("avg_roi")} value={stats.roi == null ? "–" : <CountUp value={stats.roi} format={(n) => pct(n)} />} />
+        <Kpi hue="cyan" icon={<Timer className="size-[18px]" />} label={t("avg_days")} value={stats.days == null ? "–" : <><CountUp value={stats.days} /> <span className="text-sm font-medium text-muted">{t("days")}</span></>} />
+      </Stagger>
 
       {cars.some((c) => c.soldPrice != null) && (
-        <Card className="p-5">
-          <CardHeader title={t("profit_per_car")} icon={<BadgeEuro className="size-4" />} />
-          <div className="mt-4">
-            <Bars data={cars.filter((c) => c.soldPrice != null).map((c) => ({ label: c.title, value: profitOf(c) }))} />
-          </div>
-        </Card>
+        <Reveal delay={0.1}>
+          <Card className="p-4 sm:p-5">
+            <CardHeader title={t("profit_per_car")} icon={<BadgeEuro className="size-4" />} />
+            <div className="mt-4">
+              <Bars data={cars.filter((c) => c.soldPrice != null).map((c) => ({ label: c.title, value: profitOf(c) }))} />
+            </div>
+          </Card>
+        </Reveal>
       )}
 
       {cars.length === 0 ? (
         <Card>
-          <EmptyState icon={<BadgeEuro className="size-6" />} title={t("garage_title")} text={t("garage_empty")} action={<Button variant="primary" onClick={() => setEditing(blank())}>{t("garage_add")}</Button>} />
+          <EmptyState icon={<BadgeEuro className="size-8" />} title={t("garage_title")} text={t("garage_empty")} action={<Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setEditing(blank())}>{t("garage_add")}</Button>} />
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Stagger className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:gap-4" delay={0.12}>
           {cars.map((car) => {
             const sold = car.soldPrice != null;
             const profit = sold ? profitOf(car) : car.askingPrice ? profitOf(car, car.askingPrice) : null;
             return (
-              <Card key={car.id} className="flex gap-4 p-4">
-                <CarPhoto src={car.image} className="size-20 shrink-0 rounded-xl" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="truncate font-semibold" dir="auto">{car.title || "—"}</div>
-                      <Badge tone={sold ? "good" : "accent"} className="mt-1">{sold ? t("sold") : t("owned")}</Badge>
-                      <span className="num ms-2 text-xs text-faint">{daysBetween(car.boughtAt, car.soldAt)} {t("days")}</span>
+              <StaggerItem key={car.id}>
+                <Card className="flex h-full gap-3.5 p-3">
+                  <CarPhoto src={car.image} className="size-24 shrink-0 rounded-2xl" />
+                  <div className="min-w-0 flex-1 py-0.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="truncate text-[15px] font-semibold" dir="auto">{car.title || "—"}</div>
+                        <div className="mt-1 flex items-center gap-2">
+                          <Badge tone={sold ? "good" : "accent"}>{sold ? t("sold") : t("owned")}</Badge>
+                          <span className="num text-xs text-faint">{daysBetween(car.boughtAt, car.soldAt)} {t("days")}</span>
+                        </div>
+                      </div>
+                      <div className="-me-1 -mt-1 flex">
+                        <IconButton label={t("edit")} className="size-9" onClick={() => setEditing(car)}><Pencil className="size-4" /></IconButton>
+                        <IconButton label={t("delete")} className="size-9" onClick={() => (!ui.confirmDelete || window.confirm(t("confirm_delete"))) && garageStore.set((list) => list.filter((c) => c.id !== car.id))}><Trash2 className="size-4" /></IconButton>
+                      </div>
                     </div>
-                    <div className="flex">
-                      <IconButton label={t("edit")} onClick={() => setEditing(car)}><Pencil className="size-4" /></IconButton>
-                      <IconButton label={t("delete")} onClick={() => (!ui.confirmDelete || window.confirm(t("confirm_delete"))) && garageStore.set((list) => list.filter((c) => c.id !== car.id))}><Trash2 className="size-4" /></IconButton>
+                    <div className="mt-2.5 grid grid-cols-3 gap-2 rounded-xl bg-surface-2 p-2 text-xs ring-1 ring-line">
+                      <div className="min-w-0"><div className="truncate text-faint">{t("bought_price")}</div><div className="num mt-0.5 font-semibold">{euro(car.boughtPrice)}</div></div>
+                      <div className="min-w-0"><div className="truncate text-faint">{t("extra_costs")}</div><div className="num mt-0.5 font-semibold">{euro(costsOf(car))}</div></div>
+                      <div className="min-w-0">
+                        <div className="truncate text-faint">{sold ? t("realized") : t("expected_profit")}</div>
+                        <div className={cx("num mt-0.5 font-bold", profit == null ? "" : profit >= 0 ? "text-good" : "text-bad")}>{profit == null ? "–" : euro(profit)}</div>
+                      </div>
                     </div>
                   </div>
-                  <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
-                    <div><div className="text-faint">{t("bought_price")}</div><div className="num font-semibold">{euro(car.boughtPrice)}</div></div>
-                    <div><div className="text-faint">{t("extra_costs")}</div><div className="num font-semibold">{euro(costsOf(car))}</div></div>
-                    <div>
-                      <div className="text-faint">{sold ? t("realized") : t("expected_profit")}</div>
-                      <div className={cx("num font-semibold", profit == null ? "" : profit >= 0 ? "text-good" : "text-bad")}>{profit == null ? "–" : euro(profit)}</div>
-                    </div>
-                  </div>
-                </div>
-              </Card>
+                </Card>
+              </StaggerItem>
             );
           })}
-        </div>
+        </Stagger>
       )}
 
       <Modal open={editing != null} onClose={() => setEditing(null)} title={editing?.title || t("garage_add")}>
         {editing && <GarageForm car={editing} onDone={() => setEditing(null)} />}
       </Modal>
     </div>
+  );
+}
+
+/** One figure of the garage with its icon. */
+function Kpi({ icon, label, value, hue, tone }: { icon: ReactNode; label: string; value: ReactNode; hue: Hue; tone?: string }) {
+  return (
+    <StaggerItem>
+      <Card className="flex h-full flex-col gap-2 p-3.5 sm:p-4">
+        <IconTile hue={hue} size="sm">
+          {icon}
+        </IconTile>
+        <div className={cx("truncate text-[22px] font-bold leading-none tracking-tight", tone)}>{value}</div>
+        <div className="text-xs leading-tight text-muted">{label}</div>
+      </Card>
+    </StaggerItem>
   );
 }
 
@@ -162,11 +186,11 @@ function GarageForm({ car, onDone }: { car: GarageCar; onDone: () => void }) {
         </div>
       </div>
       <Field label={t("notes")}><Textarea value={draft.notes} onChange={(e) => set({ notes: e.target.value })} /></Field>
-      <div className="flex items-center justify-between rounded-xl bg-surface-2 p-3 text-sm">
+      <div className="flex items-center justify-between rounded-2xl bg-surface-2 p-3.5 text-sm ring-1 ring-line">
         <span className="text-muted">{draft.soldPrice != null ? t("realized") : t("expected_profit")}</span>
         <span className="num font-semibold">{euro(profitOf(draft, draft.soldPrice ?? draft.askingPrice))}</span>
       </div>
-      <Button type="submit" variant="primary" className="w-full">{t("save")}</Button>
+      <Button type="submit" variant="primary" size="lg" className="w-full">{t("save")}</Button>
     </form>
   );
 }

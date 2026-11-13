@@ -3,22 +3,47 @@ import {
   ArrowLeft,
   ArrowRight,
   BadgeEuro,
+  Calculator,
+  CalendarClock,
+  CalendarDays,
+  Camera,
+  Check,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  ClipboardCheck,
+  Cog,
   Columns3,
   Expand,
   ExternalLink,
+  Fuel,
+  Gauge as GaugeIcon,
+  HandCoins,
+  Handshake,
   Heart,
-  Camera,
+  ListChecks,
   Loader2,
+  Mail,
   MapPin,
+  MessageCircleQuestion,
+  Minus,
   MoreHorizontal,
   Printer,
   RefreshCw,
+  Scale,
+  ScatterChart,
   Share2,
   ShieldAlert,
+  ShieldCheck,
+  Sparkles,
+  ThumbsDown,
+  ThumbsUp,
+  TriangleAlert,
+  UserCheck,
+  Wrench,
+  Zap,
 } from "lucide-react";
+import { motion } from "motion/react";
 import { type ReactNode, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api } from "../lib/api";
@@ -33,14 +58,15 @@ import { CarPhoto, toneText } from "./CarCard";
 import { Lightbox, photoSize } from "./Lightbox";
 import { ChatPanel } from "./ChatPanel";
 import { PurposeSwitch } from "./PurposeSwitch";
-import { Meter, PriceRange, Scatter } from "./charts";
-import { Badge, Button, Card, Fold, IconButton, Modal, Note, Num, Row, Segmented, Tabs, type Tone, copyText, cx, useToast } from "./ui";
+import { Gauge, Meter, PriceRange, Scatter } from "./charts";
+import { CountUp, EASE, Reveal, Stagger, StaggerItem } from "./motion";
+import { Badge, Button, Card, Fold, type Hue, IconButton, IconTile, Modal, Note, Num, Row, Segmented, Tabs, type Tone, copyText, cx, useToast } from "./ui";
 
 type Tab = "summary" | "ai" | "market" | "chat";
 
-/** The answer for one car. Phone: photos, title and price, the verdict with its numbers, the facts,
- *  then tabs that stay at the top; "Save" and "Ad" stay at the bottom. Computer: two columns, the
- *  verdict and the actions in a column at the side that stays in view. */
+/** The answer for one car. Phone: photos, title and price, the verdict with its score and numbers,
+ *  the facts, then tabs that stay at the top; "Save" and "Ad" float at the bottom. Computer: two
+ *  columns, the verdict and the actions in a column at the side that stays in view. */
 export function ResultView({ result, onChange, onReanalyze, onBack }: { result: Result; onChange?: (r: Result) => void; onReanalyze?: () => void; onBack?: () => void }) {
   const t = useT();
   const prefs = useStore(prefsStore);
@@ -128,111 +154,118 @@ export function ResultView({ result, onChange, onReanalyze, onBack }: { result: 
     if (top < stuckAt) window.scrollBy({ top: top - stuckAt });
   }
 
-  const tabs: { value: Tab; label: string }[] = [
+  const tabs: { value: Tab; label: string; icon?: ReactNode }[] = [
     { value: "summary", label: t("tab_summary") },
-    { value: "ai", label: t("tab_ai") },
+    { value: "ai", label: t("tab_ai"), icon: <Sparkles className="size-3.5 text-accent" /> },
     { value: "market", label: t("tab_market") },
     { value: "chat", label: t("tab_chat") },
   ];
 
-  const menu: { label: string; icon: ReactNode; onClick: () => void; hidden?: boolean }[] = [
+  const menu: { label: string; icon: ReactNode; hue: Hue; onClick: () => void; hidden?: boolean }[] = [
     {
       label: inCompare ? t("in_compare") : t("to_compare"),
       icon: <Columns3 className="size-5" />,
+      hue: "cyan",
       onClick: () => {
         if (!entry) saveResult(result);
         compareStore.set((ids) => (ids.includes(result.listing.id) ? ids.filter((id) => id !== result.listing.id) : [...ids, result.listing.id].slice(-4)));
         toast(inCompare ? t("removed") : t("added_compare"), "good");
       },
     },
-    { label: t("to_garage"), icon: <BadgeEuro className="size-5" />, onClick: toGarage, hidden: noMarket },
-    { label: t("reevaluate"), icon: <RefreshCw className="size-5" />, onClick: () => evaluate(false), hidden: noMarket },
-    { label: t("reanalyze"), icon: <RefreshCw className="size-5" />, onClick: () => onReanalyze?.(), hidden: !onReanalyze || !result.listing.url },
-    { label: t("print"), icon: <Printer className="size-5" />, onClick: () => window.print() },
+    { label: t("to_garage"), icon: <BadgeEuro className="size-5" />, hue: "good", onClick: toGarage, hidden: noMarket },
+    { label: t("reevaluate"), icon: <Calculator className="size-5" />, hue: "violet", onClick: () => evaluate(false), hidden: noMarket },
+    { label: t("reanalyze"), icon: <RefreshCw className="size-5" />, hue: "accent", onClick: () => onReanalyze?.(), hidden: !onReanalyze || !result.listing.url },
+    { label: t("print"), icon: <Printer className="size-5" />, hue: "neutral", onClick: () => window.print() },
   ];
 
   const saveButton = (
-    <Button className="flex-1" variant={entry?.favorite ? "primary" : "secondary"} onClick={toggleFavorite} icon={<Heart className={cx("size-4", entry?.favorite && "fill-current")} />}>
+    <Button className="flex-1" variant={entry?.favorite ? "soft" : "secondary"} onClick={toggleFavorite} icon={<Heart key={String(entry?.favorite)} className={cx("size-[18px]", entry?.favorite && "animate-pop fill-[#e5484d] text-[#e5484d]")} />}>
       {entry?.favorite ? t("saved") : t("save")}
     </Button>
   );
   const adLink = result.listing.url ? (
-    <a href={result.listing.url} target="_blank" rel="noopener noreferrer" className="inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-[10px] border border-line-strong bg-surface px-4 text-sm font-medium transition hover:bg-surface-2">
+    <a href={result.listing.url} target="_blank" rel="noopener noreferrer" className="bg-brand inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-[14px] px-4 text-sm font-medium text-white shadow-glow transition duration-200 hover:brightness-110 active:scale-[0.97]">
       <ExternalLink className="size-4 shrink-0" /> <span className="truncate">{t("the_ad")}</span>
     </a>
   ) : null;
   const iconActions = (
     <>
-      <IconButton label={t("share")} onClick={share} className="size-10">
+      <IconButton label={t("share")} onClick={share} className="bg-surface shadow-card ring-1 ring-line">
         <Share2 className="size-[18px]" />
       </IconButton>
-      <IconButton label={t("nav_more")} onClick={() => setMenuOpen(true)} className="size-10">
+      <IconButton label={t("nav_more")} onClick={() => setMenuOpen(true)} className="bg-surface shadow-card ring-1 ring-line">
         {busy === "recalc" ? <Loader2 className="size-[18px] animate-spin" /> : <MoreHorizontal className="size-[18px]" />}
       </IconButton>
     </>
   );
 
   return (
-    <div className="animate-fade-up">
+    <div>
       {/* Back to the empty form; on a phone share and more sit up here, next to it. */}
-      <div className="no-print mb-3 flex min-h-9 items-center justify-between gap-2">
+      <div className="no-print mb-3 flex min-h-10 items-center justify-between gap-2">
         {onBack ? (
-          <button onClick={onBack} className="-ms-1 flex h-9 cursor-pointer items-center gap-1.5 rounded-[10px] px-1 text-sm text-muted hover:text-text">
+          <button onClick={onBack} className="flex h-10 cursor-pointer items-center gap-1.5 rounded-full bg-surface pe-4 ps-3 text-sm font-medium text-muted shadow-card ring-1 ring-line transition hover:text-text active:scale-95">
             <Back className="size-4" /> {t("new_check")}
           </button>
         ) : (
           <span />
         )}
-        <div className="-me-2 flex items-center lg:hidden">{iconActions}</div>
+        <div className="flex items-center gap-2 lg:hidden">{iconActions}</div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:grid-rows-[auto_auto_auto_1fr] lg:gap-x-6 lg:gap-y-5">
-        <Gallery result={result} className="lg:col-start-1 lg:row-start-1" />
-        <Heading result={result} className="lg:col-start-1 lg:row-start-2" />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_390px] lg:grid-rows-[auto_auto_auto_1fr] lg:gap-x-7 lg:gap-y-5">
+        <Reveal className="lg:col-start-1 lg:row-start-1">
+          <Gallery result={result} favorite={Boolean(entry?.favorite)} onFavorite={toggleFavorite} />
+        </Reveal>
+        <Reveal delay={0.05} className="lg:col-start-1 lg:row-start-2">
+          <Heading result={result} />
+        </Reveal>
 
         <aside className="min-w-0 lg:col-start-2 lg:row-span-4 lg:row-start-1">
-          <div className="space-y-3 lg:sticky lg:top-8">
+          <Reveal delay={0.1} className="space-y-3 lg:sticky lg:top-8">
             {noMarket ? <NoMarket result={result} onReanalyze={onReanalyze} /> : <VerdictCard result={result} view={view} onView={setView} />}
             <div className="no-print hidden items-center gap-2 lg:flex">
               {saveButton}
               {adLink}
-              <div className="-me-1 flex shrink-0 items-center">{iconActions}</div>
+              <div className="flex shrink-0 items-center gap-2">{iconActions}</div>
             </div>
-          </div>
+          </Reveal>
         </aside>
 
-        <Facts result={result} className="lg:col-start-1 lg:row-start-3" />
+        <Reveal delay={0.15} className="lg:col-start-1 lg:row-start-3">
+          <Facts result={result} />
+        </Reveal>
 
         {!noMarket && (
           <section className="min-w-0 lg:col-start-1 lg:row-start-4">
-            <div ref={tabBar} className="no-print sticky top-[var(--topbar)] z-20 -mx-4 bg-bg/95 px-4 backdrop-blur sm:-mx-6 sm:px-6 lg:top-0 lg:mx-0 lg:px-0">
+            <div ref={tabBar} className="no-print sticky top-[var(--topbar)] z-20 -mx-4 bg-bg/85 px-4 py-2 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:top-0 lg:mx-0 lg:rounded-b-2xl lg:px-0">
               <Tabs value={tab} onChange={changeTab} tabs={tabs} />
             </div>
-            <div className="pt-4">
+            <motion.div key={tab} className="pt-2" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: EASE }}>
               {tab === "summary" && <Summary result={result} view={view} />}
               {tab === "ai" && <AiReview result={result} view={view} busy={busy === "ai"} onReview={() => evaluate(true)} />}
               {tab === "market" && <Market result={result} view={view} />}
               {tab === "chat" && <ChatPanel result={result} />}
-            </div>
+            </motion.div>
           </section>
         )}
       </div>
 
-      {/* Phone: the two main actions stay at the bottom, right above the tabs of the app (on
+      {/* Phone: the two main actions float at the bottom, right above the tabs of the app (on
           <body>, so the page's fade-in does not hold the bar inside the page). */}
       {createPortal(
-        <div className="no-print fixed inset-x-0 bottom-[var(--tabbar)] z-30 border-t border-line bg-surface/95 backdrop-blur lg:hidden">
-          <div className="mx-auto flex max-w-xl items-center gap-2 px-4 py-2">
+        <motion.div className="no-print pointer-events-none fixed inset-x-0 bottom-[var(--tabbar)] z-30 px-3 lg:hidden" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 380, damping: 32, delay: 0.25 }}>
+          <div className="glass pointer-events-auto mx-auto flex max-w-md items-center gap-2 rounded-[22px] border border-line p-2 shadow-pop">
             {saveButton}
             {adLink}
           </div>
-        </div>,
+        </motion.div>,
         document.body,
       )}
-      <div aria-hidden="true" className="h-14 lg:hidden" />
+      <div aria-hidden="true" className="h-16 lg:hidden" />
 
       <Modal open={menuOpen} onClose={() => setMenuOpen(false)} title={t("nav_more")}>
-        <div className="-mx-2 divide-y divide-line">
+        <div className="space-y-1">
           {menu
             .filter((item) => !item.hidden)
             .map((item) => (
@@ -242,9 +275,9 @@ export function ResultView({ result, onChange, onReanalyze, onBack }: { result: 
                   setMenuOpen(false);
                   item.onClick();
                 }}
-                className="flex w-full cursor-pointer items-center gap-3 px-2 py-3.5 text-start text-[15px] hover:bg-surface-2"
+                className="flex w-full cursor-pointer items-center gap-3.5 rounded-2xl p-2.5 text-start text-[15px] font-medium transition hover:bg-surface-2 active:scale-[0.98]"
               >
-                <span className="text-muted">{item.icon}</span>
+                <IconTile hue={item.hue}>{item.icon}</IconTile>
                 {item.label}
               </button>
             ))}
@@ -254,8 +287,9 @@ export function ResultView({ result, onChange, onReanalyze, onBack }: { result: 
   );
 }
 
-/** The ad's photos, swiped with the finger (arrows on a computer); a tap opens them full screen. */
-function Gallery({ result, className }: { result: Result; className?: string }) {
+/** The ad's photos, swiped with the finger (arrows and small pictures on a computer); a tap opens
+ *  them full screen. The heart saves the car. */
+function Gallery({ result, className, favorite, onFavorite }: { result: Result; className?: string; favorite: boolean; onFavorite: () => void }) {
   const t = useT();
   const ui = useStore(uiStore);
   const strip = useRef<HTMLDivElement>(null);
@@ -264,8 +298,8 @@ function Gallery({ result, className }: { result: Result; className?: string }) 
   const images = (result.listing.images ?? []).slice(0, 12);
   // A valuation without an ad has no photos: no empty picture either.
   if (images.length === 0) return null;
-  const frame = "aspect-[2/1] w-full sm:aspect-[16/9] lg:aspect-[16/10]";
-  if (!ui.showPhotos) return <CarPhoto src="" className={cx(frame, "rounded-xl", className)} />;
+  const frame = "aspect-[16/10] w-full sm:aspect-[16/9] lg:aspect-[16/10]";
+  if (!ui.showPhotos) return <CarPhoto src="" className={cx(frame, "rounded-[24px]", className)} />;
 
   const rtl = t.lang === "ar";
   const onScroll = () => {
@@ -279,33 +313,56 @@ function Gallery({ result, className }: { result: Result; className?: string }) 
   };
   const Prev = rtl ? ChevronRight : ChevronLeft;
   const Next = rtl ? ChevronLeft : ChevronRight;
+  const arrow = "absolute top-1/2 hidden size-10 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-white/90 text-[#0b1324] opacity-0 shadow-lg backdrop-blur transition duration-200 hover:bg-white group-hover:opacity-100 disabled:hidden lg:grid";
   return (
-    <div className={cx("group relative overflow-hidden rounded-xl bg-surface-2", className)}>
-      <div ref={strip} onScroll={onScroll} className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain">
-        {images.map((src, i) => (
-          <button key={`${i}-${src.slice(-40)}`} type="button" onClick={() => setOpen(i)} className="w-full shrink-0 cursor-zoom-in snap-center snap-always" aria-label={`${t("photos_open")} ${i + 1}/${images.length}`}>
-            <CarPhoto src={src} alt={i === 0 ? result.listing.title : ""} className={frame} />
-          </button>
-        ))}
+    <div className={className}>
+      <div className="group relative overflow-hidden rounded-[24px] bg-surface-2 shadow-card ring-1 ring-line">
+        <div ref={strip} onScroll={onScroll} className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain">
+          {images.map((src, i) => (
+            <button key={`${i}-${src.slice(-40)}`} type="button" onClick={() => setOpen(i)} className="w-full shrink-0 cursor-zoom-in snap-center snap-always" aria-label={`${t("photos_open")} ${i + 1}/${images.length}`}>
+              <CarPhoto src={src} alt={i === 0 ? result.listing.title : ""} className={frame} />
+            </button>
+          ))}
+        </div>
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/45 to-transparent" />
+        {images.length > 1 && (
+          <>
+            <button type="button" onClick={() => go(index - 1)} disabled={index === 0} aria-label={t("photo_prev")} className={cx(arrow, "start-3")}>
+              <Prev className="size-5" />
+            </button>
+            <button type="button" onClick={() => go(index + 1)} disabled={index === images.length - 1} aria-label={t("photo_next")} className={cx(arrow, "end-3")}>
+              <Next className="size-5" />
+            </button>
+            <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center gap-1.5">
+              {images.map((_, i) => (
+                <span key={i} className={cx("h-1.5 rounded-full transition-all duration-300", i === index ? "w-5 bg-white" : "w-1.5 bg-white/55")} />
+              ))}
+            </div>
+          </>
+        )}
+        <button
+          type="button"
+          onClick={onFavorite}
+          aria-label={t(favorite ? "remove_favorite" : "add_favorite")}
+          aria-pressed={favorite}
+          className="no-print absolute start-3 top-3 grid size-10 cursor-pointer place-items-center rounded-full bg-white/90 text-[#0b1324] shadow-lg backdrop-blur transition duration-200 hover:bg-white active:scale-90"
+        >
+          <Heart key={String(favorite)} className={cx("size-5", favorite && "animate-pop fill-[#e5484d] text-[#e5484d]")} />
+        </button>
+        <span className="num pointer-events-none absolute end-3 top-3 flex items-center gap-1.5 rounded-full bg-[#0b1324]/65 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md">
+          <Expand className="size-3.5" /> {index + 1}/{images.length}
+        </span>
       </div>
+      {/* Computer: the first photos small, below. */}
       {images.length > 1 && (
-        <>
-          <button type="button" onClick={() => go(index - 1)} disabled={index === 0} aria-label={t("photo_prev")} className="absolute start-2 top-1/2 hidden size-9 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-black/50 text-white opacity-0 transition group-hover:opacity-100 disabled:hidden lg:grid">
-            <Prev className="size-5" />
-          </button>
-          <button type="button" onClick={() => go(index + 1)} disabled={index === images.length - 1} aria-label={t("photo_next")} className="absolute end-2 top-1/2 hidden size-9 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-black/50 text-white opacity-0 transition group-hover:opacity-100 disabled:hidden lg:grid">
-            <Next className="size-5" />
-          </button>
-          <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-2.5 flex justify-center gap-1.5 lg:hidden">
-            {images.map((_, i) => (
-              <span key={i} className={cx("size-1.5 rounded-full transition", i === index ? "bg-white" : "bg-white/45")} />
-            ))}
-          </div>
-        </>
+        <div className="no-print mt-2.5 hidden gap-2 lg:flex">
+          {images.slice(0, 7).map((src, i) => (
+            <button key={i} type="button" onClick={() => go(i)} className={cx("relative h-16 flex-1 cursor-pointer overflow-hidden rounded-xl ring-2 transition duration-200", i === index ? "ring-accent" : "opacity-70 ring-transparent hover:opacity-100")} aria-label={`${i + 1}/${images.length}`}>
+              <CarPhoto src={photoSize(src, 35)} className="size-full" />
+            </button>
+          ))}
+        </div>
       )}
-      <span className="num pointer-events-none absolute end-2.5 top-2.5 flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 text-xs font-medium text-white">
-        <Expand className="size-3.5" /> {index + 1}/{images.length}
-      </span>
       {open != null && <Lightbox images={images} start={open} onClose={() => setOpen(null)} />}
     </div>
   );
@@ -317,56 +374,59 @@ function Heading({ result, className }: { result: Result; className?: string }) 
   const { listing } = result;
   return (
     <div className={cx("min-w-0", className)}>
-      <h1 className="text-[19px] font-semibold leading-snug sm:text-[22px]">
+      <h1 className="text-[22px] font-bold leading-tight sm:text-[26px]">
         <bdi>{listing.title}</bdi>
       </h1>
       {listing.location && (
-        <div className="mt-1 flex items-center gap-1 text-[13px] text-muted">
-          <MapPin className="size-3.5 shrink-0" />
+        <div className="mt-1.5 flex items-center gap-1.5 text-sm text-muted">
+          <MapPin className="size-4 shrink-0 text-accent" />
           <span className="truncate">{place(listing.location)}</span>
           {listing.distance_km != null && (
-            <>
-              <span>·</span>
-              <span className="num shrink-0">{number(listing.distance_km)} km</span>
-            </>
+            <span className="num shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium">{number(listing.distance_km)} km</span>
           )}
         </div>
       )}
-      <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <span className="num text-[26px] font-semibold leading-none tracking-tight">{result.trade?.priced === false ? t("no_price") : euro(listing.price)}</span>
-        <span className="text-sm text-muted">{listing.negotiable ? t("negotiable") : t("fixed_price")}</span>
+      <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+        <span className="num text-[34px] font-bold leading-none tracking-tight">{result.trade?.priced === false ? t("no_price") : euro(listing.price)}</span>
+        <Badge tone="neutral" className="text-[13px]">
+          {listing.negotiable ? t("negotiable") : t("fixed_price")}
+        </Badge>
         {listing.damaged && <Badge tone="bad">{t("damaged")}</Badge>}
       </div>
     </div>
   );
 }
 
-/** Mileage, registration, power, fuel, gearbox, TÜV: six small cells. */
+/** Mileage, registration, power, fuel, gearbox, TÜV: six small cells, each with its icon. */
 function Facts({ result, className }: { result: Result; className?: string }) {
   const t = useT();
   const { listing } = result;
-  const facts: { label: TextKey; value: ReactNode }[] = [
-    { label: "mileage", value: <span className="num">{km(listing.km)}</span> },
-    { label: "first_reg", value: <span className="num">{registration(listing.month, listing.year)}</span> },
-    { label: "power", value: listing.power_ps ? <span className="num">{listing.power_ps} PS</span> : "–" },
-    { label: "fuel", value: listing.fuel || "–" },
-    { label: "gearbox", value: listing.gearbox || "–" },
+  const facts: { label: TextKey; value: ReactNode; icon: ReactNode }[] = [
+    { label: "mileage_short", icon: <GaugeIcon className="size-4" />, value: <span className="num">{km(listing.km)}</span> },
+    { label: "first_reg_short", icon: <CalendarDays className="size-4" />, value: <span className="num">{registration(listing.month, listing.year)}</span> },
+    { label: "power", icon: <Zap className="size-4" />, value: listing.power_ps ? <span className="num">{listing.power_ps} PS</span> : "–" },
+    { label: "fuel", icon: <Fuel className="size-4" />, value: listing.fuel || "–" },
+    { label: "gearbox", icon: <Cog className="size-4" />, value: listing.gearbox || "–" },
     {
       label: "tuv",
+      icon: <ShieldCheck className="size-4" />,
       value: listing.hu_until ? <span className="num">{listing.hu_until}</span> : listing.flags?.includes("no_tuv") ? <span className="text-bad">{t("tuv_none")}</span> : <span className="text-faint">{t("tuv_unknown")}</span>,
     },
   ];
   return (
-    <Card className={cx("px-4 py-3.5 sm:px-5", className)}>
-      <dl className="grid grid-cols-3 gap-x-3 gap-y-3 text-sm">
-        {facts.map((fact) => (
-          <div key={fact.label} className="min-w-0">
-            <dt className="truncate text-xs text-faint">{t(fact.label)}</dt>
-            <dd className="truncate font-medium">{fact.value}</dd>
-          </div>
-        ))}
-      </dl>
-    </Card>
+    <Stagger className={cx("grid grid-cols-3 gap-2 sm:gap-3", className)} gap={0.04}>
+      {facts.map((fact) => (
+        <StaggerItem key={fact.label}>
+          <dl className="h-full rounded-2xl border border-line bg-surface p-3 shadow-card">
+            <dt className="flex items-center gap-1.5 text-xs text-muted">
+              <span className="shrink-0 text-accent">{fact.icon}</span>
+              <span className="truncate">{t(fact.label)}</span>
+            </dt>
+            <dd className="mt-1.5 truncate text-sm font-semibold sm:text-[15px]">{fact.value}</dd>
+          </dl>
+        </StaggerItem>
+      ))}
+    </Stagger>
   );
 }
 
@@ -397,8 +457,10 @@ function NoMarket({ result, onReanalyze }: { result: Result; onReanalyze?: () =>
   );
 }
 
-/** The answer in one place: verdict and reason, the score, the three numbers that matter and
- *  where the price sits among the comparable cars. */
+const GLOW: Record<Tone, string> = { good: "var(--good)", warn: "var(--warn)", bad: "var(--bad)", neutral: "var(--faint)", accent: "var(--accent)" };
+
+/** The answer in one place: the score on a speedometer, verdict and reason, the three numbers that
+ *  matter and where the price sits among the comparable cars. */
 function VerdictCard({ result, view, onView }: { result: Result; view: Purpose; onView: (p: Purpose) => void }) {
   const t = useT();
   const verdict = verdictOf(result, view, t)!;
@@ -407,77 +469,61 @@ function VerdictCard({ result, view, onView }: { result: Result; view: Purpose; 
   const ai = result.analysis && result.analysis_kind === view ? result.analysis : null;
   const reason = ai?.verdict_reason ?? verdict.reasons[0];
   return (
-    <Card className="overflow-hidden">
-      <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-2 sm:px-5">
+    <Card className="relative overflow-hidden">
+      {/* A light in the verdict's colour behind the score. */}
+      <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-56 transition-colors duration-500" style={{ background: `radial-gradient(75% 100% at 50% 0%, color-mix(in srgb, ${GLOW[verdict.tone]} 16%, transparent), transparent)` }} />
+      <div className="relative flex items-center justify-between gap-3 px-4 pt-3.5 sm:px-5">
         <span className="eyebrow">{t("result_for")}</span>
         <PurposeSwitch tiny value={view} onChange={onView} />
       </div>
-      <div className="p-4 sm:p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className={cx("flex items-center gap-2.5 text-[20px] font-semibold leading-tight", toneText[verdict.tone])}>
-              <span className={cx("size-2.5 shrink-0 rounded-full", DOT[verdict.tone])} />
-              {verdict.label}
-            </div>
-            {reason && <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-muted">{isolateNumbers(reason)}</p>}
-          </div>
-          <ScoreRing score={verdict.score} tone={verdict.tone} label={t("score")} />
-        </div>
-        <div className="mt-4 grid grid-cols-3 gap-3 border-t border-line pt-3.5">
-          <Metric label={t("market_price")} value={euro(valuation.market_price)} sub={<><Num>{valuation.comparables}</Num> {t("comparables")}</>} />
+      <div className="relative px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
+        <Gauge key={view} score={verdict.score} tone={verdict.tone} label={t("score")} />
+        <motion.div key={`${view}-${verdict.key}`} className="mt-3 text-center" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease: EASE, delay: 0.5 }}>
+          <div className={cx("text-[22px] font-bold leading-tight", toneText[verdict.tone])}>{verdict.label}</div>
+          {reason && <p className="mx-auto mt-1.5 line-clamp-4 max-w-sm text-sm leading-relaxed text-muted">{isolateNumbers(reason)}</p>}
+        </motion.div>
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <Metric label={t("market_price")} value={valuation.market_price} format={euro} sub={valuation.method === "ai" ? t("ai_estimate_short") : <><Num>{valuation.comparables}</Num> {t("comparables")}</>} />
           <Metric
             label={discount != null && discount < 0 ? t("above_market") : t("below_market")}
-            value={discount == null ? "–" : pct(Math.abs(discount))}
+            value={discount == null ? null : Math.abs(discount)}
+            format={(n) => pct(n)}
             tone={discount == null ? undefined : discount >= 0.05 ? "good" : discount <= -0.05 ? "bad" : undefined}
           />
           {view === "trade" && trade ? (
-            <Metric label={t("profit")} value={trade.priced ? euro(trade.profit) : "–"} tone={trade.profit >= 0 ? "good" : "bad"} sub={trade.priced ? <>{t("roi")} <Num>{pct(trade.roi)}</Num></> : undefined} />
+            <Metric label={t("profit")} value={trade.priced ? trade.profit : null} format={euro} tone={trade.profit >= 0 ? "good" : "bad"} sub={trade.priced ? <>{t("roi")} <Num>{pct(trade.roi)}</Num></> : undefined} />
           ) : personal ? (
-            <Metric label={t("offer_max")} value={euro(personal.offer_max)} sub={<>{t("offer_start")} <Num>{euro(personal.offer_start)}</Num></>} />
+            <Metric label={t("offer_max")} value={personal.offer_max} format={euro} sub={<>{t("offer_start")} <Num>{euro(personal.offer_start)}</Num></>} />
           ) : null}
         </div>
         {valuation.range && valuation.market_price && (
-          <PriceRange low={valuation.range[0]} high={valuation.range[1]} market={valuation.market_price} price={trade?.priced === false ? null : listing.price} labels={{ market: t("market_price"), price: t("this_car") }} />
+          <PriceRange
+            low={valuation.range[0]}
+            high={valuation.range[1]}
+            market={valuation.market_price}
+            price={trade?.priced === false ? null : listing.price}
+            tone={discount == null ? "neutral" : discount >= 0.05 ? "good" : discount <= -0.05 ? "bad" : "neutral"}
+            labels={{ market: t("market_price"), price: t("this_car") }}
+          />
         )}
       </div>
     </Card>
   );
 }
 
-const DOT: Record<Tone, string> = { good: "bg-good", warn: "bg-warn", bad: "bg-bad", neutral: "bg-faint", accent: "bg-accent" };
-const RING: Record<Tone, string> = { good: "stroke-good", warn: "stroke-warn", bad: "stroke-bad", neutral: "stroke-faint", accent: "stroke-accent" };
-
-/** The score (0–100) as a ring with its number, like a credit score. */
-function ScoreRing({ score, tone, label }: { score: number; tone: Tone; label: string }) {
-  const r = 22;
-  const length = 2 * Math.PI * r;
+function Metric({ label, value, format, sub, tone }: { label: string; value: number | null; format: (n: number) => string; sub?: ReactNode; tone?: Tone }) {
   return (
-    <div className="flex shrink-0 flex-col items-center" title={`${label}: ${score}/100`}>
-      <div className="relative size-14">
-        <svg viewBox="0 0 52 52" className="size-14 -rotate-90">
-          <circle cx="26" cy="26" r={r} fill="none" className="stroke-line" strokeWidth="4" />
-          <circle cx="26" cy="26" r={r} fill="none" className={cx(RING[tone], "transition-all duration-700")} strokeWidth="4" strokeLinecap="round" strokeDasharray={`${(Math.max(2, score) / 100) * length} ${length}`} />
-        </svg>
-        <span className="num absolute inset-0 grid place-items-center text-[15px] font-semibold">{score}</span>
-      </div>
-      <span className="mt-1 text-[11px] text-faint">{label}</span>
-    </div>
-  );
-}
-
-function Metric({ label, value, sub, tone }: { label: string; value: string; sub?: ReactNode; tone?: Tone }) {
-  return (
-    <div className="min-w-0">
-      <div className="truncate text-[12px] text-muted">{label}</div>
-      <div className={cx("num mt-1 truncate text-[17px] font-semibold", tone && toneText[tone])}>{value}</div>
-      {sub && <div className="mt-0.5 text-[12px] leading-snug text-faint">{sub}</div>}
+    <div className="flex min-w-0 flex-col rounded-2xl bg-surface-2/80 p-2.5 ring-1 ring-line sm:p-3">
+      <div className="flex min-h-[2.4em] items-end text-[11.5px] leading-[1.2] text-muted">{label}</div>
+      <div className={cx("mt-1 truncate text-[17px] font-bold tracking-tight", tone && toneText[tone])}>{value == null ? "–" : <CountUp value={value} format={format} />}</div>
+      {sub && <div className="mt-0.5 text-[11px] leading-[1.25] text-faint">{sub}</div>}
     </div>
   );
 }
 
 /** A small count in the header of a closed card. */
 function Count({ n }: { n: number }) {
-  return <span className="num inline-grid h-5 min-w-5 place-items-center rounded-full bg-surface-2 px-1.5 text-xs font-medium text-muted">{n}</span>;
+  return <span className="num inline-grid h-5 min-w-5 place-items-center rounded-full bg-surface-2 px-1.5 text-xs font-semibold text-muted">{n}</span>;
 }
 
 /** Why the verdict, and the money in plain rows; each part opens and closes. */
@@ -488,7 +534,7 @@ function Summary({ result, view }: { result: Result; view: Purpose }) {
   const ai = result.analysis_kind === "personal" ? result.analysis : null;
   return (
     <div className="space-y-3">
-      <Fold title={t("why")} summary={verdict.reasons.length > 0 ? <Count n={verdict.reasons.length} /> : undefined} defaultOpen>
+      <Fold title={t("why")} icon={<ListChecks className="size-4" />} hue="accent" summary={verdict.reasons.length > 0 ? <Count n={verdict.reasons.length} /> : undefined} defaultOpen>
         {result.valuation.power_as_kw && (
           <div className="mb-3">
             <Note tone="warn" icon={<AlertTriangle className="size-4" />}>
@@ -499,21 +545,21 @@ function Summary({ result, view }: { result: Result; view: Purpose }) {
         {verdict.reasons.length > 0 ? (
           <ul className="space-y-2.5">
             {verdict.reasons.map((reason, i) => (
-              <li key={i} className="flex gap-2.5 text-sm leading-relaxed">
-                <span className="mt-2 size-1.5 shrink-0 rounded-full bg-muted" />
+              <li key={i} className="flex gap-3 text-sm leading-relaxed">
+                <span className="num mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-accent/10 text-[11px] font-bold text-accent">{i + 1}</span>
                 <span>{isolateNumbers(reason)}</span>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="flex items-center gap-2 text-sm text-good">
+          <p className="flex items-center gap-2 text-sm font-medium text-good">
             <CheckCircle2 className="size-4" /> {t("no_objections")}
           </p>
         )}
       </Fold>
 
       {view === "trade" && trade && (
-        <Fold title={t("money")} summary={<span className={cx("num font-medium", trade.priced && (trade.profit >= 0 ? "text-good" : "text-bad"))}>{t("profit")} {trade.priced ? euro(trade.profit) : "–"}</span>}>
+        <Fold title={t("money")} icon={<Calculator className="size-4" />} hue="good" summary={<span className={cx("num font-semibold", trade.priced && (trade.profit >= 0 ? "text-good" : "text-bad"))}>{t("profit")} {trade.priced ? euro(trade.profit) : "–"}</span>}>
           <Row label={t("resale")} value={euro(trade.resale_price)} />
           <Row label={t("buy")} value={trade.priced ? `− ${euro(trade.buy_price)}` : "–"} />
           {trade.repair_costs > 0 && <Row label={t("repairs")} value={`− ${euro(trade.repair_costs)}`} />}
@@ -529,19 +575,19 @@ function Summary({ result, view }: { result: Result; view: Purpose }) {
 
       {view === "personal" && personal && (
         <>
-          <Fold title={t("what_to_offer")} summary={<span className="num">{euro(personal.offer_start)} – {euro(personal.offer_max)}</span>}>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl bg-surface-2 p-3.5">
-                <div className="text-xs text-muted">{t("offer_start")}</div>
-                <div className="num mt-1 text-xl font-semibold">{euro(personal.offer_start)}</div>
+          <Fold title={t("what_to_offer")} icon={<HandCoins className="size-4" />} hue="good" summary={<span className="num font-semibold text-text">{euro(personal.offer_start)} – {euro(personal.offer_max)}</span>} defaultOpen>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="bg-brand-soft rounded-2xl p-3.5 ring-1 ring-accent/20">
+                <div className="text-xs font-medium text-muted">{t("offer_start")}</div>
+                <div className="num mt-1 text-[22px] font-bold tracking-tight text-accent">{euro(personal.offer_start)}</div>
               </div>
-              <div className="rounded-xl border border-line p-3.5">
-                <div className="text-xs text-muted">{t("offer_max")}</div>
-                <div className="num mt-1 text-xl font-semibold">{euro(personal.offer_max)}</div>
+              <div className="rounded-2xl bg-surface-2 p-3.5 ring-1 ring-line">
+                <div className="text-xs font-medium text-muted">{t("offer_max")}</div>
+                <div className="num mt-1 text-[22px] font-bold tracking-tight">{euro(personal.offer_max)}</div>
               </div>
             </div>
           </Fold>
-          <Fold title={t("first_year")} summary={<span className="num">{euro(personal.first_year_cost)}</span>}>
+          <Fold title={t("first_year")} icon={<CalendarClock className="size-4" />} hue="violet" summary={<span className="num font-semibold text-text">{euro(personal.first_year_cost)}</span>}>
             <Row label={`${t("fuel_year")} (${decimal(personal.consumption)} ${personal.energy_unit}/100 km)`} value={euro(personal.fuel_per_year)} />
             {personal.repairs > 0 && <Row label={t("repairs")} value={euro(personal.repairs)} />}
             {personal.hu_cost > 0 && <Row label={t("tuv_due")} value={euro(personal.hu_cost)} />}
@@ -567,18 +613,25 @@ function AiReview({ result, view, busy, onReview }: { result: Result; view: Purp
   };
   if (!analysis || !matches) {
     return (
-      <Card className="p-4 sm:p-5">
-        {analysis && !matches ? (
-          <p className="text-sm text-muted">{t("ai_review_other", { purpose: t(result.analysis_kind === "trade" ? "purpose_trade_short" : "purpose_personal_short") })}</p>
-        ) : (
-          statusNote[result.ai_status] && (
-            <Note tone="warn">
-              {t(statusNote[result.ai_status]!)}
-              {result.ai_status === "failed" && result.ai_error && <span className="mt-1 block">{t(`ai_reason_${result.ai_error}` as TextKey)}</span>}
-            </Note>
-          )
-        )}
-        <Button className="mt-4" variant="primary" loading={busy} disabled={!prefs.ai_enabled} onClick={onReview}>
+      <Card className="relative overflow-hidden p-5 text-center sm:p-7">
+        <span className="bg-brand-soft pointer-events-none absolute inset-x-0 top-0 h-28" />
+        <span className="bg-brand relative mx-auto grid size-14 place-items-center rounded-2xl text-white shadow-glow">
+          <Sparkles className="size-7" />
+        </span>
+        <h3 className="relative mt-4 text-[17px] font-semibold">{t("tab_ai")}</h3>
+        <div className="relative mx-auto mt-2 max-w-sm text-start">
+          {analysis && !matches ? (
+            <p className="text-center text-sm leading-relaxed text-muted">{t("ai_review_other", { purpose: t(result.analysis_kind === "trade" ? "purpose_trade_short" : "purpose_personal_short") })}</p>
+          ) : (
+            statusNote[result.ai_status] && (
+              <Note tone="warn">
+                {t(statusNote[result.ai_status]!)}
+                {result.ai_status === "failed" && result.ai_error && <span className="mt-1 block">{t(`ai_reason_${result.ai_error}` as TextKey)}</span>}
+              </Note>
+            )
+          )}
+        </div>
+        <Button className="relative mt-5" variant="primary" size="lg" loading={busy} disabled={!prefs.ai_enabled} onClick={onReview} icon={<Sparkles className="size-[18px]" />}>
           {t("ai_for_purpose")}
         </Button>
       </Card>
@@ -588,46 +641,63 @@ function AiReview({ result, view, busy, onReview }: { result: Result; view: Purp
   const issueCost = issues.reduce((sum, issue) => sum + (issue.cost_eur || 0), 0);
   return (
     <div className="space-y-3">
-      <Card className="p-4 sm:p-5">
-        <p className="text-[15px] leading-relaxed" dir="auto">
-          {analysis.verdict_reason}
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Badge tone={analysis.scam_risk === "low" ? "good" : analysis.scam_risk === "medium" ? "warn" : "bad"}>
-            <ShieldAlert className="size-3" /> {t("scam")}: {t(`risk_${analysis.scam_risk}` as TextKey)}
+      <Card className="relative overflow-hidden p-4 sm:p-5">
+        <span className="bg-brand-soft pointer-events-none absolute inset-0 opacity-70" />
+        <div className="relative flex items-start gap-3.5">
+          <span className="bg-brand grid size-10 shrink-0 place-items-center rounded-xl text-white shadow-glow">
+            <Sparkles className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="eyebrow">{t("ai_summary")}</div>
+            <p className="mt-1 text-[15px] leading-relaxed" dir="auto">
+              {analysis.verdict_reason}
+            </p>
+          </div>
+        </div>
+        <div className="relative mt-3.5 flex flex-wrap gap-2">
+          <Badge tone={analysis.scam_risk === "low" ? "good" : analysis.scam_risk === "medium" ? "warn" : "bad"} className="py-1">
+            <ShieldAlert className="size-3.5" /> {t("scam")}: {t(`risk_${analysis.scam_risk}` as TextKey)}
           </Badge>
           {analysis.reliability != null && (
-            <Badge tone="neutral">
-              {t("reliability")} <span className="num">{analysis.reliability}/5</span>
+            <Badge tone="neutral" className="bg-surface py-1">
+              {t("reliability")} <span className="num font-semibold text-text">{analysis.reliability}/5</span>
             </Badge>
           )}
-          {analysis.resale_difficulty && <Badge tone="neutral">{t("resale_ease")}: {t(`ease_${analysis.resale_difficulty}` as TextKey)}</Badge>}
+          {analysis.resale_difficulty && (
+            <Badge tone="neutral" className="bg-surface py-1">
+              {t("resale_ease")}: <span className="font-semibold text-text">{t(`ease_${analysis.resale_difficulty}` as TextKey)}</span>
+            </Badge>
+          )}
         </div>
         {analysis.scam_signals?.length > 0 && (
-          <ul className="mt-3 space-y-1 text-sm text-bad">
+          <ul className="relative mt-3 space-y-1.5 text-sm text-bad">
             {analysis.scam_signals.map((s, i) => (
-              <li key={i}>• {s}</li>
+              <li key={i} className="flex gap-2">
+                <TriangleAlert className="mt-0.5 size-4 shrink-0" /> <span>{s}</span>
+              </li>
             ))}
           </ul>
         )}
       </Card>
 
-      <Fold title={t("issues")} summary={issues.length ? <span className="num">~{euro(issueCost)}</span> : undefined} defaultOpen>
+      <Fold title={t("issues")} icon={<Wrench className="size-4" />} hue="warn" summary={issues.length ? <span className="num font-semibold text-text">~{euro(issueCost)}</span> : <CheckCircle2 className="inline size-4 text-good" />} defaultOpen>
         {issues.length === 0 ? (
-          <p className="flex items-center gap-2 text-sm text-good">
+          <p className="flex items-center gap-2 text-sm font-medium text-good">
             <CheckCircle2 className="size-4" /> {t("no_issues")}
           </p>
         ) : (
-          <div className="divide-y divide-line">
+          <div className="space-y-2">
             {issues.map((issue, i) => (
-              <div key={i} className="py-2.5 first:pt-0">
+              <div key={i} className="rounded-2xl bg-surface-2 p-3 ring-1 ring-line">
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-sm font-medium">{issue.issue}</span>
-                  <span className="num text-sm font-semibold">~{euro(issue.cost_eur)}</span>
+                  <span className="text-sm font-semibold">{issue.issue}</span>
+                  <span className="num shrink-0 text-sm font-bold text-warn">~{euro(issue.cost_eur)}</span>
                 </div>
-                <p className="mt-1 text-xs italic text-muted" dir="ltr">
-                  “{issue.quote}”
-                </p>
+                {issue.quote && (
+                  <p className="mt-1 text-xs italic leading-relaxed text-muted" dir="ltr">
+                    “{issue.quote}”
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -637,34 +707,34 @@ function AiReview({ result, view, busy, onReview }: { result: Result; view: Purp
       <PhotoCheck result={result} analysis={analysis} />
 
       {analysis.known_weak_points && analysis.known_weak_points.length > 0 && (
-        <Fold title={t("weak_points")} summary={<Count n={analysis.known_weak_points.length} />}>
+        <Fold title={t("weak_points")} icon={<TriangleAlert className="size-4" />} hue="bad" summary={<Count n={analysis.known_weak_points.length} />}>
           <p className="mb-3 text-xs text-muted">{t("weak_points_note")}</p>
-          <div className="divide-y divide-line">
+          <div className="space-y-2">
             {analysis.known_weak_points.map((point, i) => (
-              <div key={i} className="py-2.5 first:pt-0">
+              <div key={i} className="rounded-2xl bg-surface-2 p-3 ring-1 ring-line">
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-sm font-medium">{point.item}</span>
-                  <span className="num text-xs text-muted">~{euro(point.typical_cost_eur)}</span>
+                  <span className="text-sm font-semibold">{point.item}</span>
+                  <span className="num shrink-0 text-xs font-medium text-muted">~{euro(point.typical_cost_eur)}</span>
                 </div>
-                <p className="mt-1 text-xs text-muted">{point.how_to_check}</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted">{point.how_to_check}</p>
               </div>
             ))}
           </div>
         </Fold>
       )}
 
-      <ListFold title={t("positives")} items={analysis.positives} />
-      {analysis.negatives && <ListFold title={t("negatives")} items={analysis.negatives} />}
-      {analysis.inspection_checklist && <ListFold title={t("checklist")} items={analysis.inspection_checklist} />}
-      <ListFold title={t("questions")} items={analysis.questions_for_seller} />
+      <ListFold title={t("positives")} icon={<ThumbsUp className="size-4" />} hue="good" mark="plus" items={analysis.positives} />
+      {analysis.negatives && <ListFold title={t("negatives")} icon={<ThumbsDown className="size-4" />} hue="bad" mark="minus" items={analysis.negatives} />}
+      {analysis.inspection_checklist && <ListFold title={t("checklist")} icon={<ClipboardCheck className="size-4" />} hue="cyan" mark="box" items={analysis.inspection_checklist} />}
+      <ListFold title={t("questions")} icon={<MessageCircleQuestion className="size-4" />} hue="violet" items={analysis.questions_for_seller} />
 
       {analysis.suitability && (
-        <Fold title={t("suitability")}>
+        <Fold title={t("suitability")} icon={<UserCheck className="size-4" />} hue="accent">
           <p className="text-sm leading-relaxed text-muted">{analysis.suitability}</p>
         </Fold>
       )}
       {analysis.negotiation_tip && (
-        <Fold title={t("negotiation")}>
+        <Fold title={t("negotiation")} icon={<Handshake className="size-4" />} hue="good">
           <p className="text-sm leading-relaxed text-muted">{analysis.negotiation_tip}</p>
         </Fold>
       )}
@@ -673,7 +743,7 @@ function AiReview({ result, view, busy, onReview }: { result: Result; view: Purp
   );
 }
 
-const findingTone: Record<PhotoFinding["severity"], string> = { bad: "bg-bad", warn: "bg-warn", info: "bg-muted" };
+const findingTone: Record<PhotoFinding["severity"], string> = { bad: "bg-bad", warn: "bg-warn", info: "bg-faint" };
 
 /** What the AI saw in the ad's photos: each finding next to its photo (tap: full screen), and the
  *  mileage on the dashboard against the ad's. Hidden for reviews without photos. */
@@ -693,9 +763,10 @@ function PhotoCheck({ result, analysis }: { result: Result; analysis: Analysis }
     <Fold
       title={t("photo_check")}
       icon={<Camera className="size-4" />}
+      hue="cyan"
       summary={
         serious > 0 || odometerOff ? (
-          <span className="inline-flex items-center gap-1.5 font-medium text-warn">
+          <span className="inline-flex items-center gap-1.5 font-semibold text-warn">
             <span className="size-2 rounded-full bg-warn" />
             <Num>{serious + (odometerOff ? 1 : 0)}</Num>
           </span>
@@ -714,24 +785,24 @@ function PhotoCheck({ result, analysis }: { result: Result; analysis: Analysis }
         </div>
       )}
       {findings.length === 0 ? (
-        <p className="flex items-center gap-2 text-sm text-good">
+        <p className="flex items-center gap-2 text-sm font-medium text-good">
           <CheckCircle2 className="size-4" /> {t("photo_nothing")}
         </p>
       ) : (
-        <div className="divide-y divide-line">
+        <div className="space-y-2">
           {findings.map((finding, i) => {
             const index = result.photo_index?.[finding.photo - 1] ?? -1;
             const src = index >= 0 ? images[index] : undefined;
             return (
-              <div key={i} className="flex items-center gap-3 py-2.5 first:pt-0">
+              <div key={i} className="flex items-center gap-3 rounded-2xl bg-surface-2 p-2 ring-1 ring-line">
                 {src ? (
-                  <button type="button" onClick={() => setOpen(index)} className="size-12 shrink-0 cursor-zoom-in overflow-hidden rounded-md bg-surface-2" aria-label={t("photos_open")}>
-                    <img src={photoSize(src, 2)} alt="" referrerPolicy="no-referrer" className="size-full object-cover" />
+                  <button type="button" onClick={() => setOpen(index)} className="relative size-14 shrink-0 cursor-zoom-in overflow-hidden rounded-xl" aria-label={t("photos_open")}>
+                    <img src={photoSize(src, 2)} alt="" referrerPolicy="no-referrer" className="size-full object-cover transition-transform duration-300 hover:scale-110" />
                   </button>
                 ) : (
-                  <span className="num grid size-12 shrink-0 place-items-center rounded-md bg-surface-2 text-xs text-muted">{finding.photo}</span>
+                  <span className="num grid size-14 shrink-0 place-items-center rounded-xl bg-surface text-xs text-muted">{finding.photo}</span>
                 )}
-                <span className={cx("size-2 shrink-0 rounded-full", findingTone[finding.severity] ?? "bg-muted")} />
+                <span className={cx("size-2 shrink-0 rounded-full", findingTone[finding.severity] ?? "bg-faint")} />
                 <span className="min-w-0 text-sm leading-snug" dir="auto">
                   {finding.finding}
                 </span>
@@ -740,21 +811,33 @@ function PhotoCheck({ result, analysis }: { result: Result; analysis: Analysis }
           })}
         </div>
       )}
-      <p className="mt-3 text-xs text-faint">{t("photo_check_hint")}</p>
+      <p className="mt-3 text-xs leading-relaxed text-faint">{t("photo_check_hint")}</p>
       {open != null && <Lightbox images={images} start={open} onClose={() => setOpen(null)} />}
     </Fold>
   );
 }
 
-function ListFold({ title, items }: { title: string; items: string[] }) {
+function ListFold({ title, items, icon, hue, mark }: { title: string; items: string[]; icon?: ReactNode; hue?: Hue; mark?: "plus" | "minus" | "box" }) {
   if (!items?.length) return null;
   return (
-    <Fold title={title} summary={<Count n={items.length} />}>
-      <ul className="space-y-2">
+    <Fold title={title} icon={icon} hue={hue} summary={<Count n={items.length} />}>
+      <ul className="space-y-2.5">
         {items.map((item, i) => (
-          <li key={i} className="flex gap-2.5 text-sm leading-relaxed">
-            <span className="mt-2 size-1.5 shrink-0 rounded-full bg-muted" />
-            {item}
+          <li key={i} className="flex gap-3 text-sm leading-relaxed">
+            {mark === "plus" ? (
+              <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-good/12 text-good">
+                <Check className="size-3" strokeWidth={3} />
+              </span>
+            ) : mark === "minus" ? (
+              <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-bad/12 text-bad">
+                <Minus className="size-3" strokeWidth={3} />
+              </span>
+            ) : mark === "box" ? (
+              <span className="mt-0.5 size-5 shrink-0 rounded-md border-2 border-line-strong" />
+            ) : (
+              <span className="num mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-surface-2 text-[11px] font-bold text-muted">{i + 1}</span>
+            )}
+            <span dir="auto">{item}</span>
           </li>
         ))}
       </ul>
@@ -766,11 +849,11 @@ function SellerMessage({ text }: { text: string }) {
   const t = useT();
   const toast = useToast();
   return (
-    <Fold title={t("seller_message")}>
-      <p className="whitespace-pre-wrap rounded-xl bg-surface-2 p-4 text-sm leading-relaxed" dir="ltr">
+    <Fold title={t("seller_message")} icon={<Mail className="size-4" />} hue="accent">
+      <p className="whitespace-pre-wrap rounded-2xl bg-surface-2 p-4 text-sm leading-relaxed ring-1 ring-line" dir="ltr">
         {text}
       </p>
-      <Button size="sm" className="mt-3" onClick={async () => (await copyText(text)) && toast(t("copied"), "good")}>
+      <Button size="sm" variant="primary" className="mt-3" onClick={async () => (await copyText(text)) && toast(t("copied"), "good")}>
         {t("copy")}
       </Button>
     </Fold>
@@ -791,9 +874,10 @@ function Market({ result, view }: { result: Result; view: Purpose }) {
     return list;
   }, [valuation.used, sort]);
   const median = valuation.median ?? valuation.market_price;
+  if (valuation.method === "ai") return <AiMarket result={result} />;
   return (
     <div className="space-y-3">
-      <Fold title={t("compared_with")} summary={<span className="num font-medium text-text">{euro(valuation.market_price)}</span>}>
+      <Fold title={t("compared_with")} icon={<Scale className="size-4" />} hue="accent" summary={<span className="num font-semibold text-text">{euro(valuation.market_price)}</span>}>
         <p className="text-sm text-muted" dir="ltr">
           {valuation.basis}
         </p>
@@ -822,13 +906,13 @@ function Market({ result, view }: { result: Result; view: Purpose }) {
           )}
         </div>
         {valuation.comparables_url && (
-          <a href={valuation.comparables_url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-sm font-medium underline-offset-4 hover:underline">
+          <a href={valuation.comparables_url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-accent underline-offset-4 hover:underline">
             {t("open_search")} <ExternalLink className="size-3.5" />
           </a>
         )}
       </Fold>
 
-      <Fold title={t("comps_chart")} defaultOpen>
+      <Fold title={t("comps_chart")} icon={<ScatterChart className="size-4" />} hue="violet" defaultOpen>
         <p className="text-xs text-muted">{t("adjusted")}</p>
         <div className="mt-3">
           <Scatter
@@ -842,8 +926,8 @@ function Market({ result, view }: { result: Result; view: Purpose }) {
         </div>
       </Fold>
 
-      <Fold title={t("tab_comps")} summary={<Count n={used.length} />} flush>
-        <div className="flex justify-end border-b border-line px-4 py-2 sm:px-5">
+      <Fold title={t("tab_comps")} icon={<Columns3 className="size-4" />} hue="cyan" summary={<Count n={used.length} />} flush>
+        <div className="flex justify-end border-b border-line px-4 py-2.5 sm:px-5">
           <Segmented
             size="sm"
             value={sort}
@@ -857,7 +941,7 @@ function Market({ result, view }: { result: Result; view: Purpose }) {
         </div>
         <div className="divide-y divide-line">
           {(showAll ? used : used.slice(0, 12)).map((comp, i) => (
-            <a key={i} href={comp.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-surface-2 sm:px-5">
+            <a key={i} href={comp.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-surface-2 sm:px-5">
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium rtl:text-right" dir="auto">
                   {comp.title}
@@ -874,11 +958,59 @@ function Market({ result, view }: { result: Result; view: Purpose }) {
           ))}
         </div>
         {used.length > 12 && !showAll && (
-          <button onClick={() => setShowAll(true)} className="w-full cursor-pointer border-t border-line px-4 py-3 text-sm font-medium text-muted hover:bg-surface-2 hover:text-text">
+          <button onClick={() => setShowAll(true)} className="w-full cursor-pointer border-t border-line px-4 py-3.5 text-sm font-semibold text-accent transition-colors hover:bg-surface-2">
             {t("show_all", { n: used.length })}
           </button>
         )}
       </Fold>
+    </div>
+  );
+}
+
+/** The market value as the AI estimated it (no comparable ads): the estimate, its range, what it
+ *  rests on and how sure it is, and the advice to compare a few offers. */
+function AiMarket({ result }: { result: Result }) {
+  const t = useT();
+  const { valuation, listing, trade } = result;
+  const low = valuation.low ?? valuation.range?.[0];
+  const high = valuation.high ?? valuation.range?.[1];
+  return (
+    <div className="space-y-3">
+      <Card className="relative overflow-hidden p-4 sm:p-5">
+        <span className="bg-brand-soft pointer-events-none absolute inset-0 opacity-70" />
+        <div className="relative flex items-start gap-3.5">
+          <span className="bg-brand grid size-10 shrink-0 place-items-center rounded-xl text-white shadow-glow">
+            <Sparkles className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="eyebrow">{t("market_estimate")}</div>
+            <div className="num mt-1 text-[28px] font-bold leading-none tracking-tight">{euro(valuation.market_price)}</div>
+            {low != null && high != null && (
+              <p className="mt-1.5 text-sm text-muted">
+                {t("estimate_range")} <Num className="font-semibold text-text">{euro(low)} – {euro(high)}</Num>
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="relative mt-3.5 flex flex-wrap gap-2">
+          <Badge tone={valuation.confidence === "high" ? "good" : valuation.confidence === "medium" ? "neutral" : "warn"} className="py-1">
+            {t("confidence")}: {t(`conf_${valuation.confidence}` as TextKey)}
+          </Badge>
+        </div>
+        {valuation.basis && (
+          <p className="relative mt-3 text-sm text-muted" dir="ltr">
+            {valuation.basis}
+          </p>
+        )}
+        {low != null && high != null && valuation.market_price && (
+          <div className="relative">
+            <PriceRange low={low} high={high} market={valuation.market_price} price={trade?.priced === false ? null : listing.price} labels={{ market: t("market_price"), price: t("this_car") }} />
+          </div>
+        )}
+      </Card>
+      <Note tone="warn" icon={<AlertTriangle className="size-4" />}>
+        {t("market_ai_note")}
+      </Note>
     </div>
   );
 }

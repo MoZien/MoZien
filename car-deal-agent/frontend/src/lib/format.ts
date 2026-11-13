@@ -21,7 +21,8 @@ export function isolateNumbers(text: string): string {
 }
 
 export function place(location: string | null | undefined): string {
-  return (location || "").replace(/^\s*\d{5}\s*/, "").replace(/^[^-]+ - /, "") || "–";
+  // "06108 Sachsen-Anhalt - Halle (Saale)" → "Halle (Saale)": the state may itself contain a hyphen.
+  return (location || "").replace(/^\s*\d{5}\s*/, "").replace(/^.*? - /, "") || "–";
 }
 
 export function relativeDate(iso: string, lang: string): string {

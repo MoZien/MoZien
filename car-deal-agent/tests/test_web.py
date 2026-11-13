@@ -10,6 +10,7 @@ from helpers import issue, make_analysis
 
 from cardeal.analyzer import (
     ListingAnalysis,
+    MarketEstimate,
     PersonalAnalysis,
     Photo,
     PhotoFinding,
@@ -77,6 +78,9 @@ class FakeClaude:
         if kind is ListingAnalysis:
             parsed = make_analysis(verdict_reason="trade view", issues=[issue()], odometer_km_in_photo=100_400,
                                    photo_findings=[PhotoFinding(photo=1, finding="Delle hinten links", severity="warn")])
+        elif kind is MarketEstimate:
+            parsed = MarketEstimate(market_price=9_240, low=8_500, high=10_100, confidence="medium",
+                                    basis="VW Golf VII 1.4 TSI, Benzin, 2013–2015")
         elif kind is PersonalAnalysis:
             parsed = PersonalAnalysis(
                 verdict="buy", verdict_reason="personal view", reliability=4, issues=[issue()],
@@ -106,10 +110,11 @@ class FakePhotos:
         return [Photo("image/jpeg", JPEG, url) for url in urls]
 
 
-def make_client(source=None, codes=None, ai=True, ai_limit=40, tmp_path=None):
+def make_client(source=None, codes=None, ai=True, ai_limit=40, tmp_path=None, market_source="comparables"):
     access = Access(codes, "test-secret", ai_daily_limit=ai_limit)
     service = CarService(str(tmp_path / "cache.sqlite3"), access, source=source or FakeKleinanzeigen(),
-                         ai_client=FakeClaude() if ai else None, photo_loader=FakePhotos())
+                         ai_client=FakeClaude() if ai else None, photo_loader=FakePhotos(),
+                         market_source=market_source)
     if not ai:
         service._ai_checked, service._ai_client = True, None
     app = create_app(service=service, access=access, jobs=JobManager())
@@ -675,3 +680,56 @@ def test_operator_details_for_impressum(tmp_path, monkeypatch):
     legal = client.get("/api/meta").json()["legal"]
     assert legal == {"name": "Max Muster", "address": ["Musterstr. 1", "12345 Musterstadt"],
                      "email": "kontakt@example.com", "phone": "", "vat_id": ""}
+
+
+# --- market price from the AI (MARKET_SOURCE=ai): no searches on the marketplace -------------------
+
+def test_ai_market_source_loads_only_the_ad_and_estimates_the_price(tmp_path):
+    source = FakeKleinanzeigen()
+    client, service = make_client(source=source, tmp_path=tmp_path, market_source="ai")
+    meta = client.get("/api/meta").json()
+    assert meta["market_source"] == "ai" and meta["hunt"] is False
+    job = analyze(client, "personal")
+    assert job["status"] == "done", job
+    valuation = job["result"]["valuation"]
+    assert valuation["method"] == "ai" and valuation["market_price"] == 9_240
+    assert valuation["comparables"] == 0 and valuation["range"] == [8_500, 10_100]
+    assert valuation["basis"].startswith("VW Golf VII")
+    assert source.searches == [] and source.detail_calls == ["kleinanzeigen:3546000001"]
+    estimate = next(r for r in service.ai_client.requests if r["output_format"] is MarketEstimate)
+    prompt = estimate["messages"][0]["content"]
+    assert "Golf" in prompt and "100000 km" in prompt and "6000" not in prompt  # the price is left out
+    # the same car again: the estimate comes from the cache
+    analyze(client, "trade")
+    kinds = [r["output_format"].__name__ for r in service.ai_client.requests]
+    assert kinds.count("MarketEstimate") == 1
+
+
+def test_ai_market_source_turns_the_deal_hunt_off(tmp_path):
+    client, _ = make_client(tmp_path=tmp_path, market_source="ai")
+    body = {"criteria": {"max_price": 9000, "zip_code": "06108"}, "prefs": {}}
+    job = wait(client, client.post("/api/jobs/hunt", json=body).json()["job_id"])
+    assert job["status"] == "error" and job["error"]["code"] == "hunt_off"
+
+
+def test_ai_market_source_needs_the_ai(tmp_path):
+    client, _ = make_client(tmp_path=tmp_path, market_source="ai", ai=False)
+    job = analyze(client)
+    assert job["status"] == "error" and job["error"]["code"] == "ai_unavailable"
+
+
+def test_low_confidence_estimate_says_so_instead_of_counting_comparables(tmp_path):
+    client, service = make_client(tmp_path=tmp_path, market_source="ai")
+    original = service.ai_client._parse
+
+    def unsure(**request):
+        response = original(**request)
+        if request["output_format"] is MarketEstimate:
+            response.parsed_output.confidence = "low"
+        return response
+
+    service.ai_client.beta.messages.parse = unsure
+    result = analyze(client, "personal")["result"]
+    reasons = " ".join(result["personal"]["reasons"] + result["trade"]["reasons"])
+    assert "grob schätzbar" in reasons or "roughly" in reasons or "تقدير" in reasons
+    assert "Vergleichsautos" not in reasons

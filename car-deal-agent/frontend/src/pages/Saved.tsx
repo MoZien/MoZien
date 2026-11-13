@@ -1,8 +1,10 @@
 import { Columns3, Flame, Heart, History, Search, SlidersHorizontal, Trash2, TrendingDown, X } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import { CarListRow } from "../components/CarCard";
 import { Sparkline } from "../components/charts";
-import { Badge, Button, Card, EmptyState, Field, IconButton, List, Modal, PageTitle, Select, Tabs, Textarea, Toggle, cx } from "../components/ui";
+import { EASE } from "../components/motion";
+import { Badge, Button, Card, EmptyState, Field, IconButton, Modal, PageTitle, Select, Tabs, Textarea, Toggle, cx } from "../components/ui";
 import { euro, relativeDate } from "../lib/format";
 import { type TextKey, useT } from "../lib/i18n";
 import { discountOf, isGood } from "../lib/result";
@@ -75,16 +77,19 @@ export function SavedPage({ route }: { route: Route }) {
   }
 
   const activeFilters = Number(sort !== "date") + Number(purpose !== "all") + Number(status !== "all") + Number(onlyGood);
-  const chip = "flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-line-strong bg-surface px-3 py-1.5 text-[13px] font-medium";
+  const chip = "flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-accent/25 bg-accent/8 px-3 py-1.5 text-[13px] font-semibold text-accent transition active:scale-95";
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:space-y-6">
       <PageTitle
+        icon={<Heart className="size-6" />}
+        hue="bad"
         title={t("nav_saved")}
+        sub={t("saved_sub")}
         action={
           compare.length > 0 && (
-            <Button size="sm" icon={<Columns3 className="size-4" />} onClick={() => navigate("compare")}>
-              {t("nav_compare")} (<span className="num">{compare.length}</span>)
+            <Button size="sm" variant="primary" icon={<Columns3 className="size-4" />} onClick={() => navigate("compare")}>
+              {t("nav_compare")} <span className="num rounded-full bg-white/20 px-1.5 text-xs font-bold">{compare.length}</span>
             </Button>
           )
         }
@@ -93,25 +98,25 @@ export function SavedPage({ route }: { route: Route }) {
         value={tab}
         onChange={setTab}
         tabs={[
-          { value: "favorites", label: t("favorites"), badge: <span className="num text-xs text-faint">{saved.filter((c) => c.favorite).length}</span> },
-          { value: "history", label: t("history"), badge: <span className="num text-xs text-faint">{saved.length}</span> },
+          { value: "favorites", label: t("favorites"), icon: <Heart className="size-4" />, badge: <span className="num rounded-full bg-surface-3 px-1.5 text-[11px] font-semibold text-muted">{saved.filter((c) => c.favorite).length}</span> },
+          { value: "history", label: t("history"), icon: <History className="size-4" />, badge: <span className="num rounded-full bg-surface-3 px-1.5 text-[11px] font-semibold text-muted">{saved.length}</span> },
         ]}
       />
       {/* Search, and sort and filter in a sheet; what is set shows as chips that remove it. */}
       <div className="space-y-2.5">
         <div className="flex gap-2">
           <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-faint" />
+            <Search className="pointer-events-none absolute start-3.5 top-1/2 size-4 -translate-y-1/2 text-faint" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t("search_saved")}
-              className="h-10 w-full rounded-[10px] border border-line-strong bg-surface ps-9 pe-3 text-sm outline-none transition focus:border-accent focus:ring-3 focus:ring-accent/15"
+              className="h-12 w-full rounded-field border border-line-strong bg-surface ps-10 pe-3 text-sm outline-none transition placeholder:text-faint hover:border-faint focus:border-accent focus:ring-4 focus:ring-accent/15"
             />
           </div>
-          <Button onClick={() => setFiltersOpen(true)} icon={<SlidersHorizontal className="size-4" />} aria-label={t("sort_filter")}>
+          <Button className="h-12!" onClick={() => setFiltersOpen(true)} icon={<SlidersHorizontal className="size-4" />} aria-label={t("sort_filter")}>
             <span className="hidden sm:inline">{t("sort_filter")}</span>
-            {activeFilters > 0 && <span className="num grid size-5 place-items-center rounded-full bg-ink text-[11px] text-on-ink">{activeFilters}</span>}
+            {activeFilters > 0 && <span className="num bg-brand grid size-5 place-items-center rounded-full text-[11px] font-bold text-white">{activeFilters}</span>}
           </Button>
         </div>
         {activeFilters > 0 && (
@@ -156,14 +161,16 @@ export function SavedPage({ route }: { route: Route }) {
           />
         </Card>
       ) : (
-        <List>
-          {list.map((car) => {
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <AnimatePresence mode="popLayout">
+          {list.map((car, index) => {
             const prices = car.priceHistory.map((p) => p.price).filter((p): p is number => p != null);
             const dropped = prices.length > 1 && prices[prices.length - 1] < prices[0];
             return (
+              <motion.div key={car.id} layout initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.94 }} transition={{ duration: 0.32, ease: EASE, delay: Math.min(index, 8) * 0.035 }}>
               <CarListRow
-                key={car.id}
                 result={car.result}
+                favorite={car.favorite}
                 onClick={() => navigate("analyze", car.id)}
                 meta={
                   <>
@@ -184,12 +191,12 @@ export function SavedPage({ route }: { route: Route }) {
                 actions={
                   <>
                     <IconButton label={car.favorite ? t("remove_favorite") : t("add_favorite")} onClick={() => updateSaved(car.id, { favorite: !car.favorite })} className="size-8">
-                      <Heart className={cx("size-4", car.favorite && "fill-current text-text")} />
+                      <Heart key={String(car.favorite)} className={cx("size-4", car.favorite && "animate-pop fill-[#e5484d] text-[#e5484d]")} />
                     </IconButton>
                     <IconButton
                       label={t("to_compare")}
                       onClick={() => compareStore.set((ids) => (ids.includes(car.id) ? ids.filter((id) => id !== car.id) : [...ids, car.id].slice(-4)))}
-                      className={cx("size-8", compare.includes(car.id) && "bg-surface-2 text-text")}
+                      className={cx("size-8", compare.includes(car.id) && "bg-accent/12 text-accent")}
                     >
                       <Columns3 className="size-4" />
                     </IconButton>
@@ -200,15 +207,17 @@ export function SavedPage({ route }: { route: Route }) {
                 }
                 note={
                   car.notes ? (
-                    <button onClick={() => setEditing(car)} className="block w-full cursor-pointer truncate text-start text-xs text-muted">
+                    <button onClick={() => setEditing(car)} className="mt-1.5 block w-full cursor-pointer truncate rounded-lg bg-surface-2 px-2.5 py-1.5 text-start text-xs text-muted">
                       {car.notes}
                     </button>
                   ) : null
                 }
               />
+              </motion.div>
             );
           })}
-        </List>
+          </AnimatePresence>
+        </div>
       )}
 
       <Modal
@@ -269,7 +278,7 @@ function EditSaved({ car, onDone }: { car: SavedCar; onDone: () => void }) {
           <button
             key={s}
             onClick={() => setStatus(s)}
-            className={cx("cursor-pointer rounded-full border px-3 py-1.5 text-sm font-medium transition", status === s ? "border-ink bg-ink text-on-ink" : "border-line-strong bg-surface hover:bg-surface-2")}
+            className={cx("cursor-pointer rounded-full border px-3.5 py-2 text-sm font-medium transition active:scale-95", status === s ? "bg-brand border-transparent text-white shadow-glow" : "border-line-strong bg-surface hover:bg-surface-2")}
           >
             {t(`status_${s}` as TextKey)}
           </button>
@@ -278,8 +287,8 @@ function EditSaved({ car, onDone }: { car: SavedCar; onDone: () => void }) {
       <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("notes_placeholder")} />
       {car.priceHistory.length > 0 && (
         <div>
-          <div className="mb-1 text-xs font-medium text-muted">{t("price_history")}</div>
-          <div className="space-y-1 text-sm">
+          <div className="mb-1.5 text-xs font-medium text-muted">{t("price_history")}</div>
+          <div className="space-y-1 rounded-2xl bg-surface-2 p-3 text-sm ring-1 ring-line">
             {car.priceHistory.map((entry, i) => (
               <div key={i} className="flex justify-between">
                 <span className="text-muted">{new Date(entry.at).toLocaleDateString(t.lang)}</span>

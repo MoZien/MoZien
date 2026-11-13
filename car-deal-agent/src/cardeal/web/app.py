@@ -22,6 +22,9 @@ Environment:
   APP_NAME            the name shown in the app (default AutoHalle)
   SCRAPE_MIN_DELAY / SCRAPE_MAX_DELAY  pause between requests to Kleinanzeigen in seconds
   CORS_ORIGINS        origins of the native app (default capacitor://localhost,https://localhost)
+  MARKET_SOURCE       where the market price comes from: ai (default: an AI estimate from the
+                      car's data; only the ad itself is loaded, no searches on the marketplace, no
+                      deal hunt) or comparables (similar ads searched on Kleinanzeigen, deal hunt on)
   FETCH_MODE          who loads the marketplace pages: device (default: only the app on the phone or
                       the browser helper; the server never contacts the marketplaces and keeps no
                       ads), both (the device when it can, else the server) or server
@@ -204,7 +207,8 @@ def create_app(service: CarService | None = None, access: Access | None = None,
         data_dir.mkdir(parents=True, exist_ok=True)
         scraper = ScraperSettings(min_delay_seconds=float(env.get("SCRAPE_MIN_DELAY", "3")),
                                   max_delay_seconds=float(env.get("SCRAPE_MAX_DELAY", "6")))
-        service = CarService(str(data_dir / "cache.sqlite3"), access, env.get("AI_MODEL", "claude-sonnet-5-5"), scraper)
+        service = CarService(str(data_dir / "cache.sqlite3"), access, env.get("AI_MODEL", "claude-sonnet-5-5"), scraper,
+                             market_source=env.get("MARKET_SOURCE", "ai").strip().lower())
     jobs = jobs or JobManager(workers=int(env.get("JOB_WORKERS", "2")))
     sync = sync or SyncStore(env.get("SYNC_DB") or Path(env.get("DATA_DIR", "data")) / "sync.sqlite3")
     app = FastAPI(title=app_name, version=__version__, docs_url="/api/docs", openapi_url="/api/openapi.json")
@@ -241,6 +245,7 @@ def create_app(service: CarService | None = None, access: Access | None = None,
             "account": {"id": current.id, "name": current.name, "email": current.email, "admin": current.admin,
                         "usage": access.usage(current)} if current else None,
             "legal": legal, "fetch_mode": fetch_mode,
+            "market_source": service.market_source, "hunt": service.hunt_enabled,
             "makes": MAKES, "fuels": FUELS, "bodies": BODIES, "gearboxes": GEARBOXES,
             "defaults": Prefs().model_dump(), "hunt_defaults": HuntCriteria().model_dump(),
         }

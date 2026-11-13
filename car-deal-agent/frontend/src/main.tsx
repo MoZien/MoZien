@@ -6,14 +6,8 @@ import { isNativeApp } from "./lib/device";
 import { listenForSharedAds } from "./lib/share";
 import { setAccountScope } from "./lib/store";
 // Fonts are served by the app itself, not loaded from Google (no visitor data to third parties).
-import "@fontsource/ibm-plex-sans/latin-400.css";
-import "@fontsource/ibm-plex-sans/latin-500.css";
-import "@fontsource/ibm-plex-sans/latin-600.css";
-import "@fontsource/ibm-plex-sans/latin-700.css";
-import "@fontsource/ibm-plex-sans/latin-ext-400.css";
-import "@fontsource/ibm-plex-sans/latin-ext-500.css";
-import "@fontsource/ibm-plex-sans/latin-ext-600.css";
-import "@fontsource/ibm-plex-sans/latin-ext-700.css";
+// Latin: Geist (one variable file for every weight). Arabic: IBM Plex Sans Arabic.
+import "@fontsource-variable/geist/wght.css";
 import "@fontsource/ibm-plex-sans-arabic/arabic-400.css";
 import "@fontsource/ibm-plex-sans-arabic/arabic-500.css";
 import "@fontsource/ibm-plex-sans-arabic/arabic-600.css";
@@ -37,7 +31,7 @@ createRoot(document.getElementById("root")!).render(
 );
 
 // The start screen (index.html) stays only a moment, then the app fades in.
-const SPLASH_MS = 450;
+const SPLASH_MS = 900;
 const splash = document.getElementById("splash");
 if (splash) {
   setTimeout(() => {
@@ -47,6 +41,9 @@ if (splash) {
     setTimeout(() => document.body.classList.remove("intro"), 700);
   }, Math.max(0, SPLASH_MS - performance.now()));
 }
+
+// iPhones only show the pressed state of buttons (:active) when the page listens for touches.
+document.addEventListener("touchstart", () => undefined, { passive: true });
 
 // Installable on the home screen; the service worker only caches the app shell.
 // In the native app, an ad shared from the Kleinanzeigen app (iPhone: via a notification) opens its check.

@@ -2,64 +2,85 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Colour tokens. A quiet, neutral base (warm paper and ink) so that the photos and the verdict
-   colours carry the screen. One brand blue marks what can be tapped next (links, the active tab,
-   switches, focus); the main action is ink. Green, amber and red only ever say how good a car is.
-   Dark mode under .dark. */
+/* AutoHalle 3 – colour tokens.
+   A cool, bright base in the light theme and a deep midnight blue in the dark one. The brand is an
+   electric blue that runs into cyan (headlights at night): it marks what can be tapped next and
+   fills the main button. Green, amber and red only ever say how good a car is. */
 :root {
-  --bg: #f5f5f2;
+  --bg: #f3f5fa;
+  --bg-2: #e8edf6;
   --surface: #ffffff;
-  --surface-2: #f0f0ec;
-  --line: #e4e3de;
-  --line-strong: #d3d2cc;
-  --text: #16181b;
-  --muted: #5c6068;
-  --faint: #8c9098;
-  --accent: #1f4bd8;
+  --surface-2: #f1f4f9;
+  --surface-3: #e5eaf3;
+  --line: #e1e6f0;
+  --line-strong: #c9d1e0;
+  --text: #0b1324;
+  --muted: #536079;
+  --faint: #8590a6;
+  --accent: #2456f5;
+  --accent-2: #0fa9dc;
+  --accent-deep: #1a3fd0;
   --on-accent: #ffffff;
-  --ink: #16181b;
+  --ink: #0b1324;
   --on-ink: #ffffff;
-  --good: #0d7a46;
-  --warn: #a8590a;
-  --bad: #c22d2d;
-  --info: #1f4bd8;
-  --violet: #5b4bc4;
-  --shadow: 0 1px 2px rgba(22, 24, 27, 0.04), 0 4px 16px -6px rgba(22, 24, 27, 0.08);
-  /* Phone: the top bar and the bottom tabs. Sticky tabs and the action bar sit right next to them. */
-  --topbar: calc(3.25rem + env(safe-area-inset-top));
-  --tabbar: calc(3.5rem + env(safe-area-inset-bottom));
+  --good: #0a8a50;
+  --warn: #b25f08;
+  --bad: #cf2f2f;
+  --info: #2456f5;
+  --violet: #6a4df5;
+  --glow: rgba(36, 86, 245, 0.32);
+  --shadow: 0 1px 2px rgba(11, 19, 36, 0.04), 0 6px 20px -8px rgba(11, 19, 36, 0.1);
+  --shadow-lg: 0 2px 4px rgba(11, 19, 36, 0.04), 0 18px 44px -14px rgba(11, 19, 36, 0.22);
+  /* The hero (start page, sign-in) is night blue in both themes. */
+  --hero-a: #0a1430;
+  --hero-b: #070c1d;
+  /* Phone: the top bar and the floating tab bar. Sticky tabs and the action bar sit next to them. */
+  --topbar: calc(3.5rem + env(safe-area-inset-top));
+  --tabbar: calc(4.75rem + env(safe-area-inset-bottom));
 }
 .dark {
-  --bg: #0e0f11;
-  --surface: #17191c;
-  --surface-2: #1f2125;
-  --line: #2a2d32;
-  --line-strong: #3a3e45;
-  --text: #f2f2ef;
-  --muted: #a3a7ae;
-  --faint: #70757d;
-  --accent: #7b9bff;
-  --on-accent: #0e0f11;
-  --ink: #f2f2ef;
-  --on-ink: #0e0f11;
-  --good: #3cbf7f;
-  --warn: #e3a04a;
-  --bad: #f06a6a;
-  --info: #7b9bff;
-  --violet: #a597ff;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -10px rgba(0, 0, 0, 0.5);
+  --bg: #060a13;
+  --bg-2: #0a101e;
+  --surface: #0e1524;
+  --surface-2: #151e31;
+  --surface-3: #1d2840;
+  --line: #1d283d;
+  --line-strong: #2f3d5a;
+  --text: #edf1f9;
+  --muted: #9ba8c0;
+  --faint: #65728c;
+  --accent: #6b95ff;
+  --accent-2: #3bd3f7;
+  --accent-deep: #3c66ee;
+  --on-accent: #ffffff;
+  --ink: #edf1f9;
+  --on-ink: #0b1324;
+  --good: #37d48d;
+  --warn: #f3ad4d;
+  --bad: #ff6f6f;
+  --info: #6b95ff;
+  --violet: #a798ff;
+  --glow: rgba(72, 120, 255, 0.45);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 28px -12px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.4), 0 24px 60px -16px rgba(0, 0, 0, 0.75);
+  --hero-a: #0d1a3d;
+  --hero-b: #080e22;
 }
 
 @theme {
   --color-bg: var(--bg);
+  --color-bg-2: var(--bg-2);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
   --color-text: var(--text);
   --color-muted: var(--muted);
   --color-faint: var(--faint);
   --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-accent-deep: var(--accent-deep);
   --color-on-accent: var(--on-accent);
   --color-ink: var(--ink);
   --color-on-ink: var(--on-ink);
@@ -69,14 +90,24 @@
   --color-warn: var(--warn);
   --color-bad: var(--bad);
   --shadow-card: var(--shadow);
-  --font-sans: "IBM Plex Sans", "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
-  --animate-fade-up: fade-up 0.2s ease-out both;
+  --shadow-pop: var(--shadow-lg);
+  --shadow-glow: 0 10px 28px -10px var(--glow);
+  --radius-card: 1.25rem;
+  --radius-field: 0.875rem;
+  --font-sans: "Geist Variable", "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+  --animate-fade-up: fade-up 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   --animate-pulse-soft: pulse-soft 1.6s ease-in-out infinite;
-  --animate-sheet: sheet 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-sheet: sheet 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-pop: pop 0.38s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+  --animate-float: float 14s ease-in-out infinite;
+  --animate-radar: radar 2.8s linear infinite;
+  --animate-scan: scan 2.6s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  --animate-blip: blip 2.8s ease-out infinite;
 }
 
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(3px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: none; }
 }
 @keyframes sheet {
@@ -87,29 +118,152 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.45; }
 }
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+@keyframes pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes float {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  33% { transform: translate3d(4%, -6%, 0) scale(1.08); }
+  66% { transform: translate3d(-5%, 4%, 0) scale(0.95); }
+}
+@keyframes radar {
+  to { transform: rotate(360deg); }
+}
+@keyframes scan {
+  0% { transform: translateX(-12%); opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { transform: translateX(112%); opacity: 0; }
+}
+@keyframes blip {
+  0%, 20% { opacity: 0; transform: scale(0.4); }
+  30% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.6); }
+}
+@keyframes draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes progress-slide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(250%); }
+}
 
 html, body { background: var(--bg); color: var(--text); }
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-html[dir="rtl"] body { font-family: "IBM Plex Sans Arabic", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; }
+html[dir="rtl"] body { font-family: "IBM Plex Sans Arabic", "Geist Variable", ui-sans-serif, system-ui, sans-serif; }
 body {
   margin: 0;
   min-height: 100dvh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
-  font-feature-settings: "kern";
+  font-feature-settings: "kern", "ss01";
+}
+/* A soft glow of the brand colours behind the top of every page. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(70% 42% at 8% -8%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 70%),
+    radial-gradient(60% 38% at 100% -4%, color-mix(in srgb, var(--accent-2) 12%, transparent), transparent 70%);
+}
+.dark body::before {
+  background:
+    radial-gradient(70% 42% at 8% -8%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 70%),
+    radial-gradient(60% 38% at 100% -4%, color-mix(in srgb, var(--accent-2) 14%, transparent), transparent 70%);
 }
 h1, h2, h3 { text-wrap: balance; }
-html:not([dir="rtl"]) h1, html:not([dir="rtl"]) h2 { letter-spacing: -0.015em; }
-::selection { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+html:not([dir="rtl"]) h1, html:not([dir="rtl"]) h2 { letter-spacing: -0.022em; }
+html:not([dir="rtl"]) h3 { letter-spacing: -0.01em; }
+::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-/* Numbers read left to right in every language. A component class, so layout utilities
-   (grid, block, flex) on the same element still win. */
+
 @layer components {
+  /* Numbers read left to right in every language. A component class, so layout utilities
+     (grid, block, flex) on the same element still win. */
   .num { font-variant-numeric: tabular-nums; unicode-bidi: isolate; direction: ltr; display: inline-block; }
   /* A small label above a section ("EINSCHÄTZUNG"); Arabic has no capitals, so it stays as is. */
-  .eyebrow { font-size: 12px; font-weight: 600; color: var(--faint); letter-spacing: 0.06em; text-transform: uppercase; }
+  .eyebrow { font-size: 11.5px; font-weight: 600; color: var(--faint); letter-spacing: 0.08em; text-transform: uppercase; }
   html[dir="rtl"] .eyebrow { letter-spacing: 0; text-transform: none; font-size: 13px; }
+
+  /* The brand gradient: the main button, the active tab, the logo's road. */
+  .bg-brand { background-image: linear-gradient(135deg, #3767ff 0%, #1d45dd 100%); }
+  .dark .bg-brand { background-image: linear-gradient(135deg, #5d8aff 0%, #2f5cf0 100%); }
+  .bg-brand-soft { background-image: linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, transparent), color-mix(in srgb, var(--accent-2) 12%, transparent)); }
+  .text-brand {
+    background-image: linear-gradient(120deg, var(--accent) 0%, var(--accent-2) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Frosted layers: top bar, tab bar, the action bar of a result. */
+  .glass {
+    background: color-mix(in srgb, var(--surface) 80%, transparent);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+  }
+
+  /* The night-blue hero with two lights in the corners. */
+  .hero {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    color: #fff;
+    background:
+      radial-gradient(90% 70% at 0% 0%, rgba(52, 100, 255, 0.55), transparent 62%),
+      radial-gradient(70% 60% at 100% 100%, rgba(16, 182, 232, 0.3), transparent 65%),
+      linear-gradient(160deg, var(--hero-a), var(--hero-b));
+  }
+  .hero::before, .hero::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    border-radius: 9999px;
+    filter: blur(56px);
+    animation: float 14s ease-in-out infinite;
+  }
+  .hero::before { width: 60%; aspect-ratio: 1; inset-inline-start: -18%; top: -22%; background: #3b6cff; opacity: 0.5; }
+  .hero::after { width: 50%; aspect-ratio: 1; inset-inline-end: -16%; bottom: -24%; background: #19c2f0; opacity: 0.32; animation-delay: -6s; }
+  /* A fine grid over the hero, fading out to the bottom. */
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image: linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+    background-size: 28px 28px;
+    -webkit-mask-image: radial-gradient(120% 90% at 50% 0%, #000 30%, transparent 78%);
+    mask-image: radial-gradient(120% 90% at 50% 0%, #000 30%, transparent 78%);
+  }
+
+  /* Loading placeholder with a light running across. */
+  .shimmer {
+    background: linear-gradient(100deg, var(--surface-2) 30%, var(--surface-3) 50%, var(--surface-2) 70%);
+    background-size: 200% 100%;
+    animation: shimmer 1.6s linear infinite;
+  }
+  /* A progress line whose light keeps moving while the work goes on. */
+  .progress-live { position: relative; overflow: hidden; }
+  .progress-live::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 40%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+    animation: progress-slide 1.4s ease-in-out infinite;
+  }
+  /* The logo's lines draw themselves once. */
+  .draw { stroke-dasharray: 120; stroke-dashoffset: 120; animation: draw 0.9s cubic-bezier(0.6, 0, 0.2, 1) forwards; }
+  /* Opened and closed cards animate their height; printing shows every card open. */
+  .fold-body { overflow: hidden; }
 }
 .scrollbar-thin { scrollbar-width: thin; }
 .no-scrollbar { scrollbar-width: none; }
@@ -121,7 +275,7 @@ html:not([dir="rtl"]) h1, html:not([dir="rtl"]) h2 { letter-spacing: -0.015em; }
    the page at both sides. On phones every field therefore uses 16px. */
 @media (max-width: 639px) {
   input, select, textarea { font-size: 16px; }
-  input.otp { font-size: 24px; }
+  input.otp { font-size: 26px; }
 }
 /* Fields show focus with their own border and ring; the global outline on top looked doubled. */
 input:focus-visible, select:focus-visible, textarea:focus-visible { outline: none; }
@@ -132,8 +286,11 @@ body.intro main { animation: enter 0.3s ease-out both; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
+  .draw { stroke-dashoffset: 0; }
 }
 @media print {
   .no-print { display: none !important; }
   body { background: #fff; }
+  body::before { display: none; }
+  .fold-body { height: auto !important; opacity: 1 !important; overflow: visible !important; }
 }

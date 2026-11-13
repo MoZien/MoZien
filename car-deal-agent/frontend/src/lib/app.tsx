@@ -122,3 +122,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 }
 
 export const useApp = () => useContext(AppContext);
+
+/** True when the server estimates the market value with the AI instead of loading comparable
+ *  ads (MARKET_SOURCE=ai): the app then words things accordingly and has no deal hunt. */
+export function useAiMarket(): boolean {
+  const { meta } = useApp();
+  return meta?.market_source === "ai";
+}

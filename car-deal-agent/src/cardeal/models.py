@@ -122,6 +122,9 @@ class Valuation:
     # of Germany (0.95 = 5 % lower), learned from local_ads ads. None: not applied.
     local_factor: float | None = None
     local_ads: int = 0
+    # An estimate without comparables (method "ai"): the range most such cars are offered in.
+    low: int | None = None
+    high: int | None = None
 
     def discount(self, price: int | None) -> float | None:
         """How far below the market price an asking price is (0.2 = 20 % cheaper)."""

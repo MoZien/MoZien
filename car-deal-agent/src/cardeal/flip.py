@@ -155,6 +155,8 @@ def decide(
         look_first()
         if valuation.power_as_kw:
             reasons.append(t(lang, "reason_power_kw", ps=listing.power_ps))
+        elif valuation.method == "ai":
+            reasons.append(t(lang, "reason_ai_uncertain"))
         elif valuation.comparables < 8 or valuation.spread is None:
             reasons.append(t(lang, "reason_few_comparables", n=valuation.comparables))
         else:

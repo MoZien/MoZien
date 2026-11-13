@@ -190,7 +190,8 @@ def decide_personal(
         reasons.append(t(lang, "reason_damaged"))
     if valuation.confidence == "low":
         at_most("check")
-        reasons.append(t(lang, "reason_few_comparables", n=valuation.comparables))
+        reasons.append(t(lang, "reason_ai_uncertain") if valuation.method == "ai"
+                       else t(lang, "reason_few_comparables", n=valuation.comparables))
     if estimate.discount is not None and estimate.discount >= deal.suspicious_discount:
         at_most("check")
         reasons.append(t(lang, "reason_suspicious", discount=percent(estimate.discount)))

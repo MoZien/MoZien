@@ -1,4 +1,6 @@
+import { ArrowRight } from "lucide-react";
 import { useState } from "react";
+import { CarScan } from "../components/brand";
 import { PurposePicker } from "../components/PurposeSwitch";
 import { Button, Field, Modal, Segmented } from "../components/ui";
 import { useApp } from "../lib/app";
@@ -7,7 +9,7 @@ import { prefsStore, uiStore, useStore } from "../lib/store";
 import type { Lang } from "../lib/types";
 import { ZipInput } from "./Settings";
 
-/** First start: language, purpose and home postal code. */
+/** First start: a welcome, then language, purpose and home postal code. */
 export function Onboarding() {
   const t = useT();
   const { meta } = useApp();
@@ -18,8 +20,22 @@ export function Onboarding() {
     setOpen(false);
   };
   return (
-    <Modal open={open} onClose={done} title={t("welcome_title", { app: meta?.app_name ?? "AutoHalle" })}>
-      <div className="space-y-5">
+    <Modal
+      open={open}
+      onClose={done}
+      title={t("welcome_title", { app: meta?.app_name ?? "AutoHalle" })}
+      sub={t("welcome_line")}
+      footer={
+        <Button variant="primary" size="lg" className="w-full" onClick={done} icon={<ArrowRight className="size-[18px] rtl:rotate-180" />}>
+          {t("welcome_go")}
+        </Button>
+      }
+    >
+      <div className="space-y-5 pt-1">
+        <div className="hero rounded-[22px] px-5 py-4">
+          <span className="hero-grid" />
+          <CarScan onDark className="mx-auto w-full max-w-[260px]" />
+        </div>
         <Segmented
           className="w-full"
           value={prefs.language}
@@ -30,9 +46,6 @@ export function Onboarding() {
         <Field label={t("welcome_zip")} hint={t("home_zip_hint")}>
           <ZipInput value={prefs.home_zip} onChange={(home_zip) => prefsStore.set((p) => ({ ...p, home_zip }))} />
         </Field>
-        <Button variant="primary" size="lg" className="w-full" onClick={done}>
-          {t("welcome_go")}
-        </Button>
       </div>
     </Modal>
   );

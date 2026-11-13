@@ -135,6 +135,9 @@ export interface Valuation {
   local_ads: number;
   range: [number, number] | null;
   median?: number;
+  /** method "ai": the estimate's range (also in `range`). */
+  low?: number | null;
+  high?: number | null;
 }
 
 export interface Trade {
@@ -281,6 +284,9 @@ export interface Meta {
   legal?: { name: string; address: string[]; email: string; phone: string; vat_id: string };
   /** Who loads marketplace pages: the user's device, the server, or the device when it can. */
   fetch_mode?: "device" | "server" | "both";
+  /** Where the market price comes from: comparable ads, or an AI estimate (then no deal hunt). */
+  market_source?: "comparables" | "ai";
+  hunt?: boolean;
   makes: Record<string, string>;
   fuels: Record<string, string>;
   bodies: Record<string, string>;

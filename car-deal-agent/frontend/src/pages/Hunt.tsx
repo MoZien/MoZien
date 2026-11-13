@@ -1,13 +1,16 @@
-import { AlertTriangle, Bookmark, CheckCircle2, Coffee, RotateCcw, SlidersHorizontal, Square, Trash2 } from "lucide-react";
+import { AlertTriangle, BellRing, Bookmark, CheckCircle2, Coffee, Laptop, Play, Radar, RotateCcw, ScanSearch, Share, SlidersHorizontal, Smartphone, Sparkles, Square, Trash2 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { DeviceHint } from "../components/DeviceHint";
 import { useState } from "react";
 import { CarListRow } from "../components/CarCard";
+import { RadarSweep } from "../components/brand";
+import { CountUp, EASE, Reveal, Stagger, StaggerItem } from "../components/motion";
 import { PurposeSwitch } from "../components/PurposeSwitch";
-import { Button, Card, Disclosure, Field, Input, List, Modal, Note, NumberInput, PageTitle, Select, Toggle } from "../components/ui";
+import { Button, Card, Chip, IconTile, Disclosure, Field, Input, Modal, Note, NumberInput, PageTitle, ProgressLine, SectionTitle, Select, Toggle } from "../components/ui";
 import { useApp } from "../lib/app";
 import { type T, useT } from "../lib/i18n";
 import { euro, km } from "../lib/format";
-import { navigate } from "../lib/router";
+import { href, navigate } from "../lib/router";
 import { huntStore, startHunt, stopHunt } from "../lib/hunt";
 import { createScopedStore, prefsStore, saveResult, searchesStore, seenStore, uid, useStore } from "../lib/store";
 import type { HuntCriteria, Meta } from "../lib/types";
@@ -21,7 +24,53 @@ export const DEFAULT_CRITERIA: HuntCriteria = {
 const criteriaStore = createScopedStore<HuntCriteria>("ah.hunt", DEFAULT_CRITERIA);
 const skipStore = createScopedStore<boolean>("ah.huntSkip", true);
 
+/** "Find deals": the app's own search, or, when the server has it off (the market value is an AI
+ *  estimate and the app searches no platform), how to get new ads checked through the
+ *  marketplace's own search alerts and sharing. */
 export function HuntPage() {
+  const { meta } = useApp();
+  return meta?.hunt === false ? <HuntGuide /> : <HuntSearch />;
+}
+
+function HuntGuide() {
+  const t = useT();
+  const steps = [
+    { text: t("hunt_ai_1"), icon: <BellRing className="size-5" />, hue: "warn" as const },
+    { text: t("hunt_ai_2"), icon: <Share className="size-5" />, hue: "cyan" as const },
+    { text: t("hunt_ai_3"), icon: <Sparkles className="size-5" />, hue: "accent" as const },
+  ];
+  return (
+    <div className="space-y-5 lg:space-y-6">
+      <PageTitle icon={<Radar className="size-6" />} title={t("hunt_ai_title")} sub={t("hunt_ai_sub")} />
+      <Stagger className="grid gap-3 sm:grid-cols-3 sm:gap-4" delay={0.06}>
+        {steps.map((step, i) => (
+          <StaggerItem key={i}>
+            <Card className="relative h-full overflow-hidden p-4 sm:p-5">
+              <span className="num pointer-events-none absolute -top-3 end-3 text-[76px] font-bold leading-none text-surface-2">{i + 1}</span>
+              <IconTile hue={step.hue}>{step.icon}</IconTile>
+              <p className="relative mt-3 text-[15px] leading-relaxed">{step.text}</p>
+            </Card>
+          </StaggerItem>
+        ))}
+      </Stagger>
+      <Reveal delay={0.2}>
+        <Card className="flex items-start gap-3.5 p-4">
+          <IconTile hue="neutral">
+            <Laptop className="size-5" />
+          </IconTile>
+          <p className="min-w-0 flex-1 pt-1 text-sm leading-relaxed text-muted">{t("hunt_ai_web")}</p>
+        </Card>
+      </Reveal>
+      <Reveal delay={0.25}>
+        <a href={href("analyze")} className="bg-brand flex h-[52px] items-center justify-center gap-2.5 rounded-2xl text-[15px] font-semibold text-white shadow-glow transition hover:brightness-110 active:scale-[0.98]">
+          <ScanSearch className="size-5" /> {t("hunt_ai_cta")}
+        </a>
+      </Reveal>
+    </div>
+  );
+}
+
+function HuntSearch() {
   const t = useT();
   const { meta } = useApp();
   const prefs = useStore(prefsStore);
@@ -53,61 +102,66 @@ export function HuntPage() {
   }
 
   const parts = criteriaSummary(criteria, t, meta);
+  const share = progress.total ? Math.max(0.04, (progress.checked ?? 0) / progress.total) : 0.04;
 
   return (
-    <div className="space-y-5">
-      <PageTitle title={t("hunt_title")} sub={t("hunt_sub")} />
+    <div className="space-y-5 lg:space-y-6">
+      <PageTitle icon={<Radar className="size-6" />} title={t("hunt_title")} sub={t("hunt_sub")} />
       <DeviceHint />
 
-      {/* The criteria as one summary line; they are changed in a sheet. */}
-      <Card className="p-4 sm:p-5">
-        <div className="flex items-start justify-between gap-3">
-          <button type="button" onClick={() => setEditing(true)} className="min-w-0 flex-1 cursor-pointer text-start">
-            <span className="eyebrow block">{t("criteria_title")}</span>
-            <span className="mt-1 block text-sm font-medium leading-relaxed sm:text-[15px]">
-              {parts.map((part, i) => (
-                <span key={i}>
-                  <span className="whitespace-nowrap">
+      {/* The criteria as chips; they are changed in a sheet. */}
+      <Reveal delay={0.05}>
+        <Card className="overflow-hidden">
+          <div className="bg-brand-soft flex items-center gap-4 p-4 sm:p-5">
+            <div className="min-w-0 flex-1">
+              <span className="eyebrow">{t("criteria_title")}</span>
+              <button type="button" onClick={() => setEditing(true)} disabled={running} className="mt-2 flex w-full cursor-pointer flex-wrap gap-1.5 text-start disabled:cursor-default">
+                {parts.map((part, i) => (
+                  <Chip key={i} className="bg-surface">
                     {part}
-                    {i < parts.length - 1 && <span className="text-faint"> ·</span>}
-                  </span>{" "}
-                </span>
-              ))}
-            </span>
-          </button>
-          <Button size="sm" icon={<SlidersHorizontal className="size-4" />} onClick={() => setEditing(true)} disabled={running}>
-            {t("edit")}
-          </Button>
-        </div>
-        {searches.length > 0 && (
-          <div className="no-scrollbar -mx-4 mt-3 flex items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
-            <span className="shrink-0 text-xs text-muted">{t("saved_searches")}:</span>
-            {searches.map((search) => (
-              <span key={search.id} className="inline-flex shrink-0 items-center gap-1 rounded-full border border-line bg-surface-2 ps-3 text-xs">
-                <button className="cursor-pointer py-1 font-medium" onClick={() => { criteriaStore.set(search.criteria); setPlacesText(search.criteria.exclude_places.join(", ")); }}>
-                  {search.name}
-                </button>
-                <button aria-label={t("delete")} className="cursor-pointer px-2 py-1 text-faint hover:text-bad" onClick={() => searchesStore.set((list) => list.filter((s) => s.id !== search.id))}>
-                  <Trash2 className="size-3" />
-                </button>
-              </span>
-            ))}
+                  </Chip>
+                ))}
+              </button>
+            </div>
+            <RadarSweep className="hidden w-24 sm:block" found={found.length} />
           </div>
-        )}
-        <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-center">
-          <PurposeSwitch compact />
-          {running ? (
-            <Button variant="danger" size="lg" className="w-full sm:ms-auto sm:w-auto" icon={<Square className="size-4" />} loading={hunt.stopping} onClick={stopHunt}>
-              {t("stop")}
-            </Button>
-          ) : (
-            <Button variant="primary" size="lg" className="w-full sm:ms-auto sm:w-auto" onClick={start}>
-              {t("start_hunt")}
-            </Button>
-          )}
-        </div>
-        <p className="mt-3 text-xs leading-relaxed text-faint">{t("hunt_time")}</p>
-      </Card>
+          <div className="p-4 sm:p-5">
+            {searches.length > 0 && (
+              <div className="no-scrollbar -mx-4 mb-4 flex items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
+                <span className="shrink-0 text-xs font-medium text-muted">{t("saved_searches")}</span>
+                {searches.map((search) => (
+                  <span key={search.id} className="inline-flex shrink-0 items-center rounded-full border border-accent/25 bg-accent/8 ps-3 text-[13px] text-accent">
+                    <button className="flex cursor-pointer items-center gap-1.5 py-1.5 font-semibold" onClick={() => { criteriaStore.set(search.criteria); setPlacesText(search.criteria.exclude_places.join(", ")); }}>
+                      <Bookmark className="size-3.5" /> {search.name}
+                    </button>
+                    <button aria-label={t("delete")} className="cursor-pointer px-2.5 py-1.5 text-accent/60 hover:text-bad" onClick={() => searchesStore.set((list) => list.filter((s) => s.id !== search.id))}>
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <PurposeSwitch compact />
+              <div className="flex gap-2 sm:ms-auto">
+                <Button size="lg" icon={<SlidersHorizontal className="size-[18px]" />} onClick={() => setEditing(true)} disabled={running} aria-label={t("edit")} className="px-4!">
+                  <span className="hidden sm:inline">{t("edit")}</span>
+                </Button>
+                {running ? (
+                  <Button variant="danger" size="lg" className="flex-1 sm:flex-none" icon={<Square className="size-4 fill-current" />} loading={hunt.stopping} onClick={stopHunt}>
+                    {t("stop")}
+                  </Button>
+                ) : (
+                  <Button variant="primary" size="lg" className="flex-1 sm:flex-none" icon={<Play className="size-4 fill-current" />} onClick={start}>
+                    {t("start_hunt")}
+                  </Button>
+                )}
+              </div>
+            </div>
+            <p className="mt-3 text-xs leading-relaxed text-faint">{t("hunt_time")}</p>
+          </div>
+        </Card>
+      </Reveal>
 
       <Modal
         open={editing}
@@ -215,7 +269,7 @@ export function HuntPage() {
               <Input value={placesText} onChange={(e) => setPlacesText(e.target.value)} />
             </Field>
           </div>
-          <div className="mt-3 grid grid-cols-1 gap-1 sm:grid-cols-2">
+          <div className="mt-3 grid grid-cols-1 gap-1 sm:grid-cols-2 sm:gap-x-6">
             <Toggle checked={skipSeen} onChange={(v) => skipStore.set(v)} label={t("skip_seen")} hint={seen.length ? `${seen.length}` : undefined} />
             <Toggle checked={prefs.ai_in_hunt} onChange={(ai_in_hunt) => prefsStore.set((p) => ({ ...p, ai_in_hunt }))} label={t("s_ai_hunt")} />
           </div>
@@ -227,34 +281,47 @@ export function HuntPage() {
         </Disclosure>
       </Modal>
 
-      {running && (
-        <Card className="overflow-hidden">
-          <div className="h-0.5 bg-surface-2" dir="ltr">
-            <div className="h-full bg-accent transition-all duration-700" style={{ width: `${progress.total ? Math.max(4, ((progress.checked ?? 0) / progress.total) * 100) : 4}%` }} />
-          </div>
-          <div className="p-4 sm:p-5">
-            <div className="flex items-center gap-2.5">
-              <span className="relative flex size-2.5 shrink-0">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent/50" />
-                <span className="relative inline-flex size-2.5 rounded-full bg-accent" />
-              </span>
-              <span className="text-[15px] font-semibold">{t("hunting")}</span>
-            </div>
-            <p className="num mt-1.5 text-sm text-muted">{t("hunt_progress", { checked: progress.checked ?? 0, total: progress.total ?? "…", found: progress.found ?? 0 })}</p>
-            {job?.partial?.current && !job?.partial?.paused && (
-              <p className="mt-1 truncate text-[13px] text-faint rtl:text-right" dir="auto">
-                {String(job.partial.current)}
-              </p>
-            )}
-            {job?.device && !job?.partial?.paused && <p className="mt-3 border-t border-line pt-3 text-[13px] text-muted">{t("hunt_keep_open")}</p>}
-            {Boolean(job?.partial?.paused) && (
-              <p className="mt-3 flex items-start gap-1.5 border-t border-line pt-3 text-[13px] font-medium leading-relaxed text-warn">
-                <Coffee className="mt-px size-3.5 shrink-0" /> {t("hunt_paused")}
-              </p>
-            )}
-          </div>
-        </Card>
-      )}
+      <AnimatePresence>
+        {running && (
+          <motion.div key="running" initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.35, ease: EASE }}>
+            <Card className="overflow-hidden">
+              <div className="flex items-center gap-4 p-4 sm:gap-6 sm:p-5">
+                <RadarSweep className="w-24 sm:w-28" found={found.length} />
+                <div className="min-w-0 flex-1">
+                  <div className="eyebrow">{t("hunting")}</div>
+                  <div className="mt-1 flex items-baseline gap-3">
+                    <span className="text-[34px] font-bold leading-none tracking-tight text-accent">
+                      <CountUp value={progress.found ?? found.length} />
+                    </span>
+                    <span className="text-sm text-muted">{t("hunt_found_label")}</span>
+                  </div>
+                  <p className="num mt-1.5 text-[13px] text-muted">{t("hunt_progress", { checked: progress.checked ?? 0, total: progress.total ?? "…", found: progress.found ?? 0 })}</p>
+                  {job?.partial?.current && !job?.partial?.paused && (
+                    <p className="mt-1 truncate text-[13px] text-faint rtl:text-right" dir="auto">
+                      {String(job.partial.current)}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <ProgressLine value={share} live className="mx-4 mb-4 sm:mx-5" />
+              {(job?.device || Boolean(job?.partial?.paused)) && (
+                <div className="space-y-2 border-t border-line px-4 py-3 sm:px-5">
+                  {job?.device && !job?.partial?.paused && (
+                    <p className="flex items-center gap-2 text-[13px] text-muted">
+                      <Smartphone className="size-4 shrink-0" /> {t("hunt_keep_open")}
+                    </p>
+                  )}
+                  {Boolean(job?.partial?.paused) && (
+                    <p className="flex items-start gap-2 text-[13px] font-medium leading-relaxed text-warn">
+                      <Coffee className="mt-0.5 size-4 shrink-0" /> {t("hunt_paused")}
+                    </p>
+                  )}
+                </div>
+              )}
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {error && (
         <Note tone={error.code === "blocked" ? "warn" : "bad"} icon={<AlertTriangle className="size-4" />}>
@@ -286,11 +353,18 @@ export function HuntPage() {
       )}
 
       {found.length > 0 && (
-        <List>
-          {found.map((result) => (
-            <CarListRow key={result.listing.id} result={result} onClick={() => { saveResult(result); navigate("analyze", result.listing.id); }} />
-          ))}
-        </List>
+        <section>
+          <SectionTitle action={<span className="num rounded-full bg-accent/10 px-2.5 py-0.5 text-[13px] font-semibold text-accent">{found.length}</span>}>{t("hunt_results")}</SectionTitle>
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <AnimatePresence initial={false}>
+              {found.map((result) => (
+                <motion.div key={result.listing.id} layout initial={{ opacity: 0, y: 16, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ type: "spring", stiffness: 320, damping: 28 }}>
+                  <CarListRow result={result} onClick={() => { saveResult(result); navigate("analyze", result.listing.id); }} />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        </section>
       )}
     </div>
   );
@@ -303,7 +377,7 @@ function criteriaSummary(c: HuntCriteria, t: T, meta: Meta | null): string[] {
   const model = [make, c.query.trim()].filter(Boolean).join(" ");
   if (model) parts.push(model);
   // Ranges read left to right in Arabic too.
-  const ltr = (text: string) => `\u2066${text}\u2069`;
+  const ltr = (text: string) => `⁦${text}⁩`;
   if (c.max_price != null) parts.push(c.min_price ? ltr(`${euro(c.min_price)} – ${euro(c.max_price)}`) : t("sum_up_to", { v: euro(c.max_price) }));
   else if (c.min_price) parts.push(t("sum_from", { v: euro(c.min_price) }));
   if (c.min_year && c.max_year) parts.push(ltr(`${c.min_year} – ${c.max_year}`));

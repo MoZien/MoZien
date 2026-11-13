@@ -4,9 +4,10 @@ import { useRef, useState } from "react";
 import { JobProgress } from "../components/JobProgress";
 import { PurposeSwitch } from "../components/PurposeSwitch";
 import { ResultView } from "../components/ResultView";
-import { Button, Card, Field, Input, Note, NumberInput, Select, Toggle } from "../components/ui";
+import { Reveal } from "../components/motion";
+import { Button, Card, Field, Input, Note, NumberInput, PageTitle, Select, Toggle } from "../components/ui";
 import { ApiError, runJob } from "../lib/api";
-import { useApp } from "../lib/app";
+import { useAiMarket, useApp } from "../lib/app";
 import { useT } from "../lib/i18n";
 import { createStore, prefsStore, saveResult, uiStore, useStore } from "../lib/store";
 import type { Job, ManualCar, Result } from "../lib/types";
@@ -20,6 +21,7 @@ const carStore = createStore<ManualCar>("ah.manual", {
 export function ValuatePage() {
   const t = useT();
   const { meta } = useApp();
+  const aiMarket = useAiMarket();
   const car = useStore(carStore);
   const [job, setJob] = useState<Job<Result> | null>(null);
   const [result, setResult] = useState<Result | null>(null);
@@ -53,18 +55,16 @@ export function ValuatePage() {
 
   const years = Array.from({ length: new Date().getFullYear() - 1989 }, (_, i) => new Date().getFullYear() - i);
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-[24px] font-semibold leading-tight lg:text-[28px]">{t("valuate_title")}</h1>
-        <p className="mt-1.5 text-[15px] leading-relaxed text-muted">{t("valuate_sub")}</p>
-      </div>
+    <div className="space-y-5 lg:space-y-6">
+      <PageTitle icon={<Gauge className="size-6" />} hue="violet" title={t("valuate_title")} sub={t(aiMarket ? "valuate_sub_ai" : "valuate_sub")} />
       <DeviceHint />
-      <Card className="p-5">
-        <div className="mb-4">
-          <PurposeSwitch />
+      <Reveal delay={0.05}>
+      <Card className="p-4 sm:p-6">
+        <div className="mb-5">
+          <PurposeSwitch compact />
         </div>
         <form
-          className="grid grid-cols-2 gap-4 md:grid-cols-4"
+          className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4"
           onSubmit={(event) => {
             event.preventDefault();
             start();
@@ -147,12 +147,13 @@ export function ValuatePage() {
             <Toggle checked={car.negotiable} onChange={(negotiable) => set({ negotiable })} label={t("negotiable")} />
           </div>
           <div className="col-span-2 md:col-span-4">
-            <Button type="submit" variant="primary" size="lg" loading={job != null} icon={<Gauge className="size-4" />}>
+            <Button type="submit" variant="primary" size="lg" className="w-full sm:w-auto" loading={job != null} icon={<Gauge className="size-[18px]" />}>
               {t("value_it")}
             </Button>
           </div>
         </form>
       </Card>
+      </Reveal>
       {job && <JobProgress job={job} onCancel={() => abort.current?.abort()} />}
       {error && <Note tone="bad">{errorText(t, error)}</Note>}
       {result && <ResultView result={result} onChange={setResult} />}

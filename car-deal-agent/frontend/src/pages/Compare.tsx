@@ -1,9 +1,11 @@
-import { Columns3, Crown, Plus, X } from "lucide-react";
+import { Check, Columns3, Crown, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { CarPhoto } from "../components/CarCard";
 import { PurposeSwitch } from "../components/PurposeSwitch";
 import { scoreText } from "../components/charts";
-import { Badge, Button, Card, EmptyState, IconButton, Modal, cx } from "../components/ui";
+import { VerdictPill } from "../components/CarCard";
+import { Reveal } from "../components/motion";
+import { Button, Card, EmptyState, IconButton, Modal, PageTitle, cx } from "../components/ui";
 import { euro, km, pct, registration } from "../lib/format";
 import { type TextKey, useT } from "../lib/i18n";
 import { discountOf, verdictOf } from "../lib/result";
@@ -61,69 +63,79 @@ export function ComparePage() {
   };
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-[24px] font-semibold leading-tight lg:text-[28px]">{t("compare_title")}</h1>
-        <div className="flex items-center gap-2">
-          <PurposeSwitch compact tiny />
-          {cars.length > 0 && (
-            <Button size="sm" icon={<Plus className="size-4" />} onClick={() => setPicking(true)} disabled={ids.length >= 4}>
-              {t("compare_pick")}
+    <div className="space-y-5 lg:space-y-6">
+      <PageTitle
+        icon={<Columns3 className="size-6" />}
+        hue="cyan"
+        title={t("compare_title")}
+        sub={t("nav_compare_sub")}
+        action={
+          cars.length > 0 && (
+            <Button size="sm" variant="primary" icon={<Plus className="size-4" />} onClick={() => setPicking(true)} disabled={ids.length >= 4}>
+              <span className="hidden sm:inline">{t("compare_pick")}</span>
             </Button>
-          )}
-        </div>
-      </div>
+          )
+        }
+      />
+      {cars.length > 0 && <PurposeSwitch compact />}
       {cars.length === 0 ? (
         <Card>
-          <EmptyState icon={<Columns3 className="size-6" />} title={t("compare_title")} text={t("compare_empty")} action={<Button onClick={() => setPicking(true)}>{t("compare_pick")}</Button>} />
+          <EmptyState icon={<Columns3 className="size-8" />} title={t("compare_title")} text={t("compare_empty")} action={<Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setPicking(true)}>{t("compare_pick")}</Button>} />
         </Card>
       ) : (
-        <Card className="overflow-x-auto">
-          <table className="w-full min-w-[40rem] text-sm">
-            <thead>
-              <tr>
-                <th className="w-40 p-4" />
-                {cars.map((car) => (
-                  <th key={car.id} className="p-3 align-top font-normal">
-                    <div className="relative">
-                      <IconButton label={t("remove")} className="absolute end-1 top-1 z-10 bg-surface/80" onClick={() => compareStore.set((list) => list.filter((id) => id !== car.id))}>
-                        <X className="size-4" />
-                      </IconButton>
-                      <button className="block w-full cursor-pointer text-start" onClick={() => navigate("analyze", car.id)}>
-                        <CarPhoto src={car.result.listing.images?.[0] ?? ""} className="h-28 w-full rounded-xl" />
-                        <div className="mt-2 line-clamp-2 text-sm font-semibold" dir="auto">
-                          {car.result.listing.title}
+        <Reveal delay={0.06}>
+          <Card className="overflow-x-auto">
+            <table className="w-full min-w-[40rem] border-separate border-spacing-0 text-sm">
+              <thead>
+                <tr>
+                  <th className="sticky start-0 z-10 w-36 bg-surface p-4" />
+                  {cars.map((car) => {
+                    const verdict = verdictOf(car.result, view, t, true);
+                    return (
+                      <th key={car.id} className="p-3 align-top font-normal">
+                        <div className="relative">
+                          <IconButton label={t("remove")} className="absolute end-1.5 top-1.5 z-10 size-8 rounded-full bg-white/90 text-[#0b1324] shadow-md backdrop-blur" onClick={() => compareStore.set((list) => list.filter((id) => id !== car.id))}>
+                            <X className="size-4" />
+                          </IconButton>
+                          <button className="group block w-full cursor-pointer text-start" onClick={() => navigate("analyze", car.id)}>
+                            <span className="block overflow-hidden rounded-2xl">
+                              <CarPhoto src={car.result.listing.images?.[0] ?? ""} className="h-32 w-full transition-transform duration-500 group-hover:scale-105" />
+                            </span>
+                            <div className="mt-2.5 line-clamp-2 text-sm font-semibold" dir="auto">
+                              {car.result.listing.title}
+                            </div>
+                          </button>
+                          {verdict && <VerdictPill tone={verdict.tone} label={verdict.label} className="mt-2" />}
                         </div>
-                      </button>
-                      {verdictOf(car.result, view, t, true) && <Badge tone={verdictOf(car.result, view, t, true)!.tone} className="mt-1.5">{verdictOf(car.result, view, t, true)!.label}</Badge>}
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => {
-                const top = best(row);
-                return (
-                  <tr key={row.label} className="border-t border-line">
-                    <td className="p-3 ps-4 text-muted">{row.label}</td>
-                    {cars.map((car) => {
-                      const isBest = top != null && row.value(car.result) === top;
-                      return (
-                        <td key={car.id} className={cx("p-3", isBest && "bg-good/8 font-semibold text-good")}>
-                          <span className="inline-flex items-center gap-1.5">
-                            {row.show(car.result)}
-                            {isBest && <Crown className="size-3.5" />}
-                          </span>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </Card>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => {
+                  const top = best(row);
+                  return (
+                    <tr key={row.label}>
+                      <td className="sticky start-0 z-10 border-t border-line bg-surface p-3 ps-4 text-[13px] text-muted">{row.label}</td>
+                      {cars.map((car) => {
+                        const isBest = top != null && row.value(car.result) === top;
+                        return (
+                          <td key={car.id} className={cx("border-t border-line p-3", isBest && "bg-good/8 font-semibold text-good")}>
+                            <span className="inline-flex items-center gap-1.5">
+                              {row.show(car.result)}
+                              {isBest && <Crown className="size-3.5" />}
+                            </span>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </Card>
+        </Reveal>
       )}
       <Modal open={picking} onClose={() => setPicking(false)} title={t("compare_pick")}>
         <div className="max-h-[60vh] space-y-2 overflow-y-auto">
@@ -134,16 +146,16 @@ export function ComparePage() {
               <button
                 key={car.id}
                 onClick={() => compareStore.set((list) => (selected ? list.filter((id) => id !== car.id) : [...list, car.id].slice(-4)))}
-                className={cx("flex w-full cursor-pointer items-center gap-3 rounded-xl border p-2.5 text-start transition", selected ? "border-text bg-surface-2" : "border-line hover:bg-surface-2")}
+                className={cx("flex w-full cursor-pointer items-center gap-3 rounded-2xl border p-2.5 text-start transition active:scale-[0.98]", selected ? "border-accent bg-accent/8 ring-4 ring-accent/10" : "border-line hover:bg-surface-2")}
               >
-                <CarPhoto src={car.result.listing.images?.[0] ?? ""} className="size-12 shrink-0 rounded-lg" />
+                <CarPhoto src={car.result.listing.images?.[0] ?? ""} className="size-14 shrink-0 rounded-xl" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium" dir="auto">
                     {car.result.listing.title}
                   </span>
                   <span className="num text-xs text-muted">{euro(car.result.listing.price)}</span>
                 </span>
-                {selected && <Badge tone="accent">✓</Badge>}
+                {selected && <span className="bg-brand animate-pop grid size-6 shrink-0 place-items-center rounded-full text-white"><Check className="size-3.5" strokeWidth={3} /></span>}
               </button>
             );
           })}

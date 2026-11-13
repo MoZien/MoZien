@@ -134,6 +134,11 @@ def listing_from_json(data: dict) -> Listing:
     return Listing(**{k: v for k, v in data.items() if k in known})
 
 
+def replace_valuation(valuation: Valuation) -> Valuation:
+    """A copy, so one result changing it (the local price level) leaves the cached one alone."""
+    return Valuation(**{f.name: getattr(valuation, f.name) for f in fields(Valuation)})
+
+
 def valuation_from_json(data: dict) -> Valuation:
     known = {f.name for f in fields(Valuation)}
     values = {k: v for k, v in data.items() if k in known}
@@ -154,7 +159,8 @@ class Fetchers:
 class CarService:
     def __init__(self, store_path: str, access: Access, ai_model: str = "claude-sonnet-5-5",
                  scraper: ScraperSettings | None = None, source=None, ai_client=None, autoscout24=None,
-                 autohero=None, photo_loader: Callable[[list[str]], list[Photo]] | None = None):
+                 autohero=None, photo_loader: Callable[[list[str]], list[Photo]] | None = None,
+                 market_source: str = "comparables"):
         self.store = Store(store_path)
         self.load_photos = photo_loader or load_on_server  # server mode only (device mode: the device)
         self._pruned_at = 0.0
@@ -164,6 +170,11 @@ class CarService:
         self.autohero = autohero or AutoheroSource(scraper or ScraperSettings())
         self.access = access
         self.ai_model = ai_model
+        # Where the market price comes from: "comparables" (similar ads searched on Kleinanzeigen)
+        # or "ai" (an estimate from the car's data; only the ad itself is loaded, no searches, and
+        # the deal hunt is off).
+        self.market_source = market_source if market_source in ("comparables", "ai") else "ai"
+        self._estimates: dict[tuple, tuple[float, Valuation]] = {}
         self._ai_client = ai_client
         self._ai_checked = ai_client is not None
 
@@ -246,7 +257,7 @@ class CarService:
         if not plausible_km(listing):
             raise UserFacingError("bad_km", km=listing.km)
         job.step("market", "active")
-        valuation = self._value(hunter, listing)
+        valuation = self._value(hunter, listing, account)
         job.step("market", "done", comparables=valuation.comparables)
         photos = self._photos(job, listing, valuation, account) if prefs.ai_enabled and prefs.ai_photos else []
         return self.evaluate(listing, valuation, prefs, account, job=job, ai=prefs.ai_enabled, photos=photos)
@@ -285,11 +296,18 @@ class CarService:
             raise UserFacingError("bad_km", km=car.km)
         hunter = self._hunter(prefs, job)
         job.step("market", "active")
-        valuation = self._value(hunter, listing)
+        valuation = self._value(hunter, listing, account)
         job.step("market", "done", comparables=valuation.comparables)
         return self.evaluate(listing, valuation, prefs, account, job=job, ai=False)
 
+    @property
+    def hunt_enabled(self) -> bool:
+        """The deal hunt searches the marketplace by itself: only with comparables mode."""
+        return self.market_source == "comparables"
+
     def hunt(self, job: Job, criteria: HuntCriteria, prefs: Prefs, account: Account) -> dict:
+        if not self.hunt_enabled:
+            raise UserFacingError("hunt_off")
         search = criteria.search()
         hunter = self._hunter(prefs, job, [search], criteria.exclude_places)
         job.step("search", "active")
@@ -407,13 +425,49 @@ class CarService:
         except ValueError:
             raise UserFacingError("not_car") from None
 
-    def _value(self, hunter: DealHunter, listing: Listing) -> Valuation:
+    def _value(self, hunter: DealHunter, listing: Listing, account: Account | None = None) -> Valuation:
+        if self.market_source == "ai":
+            return self._ai_valuation(listing, account)
         try:
             return hunter._exact_valuation(listing)
         except SourceBlockedError:
             raise UserFacingError("blocked") from None
         except requests.RequestException as exc:
             raise UserFacingError("network", message=str(exc)[:200]) from None
+
+    ESTIMATE_HOURS = 24
+
+    def _ai_valuation(self, listing: Listing, account: Account | None) -> Valuation:
+        """The market price estimated by the AI from the car's data: no marketplace searches. The
+        same car (model, engine, year, about the same mileage) is estimated once a day."""
+        if not plausible_km(listing):
+            return Valuation(None, 0, None, "none", "implausible mileage")
+        if self.ai_client is None:
+            raise UserFacingError("ai_unavailable")
+        if account is not None and not self.access.has_allowance(account, "ai"):
+            raise UserFacingError("quota")
+        km_bucket = round((listing.km or 0) / 10_000)
+        key = (listing.make, listing.model, (listing.title or "").lower()[:80], listing.year, km_bucket,
+               listing.fuel, listing.gearbox, listing.power_ps, listing.body_type)
+        cached = self._estimates.get(key)
+        if cached and time.monotonic() - cached[0] < self.ESTIMATE_HOURS * 3600:
+            return replace_valuation(cached[1])
+        analyzer = ListingAnalyzer(AISettings(model=self.ai_model, effort="low"), "de", client=self.ai_client)
+        try:
+            estimate = analyzer.estimate_market(listing)
+        except Exception as exc:  # no price without the AI: say why
+            log.warning("market estimate failed for %s: %r", listing.url, exc, exc_info=True)
+            raise UserFacingError("ai_failed", reason=ai_error_reason(exc)) from None
+        spread = (estimate.high - estimate.low) / estimate.market_price if estimate.market_price else None
+        valuation = Valuation(
+            market_price=int(round(estimate.market_price / 10) * 10), comparables=0, spread=spread,
+            confidence=estimate.confidence, method="ai", basis=estimate.basis.strip(),
+            low=int(round(estimate.low / 10) * 10), high=int(round(estimate.high / 10) * 10),
+        )
+        if len(self._estimates) > 2000:
+            self._estimates.clear()
+        self._estimates[key] = (time.monotonic(), valuation)
+        return replace_valuation(valuation)
 
     # --- the evaluation itself ------------------------------------------------------------------------
 
@@ -544,7 +598,9 @@ class CarService:
     def valuation_json(valuation: Valuation) -> dict:
         data = asdict(valuation)
         prices = [c.adjusted * (valuation.local_factor or 1) for c in valuation.used]
-        if len(prices) >= 4:
+        if valuation.method == "ai" and valuation.low and valuation.high:
+            data["range"] = [valuation.low, valuation.high]
+        elif len(prices) >= 4:
             q1, _, q3 = statistics.quantiles(prices, n=4)
             data["range"] = [round(q1, -1), round(q3, -1)]
         else:

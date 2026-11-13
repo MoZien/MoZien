@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#f5f5f2" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0e0f11" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f3f5fa" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#060a13" media="(prefers-color-scheme: dark)" />
     <meta name="description" content="Gebrauchtwagen vor dem Kauf prüfen: Marktwert aus vergleichbaren Angeboten, Risiken aus Text und Fotos und eine klare Empfehlung." />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="AutoHalle – Gebrauchtwagen prüfen" />
@@ -30,26 +30,38 @@
       } catch (e) {}
     </script>
     <style>
-      /* Start screen: shown until the app's code has loaded, removed by main.tsx. */
-      #splash { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: #f5f5f2; color: #16181b;
-        font-family: "IBM Plex Sans", "IBM Plex Sans Arabic", system-ui, sans-serif; transition: opacity 0.3s ease; }
-      .dark #splash { background: #0e0f11; color: #f2f2ef; }
-      #splash.out { opacity: 0; pointer-events: none; }
-      #splash .brand { display: flex; align-items: center; gap: 12px; direction: ltr; animation: sp-in 0.35s ease-out both; }
-      #splash svg { width: 40px; height: 40px; }
-      #splash .name { font-size: 26px; letter-spacing: -0.02em; }
-      #splash .name b { font-weight: 600; }
-      #splash .name span { font-weight: 400; }
-      @keyframes sp-in { from { opacity: 0; } to { opacity: 1; } }
-      @media (prefers-reduced-motion: reduce) { #splash * { animation: none !important; } }
+      /* Start screen: night blue with the mark drawing itself. Shown until the app's code has
+         loaded, removed by main.tsx. */
+      #splash { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; color: #fff;
+        background: radial-gradient(90% 60% at 10% 0%, rgba(52, 100, 255, 0.5), transparent 62%),
+          radial-gradient(70% 50% at 100% 100%, rgba(16, 182, 232, 0.28), transparent 65%), linear-gradient(160deg, #0a1430, #070c1d);
+        font-family: "Geist Variable", "IBM Plex Sans Arabic", system-ui, sans-serif; transition: opacity 0.35s ease, transform 0.35s ease; }
+      #splash.out { opacity: 0; transform: scale(1.04); pointer-events: none; }
+      #splash .brand { display: flex; flex-direction: column; align-items: center; gap: 18px; direction: ltr; }
+      #splash svg { width: 84px; height: 84px; filter: drop-shadow(0 18px 40px rgba(36, 86, 245, 0.55)); animation: sp-pop 0.5s cubic-bezier(0.3, 1.4, 0.5, 1) both; }
+      #splash .line { stroke-dasharray: 120; stroke-dashoffset: 120; animation: sp-draw 0.7s cubic-bezier(0.6, 0, 0.2, 1) 0.15s forwards; }
+      #splash .line.road { animation-delay: 0.45s; }
+      #splash .name { font-size: 28px; letter-spacing: -0.03em; animation: sp-in 0.5s ease-out 0.3s both; }
+      #splash .name b { font-weight: 700; }
+      #splash .name span { font-weight: 500; color: rgba(255, 255, 255, 0.72); }
+      @keyframes sp-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+      @keyframes sp-pop { from { opacity: 0; transform: scale(0.7); } to { opacity: 1; transform: none; } }
+      @keyframes sp-draw { to { stroke-dashoffset: 0; } }
+      @media (prefers-reduced-motion: reduce) { #splash * { animation: none !important; } #splash .line { stroke-dashoffset: 0; } }
     </style>
   </head>
   <body>
     <div id="splash" aria-hidden="true">
       <div class="brand">
         <svg viewBox="0 0 64 64" fill="none" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14 44 L32 15 L50 44" stroke="currentColor" stroke-width="7.5" />
-          <path d="M14 53 H50" stroke="#1f4bd8" stroke-width="6.5" />
+          <defs>
+            <linearGradient id="sp-tile" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3e6dff" /><stop offset="1" stop-color="#1638c4" /></linearGradient>
+            <linearGradient id="sp-road" gradientUnits="userSpaceOnUse" x1="17" y1="0" x2="47" y2="0"><stop offset="0" stop-color="#8fe9ff" /><stop offset="1" stop-color="#ffffff" /></linearGradient>
+          </defs>
+          <rect width="64" height="64" rx="17" fill="url(#sp-tile)" />
+          <rect x="0.75" y="0.75" width="62.5" height="62.5" rx="16.25" stroke="#fff" stroke-opacity="0.22" stroke-width="1.5" />
+          <path class="line" d="M17 40.5 L32 17.5 L47 40.5" stroke="#fff" stroke-width="6.5" />
+          <path class="line road" d="M17 49 H47" stroke="url(#sp-road)" stroke-width="5" />
         </svg>
         <div class="name"><b>Auto</b><span>Halle</span></div>
       </div>

@@ -9,10 +9,14 @@ import {
   Radar,
   ScanSearch,
   Settings as SettingsIcon,
+  Sparkles,
   Wrench,
 } from "lucide-react";
+import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { type ReactNode, useEffect, useState } from "react";
-import { List, ListLink, Modal, ToastProvider, cx } from "./components/ui";
+import { Logo } from "./components/brand";
+import { EASE, SPRING, useScrolled } from "./components/motion";
+import { type Hue, IconTile, Modal, ProgressLine, ToastProvider, cx } from "./components/ui";
 import { useApp } from "./lib/app";
 import { huntStore, resumeHunt } from "./lib/hunt";
 import { type TextKey, translate, useT } from "./lib/i18n";
@@ -31,27 +35,32 @@ import { SettingsPage } from "./pages/Settings";
 import { ToolsPage } from "./pages/Tools";
 import { ValuatePage } from "./pages/Valuate";
 
+export { Logo, LogoMark } from "./components/brand";
+
 interface NavItem {
   page: string;
   label: TextKey;
-  icon: (className: string) => ReactNode;
-  /** one line under the label in the "More" list */
+  icon: (className: string, active?: boolean) => ReactNode;
+  /** one line under the label in the "More" sheet */
   sub?: TextKey;
+  hue?: Hue;
 }
+
+const stroke = (active?: boolean) => (active ? 2.1 : 1.75);
 
 // What people use every time, and the rest behind "More".
 const MAIN: NavItem[] = [
-  { page: "analyze", label: "nav_analyze", icon: (c) => <ScanSearch className={c} strokeWidth={1.75} /> },
-  { page: "hunt", label: "nav_hunt", icon: (c) => <Radar className={c} strokeWidth={1.75} /> },
-  { page: "saved", label: "nav_saved", icon: (c) => <Heart className={c} strokeWidth={1.75} /> },
+  { page: "analyze", label: "nav_analyze", icon: (c, a) => <ScanSearch className={c} strokeWidth={stroke(a)} /> },
+  { page: "hunt", label: "nav_hunt", icon: (c, a) => <Radar className={c} strokeWidth={stroke(a)} /> },
+  { page: "saved", label: "nav_saved", icon: (c, a) => <Heart className={cx(c, a && "fill-accent/20")} strokeWidth={stroke(a)} /> },
 ];
 const MORE: NavItem[] = [
-  { page: "valuate", label: "nav_valuate", sub: "nav_valuate_sub", icon: (c) => <Gauge className={c} strokeWidth={1.75} /> },
-  { page: "compare", label: "nav_compare", sub: "nav_compare_sub", icon: (c) => <Columns3 className={c} strokeWidth={1.75} /> },
-  { page: "garage", label: "nav_garage", sub: "nav_garage_sub", icon: (c) => <BadgeEuro className={c} strokeWidth={1.75} /> },
-  { page: "tools", label: "nav_tools", sub: "nav_tools_sub", icon: (c) => <Wrench className={c} strokeWidth={1.75} /> },
-  { page: "settings", label: "nav_settings", icon: (c) => <SettingsIcon className={c} strokeWidth={1.75} /> },
-  { page: "help", label: "nav_help", icon: (c) => <CircleHelp className={c} strokeWidth={1.75} /> },
+  { page: "valuate", label: "nav_valuate", sub: "nav_valuate_sub", hue: "violet", icon: (c, a) => <Gauge className={c} strokeWidth={stroke(a)} /> },
+  { page: "compare", label: "nav_compare", sub: "nav_compare_sub", hue: "cyan", icon: (c, a) => <Columns3 className={c} strokeWidth={stroke(a)} /> },
+  { page: "garage", label: "nav_garage", sub: "nav_garage_sub", hue: "good", icon: (c, a) => <BadgeEuro className={c} strokeWidth={stroke(a)} /> },
+  { page: "tools", label: "nav_tools", sub: "nav_tools_sub", hue: "warn", icon: (c, a) => <Wrench className={c} strokeWidth={stroke(a)} /> },
+  { page: "settings", label: "nav_settings", sub: "nav_settings_sub", hue: "neutral", icon: (c, a) => <SettingsIcon className={c} strokeWidth={stroke(a)} /> },
+  { page: "help", label: "nav_help", sub: "nav_help_sub", hue: "accent", icon: (c, a) => <CircleHelp className={c} strokeWidth={stroke(a)} /> },
 ];
 const PAGES = new Set<string>([...MAIN, ...MORE].map((item) => item.page));
 const isLegal = (page: string): page is LegalKind => (LEGAL_PAGES as string[]).includes(page);
@@ -62,24 +71,32 @@ function useApplyUi() {
   useEffect(() => {
     const root = document.documentElement;
     const media = matchMedia("(prefers-color-scheme: dark)");
-    const apply = () => root.classList.toggle("dark", ui.theme === "dark" || (ui.theme === "system" && media.matches));
+    const apply = () => {
+      const dark = ui.theme === "dark" || (ui.theme === "system" && media.matches);
+      root.classList.toggle("dark", dark);
+      // The browser bar and the phone's status bar take the page colour.
+      document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => meta.setAttribute("content", dark ? "#060a13" : "#f3f5fa"));
+    };
     apply();
     media.addEventListener("change", apply);
     return () => media.removeEventListener("change", apply);
   }, [ui.theme]);
   useEffect(() => {
     document.documentElement.lang = prefs.language;
-    document.querySelector('meta[name="description"]')?.setAttribute("content", translate(prefs.language, "meta_description"));
+    const ai = JSON.parse(localStorage.getItem("ah.meta") || "null")?.market_source === "ai";
+    document.querySelector('meta[name="description"]')?.setAttribute("content", translate(prefs.language, ai ? "meta_description_ai" : "meta_description"));
     document.documentElement.dir = prefs.language === "ar" ? "rtl" : "ltr";
   }, [prefs.language]);
 }
 
 export default function App() {
   return (
-    <ToastProvider>
-      <Shell />
-      <StatusPill />
-    </ToastProvider>
+    <MotionConfig reducedMotion="user">
+      <ToastProvider>
+        <Shell />
+        <StatusPill />
+      </ToastProvider>
+    </MotionConfig>
   );
 }
 
@@ -87,25 +104,35 @@ export default function App() {
 function StatusPill() {
   const { waking, updateReady } = useApp();
   const t = useT();
-  if (!waking && !updateReady) return null;
   return (
-    <div className="no-print pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+64px)] z-50 flex justify-center px-4 lg:top-4">
-      <div className="animate-fade-up pointer-events-auto flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm text-on-ink shadow-lg">
-        {waking ? (
-          <>
-            <Loader2 className="size-4 animate-spin text-muted" />
-            <span>{t("server_waking")}</span>
-          </>
-        ) : (
-          <>
-            <span>{t("update_ready")}</span>
-            <button className="cursor-pointer font-semibold underline-offset-4 hover:underline" onClick={() => window.location.reload()}>
-              {t("reload")}
-            </button>
-          </>
-        )}
-      </div>
-    </div>
+    <AnimatePresence>
+      {(waking || updateReady) && (
+        <motion.div
+          className="no-print pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+4.25rem)] z-50 flex justify-center px-4 lg:top-5"
+          initial={{ opacity: 0, y: -14, scale: 0.94 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -10, scale: 0.96 }}
+          transition={{ type: "spring", stiffness: 420, damping: 32 }}
+        >
+          <div className="pointer-events-auto flex items-center gap-2.5 rounded-full bg-[#0b1324] px-4 py-2.5 text-sm text-white shadow-pop ring-1 ring-white/10">
+            {waking ? (
+              <>
+                <Loader2 className="size-4 animate-spin text-white/60" />
+                <span>{t("server_waking")}</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="size-4 text-[#7fe3ff]" />
+                <span>{t("update_ready")}</span>
+                <button className="cursor-pointer rounded-full bg-white/15 px-2.5 py-0.5 font-semibold hover:bg-white/25" onClick={() => window.location.reload()}>
+                  {t("reload")}
+                </button>
+              </>
+            )}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -118,6 +145,7 @@ function Shell() {
   const hunt = useStore(huntStore);
   const { meta, needsLogin } = useApp();
   const hunting = hunt.jobId != null;
+  const scrolled = useScrolled();
 
   // A hunt that was running before the app was closed or reloaded carries on.
   useEffect(() => {
@@ -177,87 +205,115 @@ function Shell() {
   // Tapping "Check a car" while on it goes back to the empty form.
   const home = () => page === "analyze" && window.dispatchEvent(new Event("ah:home"));
 
-  const sideLink = (item: NavItem) => (
-    <a
-      key={item.page}
-      href={href(item.page)}
-      onClick={item.page === "analyze" ? home : undefined}
-      className={cx(
-        "flex items-center gap-3 rounded-[8px] px-3 py-2 text-sm transition",
-        page === item.page ? "bg-surface-2 font-medium text-text" : "text-muted hover:bg-surface-2 hover:text-text",
-      )}
-    >
-      {item.icon("size-4")}
-      <span className="flex-1">{t(item.label)}</span>
-      {item.page === "saved" && favorites > 0 && <span className="num text-xs text-faint">{favorites}</span>}
-      {item.page === "hunt" && hunting && <RunningDot count={hunt.found.length} />}
-    </a>
-  );
+  const sideLink = (item: NavItem) => {
+    const active = page === item.page;
+    return (
+      <a
+        key={item.page}
+        href={href(item.page)}
+        onClick={item.page === "analyze" ? home : undefined}
+        className={cx("relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors duration-200", active ? "font-semibold text-accent" : "text-muted hover:bg-surface-2 hover:text-text")}
+      >
+        {active && <motion.span layoutId="side-active" transition={SPRING} className="absolute inset-0 rounded-xl bg-accent/10 ring-1 ring-accent/15" />}
+        <span className="relative">{item.icon("size-[18px]", active)}</span>
+        <span className="relative flex-1">{t(item.label)}</span>
+        {item.page === "saved" && favorites > 0 && <span className="num relative rounded-full bg-surface-2 px-1.5 text-xs font-medium text-muted">{favorites}</span>}
+        {item.page === "hunt" && hunting && (
+          <span className="relative">
+            <RunningDot count={hunt.found.length} />
+          </span>
+        )}
+      </a>
+    );
+  };
+
+  const moreActive = MORE.some((n) => n.page === page);
 
   return (
     <div className="min-h-dvh lg:flex">
       {/* Sidebar (desktop) */}
-      <aside className="no-print sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-e border-line bg-surface px-3 py-5 lg:flex">
-        <a href={href("analyze")} onClick={home} className="mb-8 px-3" aria-label={appName}>
+      <aside className="no-print sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-e border-line bg-surface/70 px-3.5 py-5 backdrop-blur-xl lg:flex">
+        <a href={href("analyze")} onClick={home} className="mb-7 px-2.5" aria-label={appName}>
           <Logo />
         </a>
-        <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto">
+        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">
           {MAIN.map(sideLink)}
-          <div className="my-3 border-t border-line" />
+          <div className="eyebrow mb-1 mt-5 px-3">{t("nav_more")}</div>
           {MORE.slice(0, 4).map(sideLink)}
         </nav>
-        <div className="space-y-0.5 border-t border-line pt-3">
+        <div className="space-y-1 border-t border-line pt-3">
           {MORE.slice(4).map(sideLink)}
           <AiStatus />
         </div>
       </aside>
 
       <div className="min-w-0 flex-1">
-        {/* Top bar (mobile) */}
-        <header className="no-print safe-top sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur lg:hidden">
-          <div className="flex h-13 items-center justify-between gap-3 px-4">
+        {/* Top bar (mobile): clear at the top of the page, frosted once the page moves under it. */}
+        <header className={cx("no-print safe-top sticky top-0 z-30 border-b transition-colors duration-300 lg:hidden", scrolled ? "glass border-line" : "border-transparent")}>
+          <div className="flex h-14 items-center justify-between gap-3 px-4">
             <a href={href("analyze")} onClick={home} aria-label={appName}>
               <Logo small />
             </a>
-            <a href={href("settings")} aria-label={t("nav_settings")} className="-me-2 grid size-10 place-items-center rounded-full text-muted hover:text-text">
-              <SettingsIcon className="size-[21px]" strokeWidth={1.75} />
-            </a>
+            <div className="-me-1.5 flex items-center gap-1">
+              {hunting && (
+                <a href={href("hunt")} className="flex h-9 items-center gap-2 rounded-full bg-accent/10 px-3 text-xs font-semibold text-accent">
+                  <RunningDot count={hunt.found.length} />
+                  {t("nav_hunt")}
+                </a>
+              )}
+              <a href={href("settings")} aria-label={t("nav_settings")} className="grid size-10 place-items-center rounded-full text-muted transition hover:text-text active:scale-90">
+                <SettingsIcon className="size-[21px]" strokeWidth={1.75} />
+              </a>
+            </div>
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-5xl px-4 pb-28 pt-4 sm:px-6 sm:pt-6 lg:px-10 lg:pb-12 lg:pt-8">{content}</main>
+        <main className="mx-auto w-full max-w-6xl px-4 pb-36 pt-2 sm:px-6 sm:pt-6 lg:px-10 lg:pb-14 lg:pt-9">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div key={page} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.22, ease: EASE }}>
+              {content}
+            </motion.div>
+          </AnimatePresence>
+        </main>
       </div>
 
-      {/* Bottom tabs (mobile) */}
-      <nav className="no-print safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 backdrop-blur lg:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-4">
+      {/* Tab bar (mobile): floats above the page. */}
+      <nav className="no-print pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] lg:hidden">
+        <div className="glass pointer-events-auto mx-auto grid max-w-md grid-cols-4 gap-1 rounded-[26px] border border-line p-1.5 shadow-pop">
           {MAIN.map((item) => (
-            <a key={item.page} href={href(item.page)} onClick={item.page === "analyze" ? home : undefined} className={cx("flex h-14 min-w-0 flex-col items-center justify-center gap-1 text-[11px] transition", page === item.page ? "font-medium text-text" : "text-faint")}>
-              <span className="relative">
-                {item.icon("size-[22px]")}
-                {item.page === "hunt" && hunting && (
-                  <span className="absolute -end-2 -top-1">
-                    <RunningDot count={hunt.found.length} />
-                  </span>
-                )}
-              </span>
-              <span className="max-w-full truncate px-1">{t(item.label)}</span>
-            </a>
+            <TabLink key={item.page} href={href(item.page)} active={page === item.page} label={t(item.label)} onClick={item.page === "analyze" ? home : undefined}>
+              {item.icon("size-[22px]", page === item.page)}
+              {item.page === "hunt" && hunting && (
+                <span className="absolute -end-2.5 -top-1">
+                  <RunningDot count={hunt.found.length} />
+                </span>
+              )}
+            </TabLink>
           ))}
-          <button onClick={() => setMoreOpen(true)} className={cx("flex h-14 min-w-0 cursor-pointer flex-col items-center justify-center gap-1 text-[11px] transition", MORE.some((n) => n.page === page) ? "font-medium text-text" : "text-faint")}>
-            <LayoutGrid className="size-[22px]" strokeWidth={1.75} />
-            <span className="max-w-full truncate px-1">{t("nav_more")}</span>
-          </button>
+          <TabLink active={moreActive} label={t("nav_more")} onClick={() => setMoreOpen(true)}>
+            <LayoutGrid className="size-[22px]" strokeWidth={stroke(moreActive)} />
+          </TabLink>
         </div>
       </nav>
 
       <Modal open={moreOpen} onClose={() => setMoreOpen(false)} title={t("nav_more")}>
-        <List>
+        <div className="grid grid-cols-2 gap-2.5">
           {MORE.map((item) => (
-            <ListLink key={item.page} href={href(item.page)} onClick={() => setMoreOpen(false)} active={page === item.page} icon={item.icon("size-5")} title={t(item.label)} sub={item.sub && t(item.sub)} />
+            <a
+              key={item.page}
+              href={href(item.page)}
+              onClick={() => setMoreOpen(false)}
+              className={cx("flex flex-col gap-3 rounded-2xl border p-3.5 transition duration-200 active:scale-[0.97]", page === item.page ? "border-accent/40 bg-accent/8" : "border-line bg-surface-2/60 hover:bg-surface-2")}
+            >
+              <IconTile hue={item.hue}>{item.icon("size-5")}</IconTile>
+              <span>
+                <span className="block text-[15px] font-semibold leading-tight">{t(item.label)}</span>
+                {item.sub && <span className="mt-1 block text-xs leading-snug text-muted">{t(item.sub)}</span>}
+              </span>
+            </a>
           ))}
-        </List>
-        <div className="mt-3">
+        </div>
+        <div className="mt-3 rounded-2xl border border-line">
           <AiStatus />
         </div>
       </Modal>
@@ -267,15 +323,40 @@ function Shell() {
   );
 }
 
-/** The hunt is running: a pulsing dot, with the number of cars found so far. */
-function RunningDot({ count }: { count: number }) {
-  return count > 0 ? (
-    <span className="num grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-semibold text-on-accent">{count}</span>
+/** One place in the tab bar: the icon, its name, and a soft fill that slides to the active one. */
+function TabLink({ href: target, active, label, onClick, children }: { href?: string; active: boolean; label: string; onClick?: () => void; children: ReactNode }) {
+  const className = cx("relative flex h-[52px] min-w-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-[20px] text-[10.5px] transition-colors duration-200 active:scale-95", active ? "font-semibold text-accent" : "font-medium text-faint");
+  const inner = (
+    <>
+      {active && <motion.span layoutId="tab-active" transition={SPRING} className="absolute inset-0 rounded-[20px] bg-accent/12" />}
+      <span className="relative">{children}</span>
+      <span className="relative max-w-full truncate px-1">{label}</span>
+    </>
+  );
+  return target ? (
+    <a href={target} onClick={onClick} className={className} aria-current={active ? "page" : undefined}>
+      {inner}
+    </a>
   ) : (
-    <span className="block size-2 animate-pulse rounded-full bg-accent ring-2 ring-surface" />
+    <button type="button" onClick={onClick} className={className}>
+      {inner}
+    </button>
   );
 }
 
+/** The hunt is running: a pulsing dot, with the number of cars found so far. */
+function RunningDot({ count }: { count: number }) {
+  return count > 0 ? (
+    <span className="num bg-brand grid h-[18px] min-w-[18px] place-items-center rounded-full px-1 text-[10px] font-bold text-white shadow-glow">{count}</span>
+  ) : (
+    <span className="relative flex size-2.5">
+      <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent/60" />
+      <span className="relative inline-flex size-2.5 rounded-full bg-accent ring-2 ring-surface" />
+    </span>
+  );
+}
+
+/** Whether the AI is on, and how much of today's allowance is used. */
 function AiStatus() {
   const { meta } = useApp();
   const t = useT();
@@ -283,38 +364,22 @@ function AiStatus() {
   if (!meta) return null;
   const on = meta.ai_available && prefs.ai_enabled;
   const usage = meta.account?.usage?.ai;
+  const showUsage = usage && on && !meta.account?.admin;
   return (
-    <div className="flex items-center gap-2 px-3 py-2 text-xs text-faint">
-      <span className={cx("size-1.5 rounded-full", on ? "bg-good" : "bg-faint")} />
-      <span className="flex-1">{on ? t("ai_on") : t(meta.ai_available ? "ai_off" : "ai_unavailable_note")}</span>
-      {usage && on && !meta.account?.admin && (
-        <span className="num">
-          {usage.used}/{usage.limit}
+    <div className="px-3 py-2.5">
+      <div className="flex items-center gap-2 text-xs text-muted">
+        <span className="relative flex size-2">
+          {on && <span className="absolute inline-flex size-full animate-ping rounded-full bg-good/60" />}
+          <span className={cx("relative inline-flex size-2 rounded-full", on ? "bg-good" : "bg-faint")} />
         </span>
-      )}
+        <span className="flex-1">{on ? t("ai_on") : t(meta.ai_available ? "ai_off" : "ai_unavailable_note")}</span>
+        {showUsage && (
+          <span className="num font-medium">
+            {usage.used}/{usage.limit}
+          </span>
+        )}
+      </div>
+      {showUsage && <ProgressLine className="mt-2 h-1" value={usage.limit ? usage.used / usage.limit : 0} />}
     </div>
-  );
-}
-
-/** The mark: a roof over a road (a car hall, and an A). Ink, with the road in brand blue. */
-export function LogoMark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 64 64" className={className} fill="none" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M14 44 L32 15 L50 44" stroke="currentColor" strokeWidth="7.5" />
-      <path d="M14 53 H50" className="stroke-accent" strokeWidth="6.5" />
-    </svg>
-  );
-}
-
-/** Mark and name: "Auto" set heavier than "Halle". */
-export function Logo({ small }: { small?: boolean }) {
-  return (
-    <span dir="ltr" className={cx("inline-flex items-center text-text", small ? "gap-2" : "gap-2.5")}>
-      <LogoMark className={small ? "size-6" : "size-7"} />
-      <span className={cx("leading-none tracking-[-0.02em]", small ? "text-[18px]" : "text-[20px]")}>
-        <span className="font-semibold">Auto</span>
-        <span className="font-normal">Halle</span>
-      </span>
-    </span>
   );
 }

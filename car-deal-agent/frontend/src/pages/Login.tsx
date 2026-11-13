@@ -1,6 +1,9 @@
+import { Camera, KeyRound, Mail, MailCheck, ShieldCheck, TrendingDown } from "lucide-react";
+import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
-import { Logo } from "../App";
-import { Button, Card, Field, Input, Note, Segmented } from "../components/ui";
+import { CarScan, Logo } from "../components/brand";
+import { EASE } from "../components/motion";
+import { Button, Card, Field, Input, IconTile, Note, Segmented } from "../components/ui";
 import { ApiError, api, login } from "../lib/api";
 import { useApp } from "../lib/app";
 import { type TextKey, useT } from "../lib/i18n";
@@ -114,112 +117,152 @@ export function LoginPage() {
     }
   }
 
+  const points = [
+    ["trust_market", <TrendingDown key="i" className="size-4" />],
+    ["trust_risks", <ShieldCheck key="i" className="size-4" />],
+    ["trust_photos", <Camera key="i" className="size-4" />],
+  ] as const;
+  const languages = (
+    <Segmented size="sm" onDark value={t.lang} onChange={(language: Lang) => prefsStore.set((p) => ({ ...p, language }))} options={[{ value: "ar", label: "ع" }, { value: "de", label: "DE" }, { value: "en", label: "EN" }]} />
+  );
+
   return (
-    <div className="safe-top flex min-h-dvh flex-col items-center justify-center p-4">
-      <Card className="login-card animate-fade-up w-full max-w-sm p-6">
-        <div className="mb-6 flex items-center justify-between">
-          <Logo />
-          <Segmented size="sm" value={t.lang} onChange={(language: Lang) => prefsStore.set((p) => ({ ...p, language }))} options={[{ value: "ar", label: "ع" }, { value: "de", label: "DE" }, { value: "en", label: "EN" }]} />
+    <div className="flex min-h-dvh flex-col lg:flex-row">
+      {/* The brand side: night blue, the promise, a car under the scanner. */}
+      <section className="hero safe-top flex shrink-0 flex-col px-5 pb-12 pt-4 sm:px-8 lg:w-[46%] lg:justify-between lg:px-12 lg:pb-12 lg:pt-10 xl:w-1/2">
+        <span className="hero-grid" />
+        <div className="flex items-center justify-between">
+          <Logo onDark />
+          {languages}
         </div>
-
-        {step === "email" && (
-          <form className="space-y-4" onSubmit={sendCode}>
-            <div>
-              <h1 className="text-xl font-semibold">{t("login_email_title")}</h1>
-              <p className="mt-1 text-sm leading-relaxed text-muted">{t("login_email_sub")}</p>
-            </div>
-            <Field label={t("email_label")}>
-              <Input type="email" inputMode="email" autoComplete="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@gmail.com" autoFocus required />
-            </Field>
-            {error && <Note tone="bad">{error}</Note>}
-            <Button type="submit" variant="primary" size="lg" className="w-full" loading={busy}>
-              {t("send_code")}
-            </Button>
-          </form>
-        )}
-
-        {step === "code" && (
-          <form
-            className="space-y-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              verify();
-            }}
-          >
-            <div>
-              <h1 className="text-xl font-semibold">{t("code_title")}</h1>
-              <p className="mt-1 text-sm leading-relaxed text-muted">{t("code_sent", { email })}</p>
-            </div>
-            <Field label={t("code_label")}>
-              <Input
-                value={code}
-                onChange={(e) => {
-                  const digits = e.target.value.replace(/\D/g, "").slice(0, 6);
-                  setCode(digits);
-                  if (digits.length === 6 && !busy) verify(email, digits);
-                }}
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                dir="ltr"
-                placeholder="••••••"
-                className="otp text-center text-2xl tracking-[0.4em]"
-                autoFocus
-              />
-            </Field>
-            {error && <Note tone="bad">{error}</Note>}
-            <Button type="submit" variant="primary" size="lg" className="w-full" loading={busy} disabled={code.length !== 6}>
-              {t("confirm")}
-            </Button>
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <button type="button" className="cursor-pointer text-muted hover:text-text" onClick={() => { setStep("email"); setError(null); }}>
-                {t("other_email")}
-              </button>
-              <button type="button" className="cursor-pointer text-muted hover:text-text disabled:cursor-default disabled:opacity-50" disabled={cooldown > 0 || busy} onClick={() => sendCode()}>
-                {cooldown > 0 ? t("resend_in", { s: cooldown }) : t("resend")}
-              </button>
-            </div>
-          </form>
-        )}
-
-        {step === "access" && (
-          <form className="space-y-4" onSubmit={withAccessCode}>
-            <div>
-              <h1 className="text-xl font-semibold">{t("login_title")}</h1>
-              <p className="mt-1 text-sm text-muted">{t("login_sub")}</p>
-            </div>
-            <Field label={t("access_code")}>
-              <Input value={accessCode} onChange={(e) => setAccessCode(e.target.value)} type="password" autoComplete="current-password" autoFocus required />
-            </Field>
-            {error && <Note tone="bad">{error}</Note>}
-            <Button type="submit" variant="primary" size="lg" className="w-full" loading={busy}>
-              {t("login")}
-            </Button>
-          </form>
-        )}
-
-        {methods.length > 1 && (
-          <button
-            type="button"
-            className="mt-5 w-full cursor-pointer border-t border-line pt-4 text-center text-sm text-muted hover:text-text"
-            onClick={() => {
-              setStep(step === "access" ? "email" : "access");
-              setError(null);
-            }}
-          >
-            {step === "access" ? t("use_email") : t("use_access_code")}
-          </button>
-        )}
-      </Card>
-      <footer className="mt-4 w-full max-w-sm space-y-2 text-center text-xs leading-relaxed text-faint">
-        <p>{t("login_legal_note")}</p>
-        <nav className="flex justify-center gap-4">
-          {(["impressum", "datenschutz", "nutzungsbedingungen"] as const).map((page) => (
-            <a key={page} href={href(page)} className="text-muted underline-offset-4 hover:text-text hover:underline">
-              {t(({ impressum: "legal_imprint", datenschutz: "legal_privacy", nutzungsbedingungen: "legal_terms" } as const)[page])}
-            </a>
+        <motion.div className="mt-7 lg:mt-0" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: EASE }}>
+          <h1 className="max-w-lg text-[28px] font-bold leading-[1.1] sm:text-[38px] lg:text-[46px]">{t("hero_question")}</h1>
+          <p className="mt-2.5 max-w-md text-[15px] leading-relaxed text-white/70 lg:text-[17px]">{t("hero_line")}</p>
+          <CarScan onDark className="mt-5 w-full max-w-[420px] lg:mt-10" />
+        </motion.div>
+        <ul className="mt-8 hidden gap-3 lg:grid lg:grid-cols-3">
+          {points.map(([key, icon]) => (
+            <li key={key} className="rounded-2xl bg-white/8 p-3.5 ring-1 ring-white/12 backdrop-blur">
+              <span className="grid size-8 place-items-center rounded-lg bg-white/12 text-[#7fe3ff]">{icon}</span>
+              <p className="mt-2 text-[13px] font-medium leading-snug text-white/85">{t(key)}</p>
+            </li>
           ))}
-        </nav>
-      </footer>
+        </ul>
+      </section>
+
+      {/* The form: a sheet over the hero on phones, the right half on a computer. */}
+      <div className="relative -mt-7 flex flex-1 flex-col rounded-t-[30px] bg-bg px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-7 sm:px-8 lg:mt-0 lg:items-center lg:justify-center lg:rounded-none lg:px-12">
+        <motion.div className="mx-auto w-full max-w-sm" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: EASE, delay: 0.12 }}>
+          <Card className="login-card p-5 shadow-pop sm:p-6">
+            {step === "email" && (
+              <form className="space-y-4" onSubmit={sendCode}>
+                <div>
+                  <IconTile size="lg" className="mb-3.5">
+                    <Mail className="size-6" />
+                  </IconTile>
+                  <h2 className="text-[22px] font-bold leading-tight">{t("login_email_title")}</h2>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted">{t("login_email_sub")}</p>
+                </div>
+                <Field label={t("email_label")}>
+                  <Input type="email" inputMode="email" autoComplete="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@gmail.com" autoFocus required />
+                </Field>
+                {error && <Note tone="bad">{error}</Note>}
+                <Button type="submit" variant="primary" size="lg" className="w-full" loading={busy}>
+                  {t("send_code")}
+                </Button>
+              </form>
+            )}
+
+            {step === "code" && (
+              <form
+                className="space-y-4"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  verify();
+                }}
+              >
+                <div>
+                  <IconTile size="lg" hue="good" className="mb-3.5">
+                    <MailCheck className="size-6" />
+                  </IconTile>
+                  <h2 className="text-[22px] font-bold leading-tight">{t("code_title")}</h2>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted">{t("code_sent", { email })}</p>
+                </div>
+                <Field label={t("code_label")}>
+                  <Input
+                    value={code}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "").slice(0, 6);
+                      setCode(digits);
+                      if (digits.length === 6 && !busy) verify(email, digits);
+                    }}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    dir="ltr"
+                    placeholder="••••••"
+                    className="otp h-16! text-center text-2xl font-semibold tracking-[0.45em]"
+                    autoFocus
+                  />
+                </Field>
+                {error && <Note tone="bad">{error}</Note>}
+                <Button type="submit" variant="primary" size="lg" className="w-full" loading={busy} disabled={code.length !== 6}>
+                  {t("confirm")}
+                </Button>
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <button type="button" className="cursor-pointer font-medium text-muted hover:text-text" onClick={() => { setStep("email"); setError(null); }}>
+                    {t("other_email")}
+                  </button>
+                  <button type="button" className="cursor-pointer font-medium text-accent disabled:cursor-default disabled:text-faint" disabled={cooldown > 0 || busy} onClick={() => sendCode()}>
+                    {cooldown > 0 ? t("resend_in", { s: cooldown }) : t("resend")}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {step === "access" && (
+              <form className="space-y-4" onSubmit={withAccessCode}>
+                <div>
+                  <IconTile size="lg" hue="violet" className="mb-3.5">
+                    <KeyRound className="size-6" />
+                  </IconTile>
+                  <h2 className="text-[22px] font-bold leading-tight">{t("login_title")}</h2>
+                  <p className="mt-1.5 text-sm text-muted">{t("login_sub")}</p>
+                </div>
+                <Field label={t("access_code")}>
+                  <Input value={accessCode} onChange={(e) => setAccessCode(e.target.value)} type="password" autoComplete="current-password" autoFocus required />
+                </Field>
+                {error && <Note tone="bad">{error}</Note>}
+                <Button type="submit" variant="primary" size="lg" className="w-full" loading={busy}>
+                  {t("login")}
+                </Button>
+              </form>
+            )}
+
+            {methods.length > 1 && (
+              <button
+                type="button"
+                className="mt-5 w-full cursor-pointer border-t border-line pt-4 text-center text-sm font-medium text-muted hover:text-text"
+                onClick={() => {
+                  setStep(step === "access" ? "email" : "access");
+                  setError(null);
+                }}
+              >
+                {step === "access" ? t("use_email") : t("use_access_code")}
+              </button>
+            )}
+          </Card>
+          <footer className="mt-5 space-y-2 text-center text-xs leading-relaxed text-faint">
+            <p>{t("login_legal_note")}</p>
+            <nav className="flex justify-center gap-4">
+              {(["impressum", "datenschutz", "nutzungsbedingungen"] as const).map((page) => (
+                <a key={page} href={href(page)} className="text-muted underline-offset-4 hover:text-text hover:underline">
+                  {t(({ impressum: "legal_imprint", datenschutz: "legal_privacy", nutzungsbedingungen: "legal_terms" } as const)[page])}
+                </a>
+              ))}
+            </nav>
+          </footer>
+        </motion.div>
+      </div>
     </div>
   );
 }

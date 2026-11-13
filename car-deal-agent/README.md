@@ -264,6 +264,15 @@ The tests use synthetic HTML fixtures and fakes for the marketplace, Claude and 
 
 ## Limitations and legal notes
 
+- **Two ways to the market value (`MARKET_SOURCE`).** The web app's default is `ai`: the market
+  value is an AI estimate from the car's data (make, model, trim, year, mileage, engine), only the
+  one ad the user chose is loaded (on the device), nothing on the marketplace is searched, and the
+  deal hunt is off (the app explains how to use the marketplace's own search alerts and share new
+  ads into AutoHalle instead). In a test with five real ads the estimate was on average about 16 %
+  off the comparables-based price (−27 % to +22 %), so the app shows it as an estimate with a range
+  and its confidence. `MARKET_SOURCE=comparables` brings back the comparables from Kleinanzeigen and
+  the deal hunt: more accurate, but it searches the marketplace automatically (see the next point).
+  The CLI bot always uses comparables.
 - **Kleinanzeigen has no public API**, and its terms of use restrict automated access. The bot reads the normal pages slowly (random 4–9 s pauses, a few pages per run) and is meant for personal use. Check the terms yourself. When Kleinanzeigen changes its HTML, the parser in `sources/kleinanzeigen.py` may need an update; it keys on text patterns instead of CSS classes to make this rarer.
 - **Asking prices, not sale prices.** `resale_factor` covers the gap; tune it with your own sales.
 - **Variants are mixed.** A Golf GTI and a Golf 1.2 TSI share one segment. Make separate searches (`query: "gti"`, `fuel`, `gearbox`) for variants that matter.

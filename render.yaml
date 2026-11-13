@@ -56,6 +56,8 @@ services:
         generateValue: true
       - key: AI_MODEL
         value: claude-sonnet-5-5
+      - key: MARKET_SOURCE       # ai: market value estimated by the AI, no marketplace searches, no
+        value: ai                # deal hunt (for the public app); comparables: Kleinanzeigen comparables
       - key: APP_NAME
         value: AutoHalle
       - key: AI_DAILY_LIMIT
