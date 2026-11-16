@@ -250,7 +250,7 @@ export function SettingsPage() {
           <Group title={t("sec_display")} icon={<Palette className="size-4" />} hue="cyan">
             <Field label={t("start_page")}>
               <Select value={ui.startPage} onChange={(e) => setUi({ startPage: e.target.value })}>
-                {(["analyze", "hunt", "saved", "garage"] as const).map((page) => (
+                {(["analyze", "hunt", "saved", "garage"] as const).filter((page) => !aiMarket || page !== "hunt").map((page) => (
                   <option key={page} value={page}>{t(`nav_${page}` as TextKey)}</option>
                 ))}
               </Select>

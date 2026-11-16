@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, BadgeCheck, Camera, ChevronRight, ClipboardPaste, Columns3, Flame, Gauge, Lightbulb, Link2, ListChecks, Radar, ScanSearch, ShieldCheck, Sparkles, TrendingDown, Wrench } from "lucide-react";
+import { AlertTriangle, ArrowRight, BadgeCheck, BadgeEuro, BellRing, Camera, ChevronRight, ClipboardPaste, Columns3, Flame, Gauge, Lightbulb, Link2, ListChecks, Radar, ScanSearch, ShieldCheck, Sparkles, TrendingDown, Wrench } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CarPhoto, CarTile } from "../components/CarCard";
 import { DeviceHint, useNeedsDevice } from "../components/DeviceHint";
@@ -36,6 +36,7 @@ const QUICK: { page: string; label: TextKey; sub: TextKey; hue: Hue; icon: React
   { page: "valuate", label: "nav_valuate", sub: "nav_valuate_sub", hue: "violet", icon: <Gauge className="size-5" /> },
   { page: "compare", label: "nav_compare", sub: "nav_compare_sub", hue: "cyan", icon: <Columns3 className="size-5" /> },
   { page: "tools", label: "nav_tools", sub: "nav_tools_sub", hue: "warn", icon: <Wrench className="size-5" /> },
+  { page: "garage", label: "nav_garage", sub: "nav_garage_sub", hue: "good", icon: <BadgeEuro className="size-5" /> },
 ];
 
 /** The start page: the hero with the link field, then what the account has checked so far, the
@@ -294,6 +295,19 @@ export function AnalyzePage({ route }: { route: Route }) {
 
       <DeviceHint />
       <ShareSetup />
+      {meta?.hunt === false && !running && (
+        <Reveal delay={0.1}>
+          <div className="flex items-start gap-3.5 rounded-card border border-line bg-surface p-4 shadow-card">
+            <IconTile hue="warn">
+              <BellRing className="size-5" />
+            </IconTile>
+            <div className="min-w-0">
+              <p className="text-[15px] font-semibold">{t("alert_tip_title")}</p>
+              <p className="mt-1 text-sm leading-relaxed text-muted">{t("alert_tip_text")}</p>
+            </div>
+          </div>
+        </Reveal>
+      )}
 
       {running && (
         <div ref={progressBox} className="scroll-mt-20">
@@ -373,7 +387,7 @@ export function AnalyzePage({ route }: { route: Route }) {
           <section>
             <SectionTitle>{t("quick_actions")}</SectionTitle>
             <Stagger className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4" delay={0.15}>
-              {QUICK.map((item) => (
+              {QUICK.filter((item) => (meta?.hunt === false ? item.page !== "hunt" : item.page !== "garage")).map((item) => (
                 <StaggerItem key={item.page}>
                   <a href={href(item.page)} className="group flex h-full flex-col gap-3 rounded-card border border-line bg-surface p-4 shadow-card transition duration-300 hover:-translate-y-1 hover:border-line-strong hover:shadow-pop active:scale-[0.97]">
                     <span className="flex items-center justify-between">

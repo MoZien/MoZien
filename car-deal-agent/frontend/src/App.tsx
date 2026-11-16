@@ -147,13 +147,20 @@ function Shell() {
   const hunting = hunt.jobId != null;
   const scrolled = useScrolled();
 
+  // Without the deal hunt (the public app: market value as an AI estimate, no marketplace
+  // searches) its tab goes, and "Compare" takes its place in the bar.
+  const huntOn = meta?.hunt !== false;
+  const main = huntOn ? MAIN : [MAIN[0], MAIN[2], MORE[1]];
+  const more = huntOn ? MORE : MORE.filter((item) => item.page !== "compare");
+  const available = (name: string) => PAGES.has(name) && (huntOn || name !== "hunt");
+
   // A hunt that was running before the app was closed or reloaded carries on.
   useEffect(() => {
-    if (meta && !needsLogin) resumeHunt();
+    if (meta && !needsLogin && meta.hunt !== false) resumeHunt();
   }, [meta, needsLogin]);
   const [moreOpen, setMoreOpen] = useState(false);
-  const start = PAGES.has(ui.startPage) ? ui.startPage : "analyze";
-  const page = PAGES.has(route.page) || isLegal(route.page) ? route.page : start;
+  const start = available(ui.startPage) ? ui.startPage : "analyze";
+  const page = available(route.page) || isLegal(route.page) ? route.page : start;
   const appName = meta?.app_name ?? "AutoHalle";
 
   useEffect(() => {
@@ -227,7 +234,7 @@ function Shell() {
     );
   };
 
-  const moreActive = MORE.some((n) => n.page === page);
+  const moreActive = more.some((n) => n.page === page);
 
   return (
     <div className="min-h-dvh lg:flex">
@@ -237,12 +244,12 @@ function Shell() {
           <Logo />
         </a>
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">
-          {MAIN.map(sideLink)}
+          {main.map(sideLink)}
           <div className="eyebrow mb-1 mt-5 px-3">{t("nav_more")}</div>
-          {MORE.slice(0, 4).map(sideLink)}
+          {more.slice(0, more.length - 2).map(sideLink)}
         </nav>
         <div className="space-y-1 border-t border-line pt-3">
-          {MORE.slice(4).map(sideLink)}
+          {more.slice(more.length - 2).map(sideLink)}
           <AiStatus />
         </div>
       </aside>
@@ -280,7 +287,7 @@ function Shell() {
       {/* Tab bar (mobile): floats above the page. */}
       <nav className="no-print pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] lg:hidden">
         <div className="glass pointer-events-auto mx-auto grid max-w-md grid-cols-4 gap-1 rounded-[26px] border border-line p-1.5 shadow-pop">
-          {MAIN.map((item) => (
+          {main.map((item) => (
             <TabLink key={item.page} href={href(item.page)} active={page === item.page} label={t(item.label)} onClick={item.page === "analyze" ? home : undefined}>
               {item.icon("size-[22px]", page === item.page)}
               {item.page === "hunt" && hunting && (
@@ -298,7 +305,7 @@ function Shell() {
 
       <Modal open={moreOpen} onClose={() => setMoreOpen(false)} title={t("nav_more")}>
         <div className="grid grid-cols-2 gap-2.5">
-          {MORE.map((item) => (
+          {more.map((item) => (
             <a
               key={item.page}
               href={href(item.page)}

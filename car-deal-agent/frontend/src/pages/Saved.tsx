@@ -5,6 +5,7 @@ import { CarListRow } from "../components/CarCard";
 import { Sparkline } from "../components/charts";
 import { EASE } from "../components/motion";
 import { Badge, Button, Card, EmptyState, Field, IconButton, Modal, PageTitle, Select, Tabs, Textarea, Toggle, cx } from "../components/ui";
+import { useApp } from "../lib/app";
 import { euro, relativeDate } from "../lib/format";
 import { type TextKey, useT } from "../lib/i18n";
 import { discountOf, isGood } from "../lib/result";
@@ -18,6 +19,7 @@ type Sort = "date" | "score" | "discount" | "price";
 
 export function SavedPage({ route }: { route: Route }) {
   const t = useT();
+  const { meta } = useApp();
   const saved = useStore(savedStore);
   const compare = useStore(compareStore);
   const ui = useStore(uiStore);
@@ -153,7 +155,11 @@ export function SavedPage({ route }: { route: Route }) {
             text={t(onlyGood ? "no_good_deals" : tab === "favorites" ? "no_favorites" : "no_analyses")}
             action={
               onlyGood ? (
-                <Button onClick={() => navigate("hunt")}>{t("qa_hunt")}</Button>
+                meta?.hunt === false ? (
+                  <Button onClick={() => navigate("analyze")}>{t("nav_analyze")}</Button>
+                ) : (
+                  <Button onClick={() => navigate("hunt")}>{t("qa_hunt")}</Button>
+                )
               ) : (
                 <Button onClick={() => navigate("analyze")}>{t("nav_analyze")}</Button>
               )

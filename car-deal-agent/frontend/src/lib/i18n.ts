@@ -672,6 +672,8 @@ const dict = {
   faq_2_a_ai: ["يحمّل التطبيق صفحة الإعلان الواحدة فقط، ثم يقدّر الذكاء الاصطناعي السعر ويقرأ النص والصور. هذا يستغرق عادةً 10–30 ثانية.", "Die App lädt nur die eine Anzeigenseite, dann schätzt die KI den Preis und liest Text und Fotos. Das dauert meist 10–30 Sekunden.", "The app loads only the one ad page, then the AI estimates the price and reads the text and photos. That usually takes 10–30 seconds."],
   faq_4_a_ai: ["هو تقدير: في المتوسط حوالي ±15%، وأحياناً أكثر للسيارات النادرة أو ذات الكيلومترات غير المعتادة. قارن دائماً بضعة عروض مشابهة بنفسك قبل الشراء.", "Es ist eine Schätzung: im Schnitt etwa ±15 %, bei seltenen Autos oder ungewöhnlichem Kilometerstand auch mehr. Vergleich vor dem Kauf immer selbst ein paar ähnliche Angebote.", "It's an estimate: about ±15% on average, more for rare cars or unusual mileage. Always compare a few similar offers yourself before you buy."],
   meta_description_ai: ["افحص السيارات المستعملة قبل الشراء: تقدير سعر السوق، المخاطر من النص والصور، وتوصية واضحة.", "Gebrauchtwagen vor dem Kauf prüfen: Marktwert-Schätzung, Risiken aus Text und Fotos und eine klare Empfehlung.", "Check used cars before you buy: a market value estimate, risks from text and photos, and a clear recommendation."],
+  alert_tip_title: ["تريد كل سيارة جديدة مناسبة؟", "Neue Autos automatisch prüfen?", "Want every new matching car checked?"],
+  alert_tip_text: ["احفظ بحثك كتنبيه في تطبيق Kleinanzeigen. عند وصول إعلان جديد: مشاركة ← AutoHalle.", "Speichere deine Suche in der Kleinanzeigen-App als Suchauftrag. Kommt eine neue Anzeige: Teilen → AutoHalle.", "Save your search as an alert in the Kleinanzeigen app. When a new ad arrives: Share → AutoHalle."],
 } as const;
 
 export type TextKey = keyof typeof dict;
